@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="el">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Gym spike</title>
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="apple-touch-icon" href="/icon-192.png">
+  <meta name="theme-color" content="#111827">
+  <style>
+    body { font: 18px system-ui, sans-serif; margin: 0; padding: 24px; background: #111827; color: #f9fafb; }
+    button { display: block; width: 100%; min-height: 56px; margin: 12px 0; font-size: 18px; border: 0; border-radius: 12px; background: #22c55e; color: #052e16; }
+    pre { white-space: pre-wrap; background: #1f2937; padding: 12px; border-radius: 8px; font-size: 14px; }
+  </style>
+</head>
+<body>
+  <h1>Gym – δοκιμή ειδοποιήσεων</h1>
+  <p>1. iPhone: Safari → Κοινοποίηση → «Προσθήκη στην οθόνη Αφετηρίας», μετά άνοιξε την εφαρμογή από το εικονίδιο.</p>
+  <button id="enable">Ενεργοποίηση ειδοποιήσεων</button>
+  <button id="send">Στείλε δοκιμή σε 10 δευτερόλεπτα (κλείσε την εφαρμογή)</button>
+  <pre id="status"></pre>
+  <script>
+    const out = (msg) => (document.getElementById('status').textContent += msg + '\n');
+    const standalone = matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+    out(`standalone: ${standalone}`);
+    out(`serviceWorker: ${'serviceWorker' in navigator}, PushManager: ${'PushManager' in window}`);
+    out(`permission: ${'Notification' in window ? Notification.permission : 'no Notification API'}`);
+    out(navigator.userAgent);
+    const reg = 'serviceWorker' in navigator ? navigator.serviceWorker.register('/sw.js') : null;
+
+    function urlBase64ToUint8Array(b64) {
+      const pad = '='.repeat((4 - (b64.length % 4)) % 4);
+      const raw = atob((b64 + pad).replace(/-/g, '+').replace(/_/g, '/'));
+      return Uint8Array.from(raw, (c) => c.charCodeAt(0));
+    }
+
+    document.getElementById('enable').onclick = async () => {
+      try {
+        const permission = await Notification.requestPermission(); // must run from a tap on iOS
+        out(`permission → ${permission}`);
+        if (permission !== 'granted') return;
+        const key = await (await fetch('/vapid-public-key')).text();
+        const sub = await (await reg).pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: urlBase64ToUint8Array(key) });
+        const r = await fetch('/subscribe', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(sub) });
+        out(`subscribed: ${r.status}`);
+      } catch (e) { out(`error: ${e.name}: ${e.message}`); }
+    };
+    document.getElementById('send').onclick = async () => {
+      const r = await fetch('/send?delay=10', { method: 'POST' });
+      out(await r.text());
+    };
+  </script>
+</body>
+</html>

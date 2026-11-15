@@ -14,7 +14,7 @@
 
 - TypeScript `strict: true` everywhere. No `any` in exported signatures.
 - All timestamps are `timestamptz`, stored UTC. `gyms.timezone` is an IANA name, default `'Europe/Athens'`.
-- Every gym-owned table has `gym_id uuid NOT NULL REFERENCES gyms(id)` and RLS enabled **and forced**, with policy `gym_id = current_setting('app.gym_id', true)::uuid`.
+- Every gym-owned table has `gym_id uuid NOT NULL REFERENCES gyms(id)` and RLS enabled **and forced**, with policy `gym_id = nullif(current_setting('app.gym_id', true), '')::uuid` (the nullif is required: see Task 3 ruling).
 - The API's runtime DB role is `gym_app` (not table owner, no `BYPASSRLS`). Migrations run as `gym_owner`.
 - Emails are normalised with `trim().toLowerCase()` before storage and lookup.
 - Gym roles: `'owner' | 'reception' | 'trainer' | 'member'`. Platform admin is `users.is_platform_admin boolean`.
@@ -44,14 +44,14 @@ Proves spec §4 option A on real phones before anything else is built. No tests;
 
 **Interfaces:** none (isolated; nothing later imports it).
 
-- [ ] **Step 1: Build the spike.** `server.mjs` (plain Node + `web-push`) serves the static files, exposes `GET /vapid-public-key`, `POST /subscribe` (keeps subscriptions in memory) and `POST /send` (pushes "Η συνδρομή σου λήγει σε 5 ημέρες" to all). The page has a "Enable notifications" button (permission must be requested from a user tap) and shows `navigator.standalone`/`display-mode` state.
-- [ ] **Step 2: Expose over HTTPS.** Run `cloudflared tunnel --url http://localhost:3000` (quick tunnel) and open the URL.
-- [ ] **Step 3: Test on an iPhone (iOS ≥ 16.4) with a Greek App Store region and an Android phone.** Checklist, each recorded pass/fail in `docs/spikes/2026-11-pwa-push.md`:
+- [x] **Step 1: Build the spike.** `server.mjs` (plain Node + `web-push`) serves the static files, exposes `GET /vapid-public-key`, `POST /subscribe` (keeps subscriptions in memory) and `POST /send` (pushes "Η συνδρομή σου λήγει σε 5 ημέρες" to all). The page has a "Enable notifications" button (permission must be requested from a user tap) and shows `navigator.standalone`/`display-mode` state.
+- [x] **Step 2: Expose over HTTPS.** Run `cloudflared tunnel --url http://localhost:3000` (quick tunnel) and open the URL.
+- [x] **Step 3: Test on an iPhone (iOS ≥ 16.4) with a Greek App Store region and an Android phone.** Checklist, each recorded pass/fail in `docs/spikes/2026-11-pwa-push.md`:
   - Safari → Share → Add to Home Screen; app opens without Safari bars.
   - Tap "Enable notifications" inside the installed app; permission granted.
   - `POST /send` → notification appears on the lock screen with the app closed.
   - Android Chrome: install prompt, permission, notification.
-- [ ] **Step 4: Decision gate.** If iPhone push fails in Greece, **stop and report**; spec §4 must be revisited before Task 2. If it passes, commit:
+- [x] **Step 4: Decision gate.** If iPhone push fails in Greece, **stop and report**; spec §4 must be revisited before Task 2. If it passes, commit:
 
 ```bash
 git add spike docs/spikes && git commit -m "spike: verify PWA install and web push on iOS (GR) and Android"
@@ -74,12 +74,12 @@ git add spike docs/spikes && git commit -m "spike: verify PWA install and web pu
 - Produces: `export const GYM_ROLES = ['owner','reception','trainer','member'] as const; export type GymRole = typeof GYM_ROLES[number];` in `packages/shared/src/roles.ts`.
 - Produces: `createApp(): Promise<INestApplication>` in `apps/api/src/main.ts` (used by every e2e test).
 
-- [ ] **Step 1: Write the failing test** `health.e2e.spec.ts`: `GET /health` → `200`, body `{ status: 'ok' }`.
-- [ ] **Step 2: Run** `pnpm --filter api test:e2e` → FAIL (no app).
-- [ ] **Step 3: Implement** the workspace, compose file and Nest app. `docker/postgres/init.sql` creates roles `gym_owner` (owns the DB) and `gym_app` (LOGIN, NOSUPERUSER, NOBYPASSRLS) and database `gym_test` for tests.
-- [ ] **Step 4: Run** `docker compose up -d && pnpm --filter api test:e2e` → PASS. Run `pnpm lint` → no errors.
-- [ ] **Step 5: CI.** `ci.yml` on push: setup pnpm, start a `postgres:17` service with `init.sql`, run `pnpm install --frozen-lockfile`, `pnpm lint`, `pnpm -r test`.
-- [ ] **Step 6: Commit** `chore: monorepo, docker services, api health check, CI`.
+- [x] **Step 1: Write the failing test** `health.e2e.spec.ts`: `GET /health` → `200`, body `{ status: 'ok' }`.
+- [x] **Step 2: Run** `pnpm --filter api test:e2e` → FAIL (no app).
+- [x] **Step 3: Implement** the workspace, compose file and Nest app. `docker/postgres/init.sql` creates roles `gym_owner` (owns the DB) and `gym_app` (LOGIN, NOSUPERUSER, NOBYPASSRLS) and database `gym_test` for tests.
+- [x] **Step 4: Run** `docker compose up -d && pnpm --filter api test:e2e` → PASS. Run `pnpm lint` → no errors.
+- [x] **Step 5: CI.** `ci.yml` on push: setup pnpm, start a `postgres:17` service with `init.sql`, run `pnpm install --frozen-lockfile`, `pnpm lint`, `pnpm -r test`.
+- [x] **Step 6: Commit** `chore: monorepo, docker services, api health check, CI`.
 
 ---
 
@@ -104,16 +104,16 @@ git add spike docs/spikes && git commit -m "spike: verify PWA install and web pu
 - Produces: `withGym<T>(gymId: string, fn: (tx: Tx) => Promise<T>): Promise<T>` in `db/tenant.ts`. Opens a transaction, runs `select set_config('app.gym_id', $1, true)`, then `fn(tx)`.
 - Produces: schema exports `gyms, users, gymRoles, refreshTokens, invitations` and type `Tx`.
 
-- [ ] **Step 1: Write the failing tests** in `rls.spec.ts` (seed gyms A and B with one `gym_roles` row each via `systemDb`):
+- [x] **Step 1: Write the failing tests** in `rls.spec.ts` (seed gyms A and B with one `gym_roles` row each via `systemDb`):
   - `withGym(A, tx => tx.select().from(gymRoles))` returns only A's row.
   - `withGym(A, tx => tx.insert(gymRoles).values({ gymId: B, ... }))` rejects with `/row-level security/`.
   - `db.select().from(gymRoles)` with no gym set returns `[]`. *(Review Focus 4)*
   - `db.insert(gymRoles).values({ gymId: A, ... })` with no gym set rejects.
   - `withGym(A, tx => tx.select().from(gyms))` returns exactly gym A.
-- [ ] **Step 2: Run** `pnpm --filter api test -- rls` → FAIL.
-- [ ] **Step 3: Implement** the schema. Generate the migration with `drizzle-kit generate`. Write `0001_rls.sql`: for `gyms`, `gym_roles`, `invitations`: `ENABLE` + `FORCE ROW LEVEL SECURITY`, one policy `FOR ALL USING (...) WITH CHECK (...)`, and `GRANT SELECT, INSERT, UPDATE, DELETE ... TO gym_app`. Grant `gym_app` full DML on `users` and `refresh_tokens`. Add `pnpm --filter api db:migrate` script running as `gym_owner`.
-- [ ] **Step 4: Run** `pnpm --filter api db:migrate && pnpm --filter api test -- rls` → PASS.
-- [ ] **Step 5: Commit** `feat(db): core schema with per-gym row-level security`.
+- [x] **Step 2: Run** `pnpm --filter api test -- rls` → FAIL.
+- [x] **Step 3: Implement** the schema. Generate the migration with `drizzle-kit generate`. Write `0001_rls.sql`: for `gyms`, `gym_roles`, `invitations`: `ENABLE` + `FORCE ROW LEVEL SECURITY`, one policy `FOR ALL USING (...) WITH CHECK (...)`, and `GRANT SELECT, INSERT, UPDATE, DELETE ... TO gym_app`. Grant `gym_app` full DML on `users` and `refresh_tokens`. Add `pnpm --filter api db:migrate` script running as `gym_owner`.
+- [x] **Step 4: Run** `pnpm --filter api db:migrate && pnpm --filter api test -- rls` → PASS.
+- [x] **Step 5: Commit** `feat(db): core schema with per-gym row-level security`.
 
 ---
 
@@ -133,11 +133,11 @@ git add spike docs/spikes && git commit -m "spike: verify PWA install and web pu
   - `InviteSchema { email, fullName: string 1..120, roles: GymRole[] nonempty }`
   - `MeResponse { id, email, fullName, locale: 'el'|'en', isPlatformAdmin, gyms: { gymId, gymName, roles: GymRole[] }[] }`
 
-- [ ] **Step 1: Write the failing tests:** `emailSchema.parse(' Maria@Example.com ') === 'maria@example.com'` *(Review Focus 2)*; `AcceptInviteSchema` rejects a 7-character password; `InviteSchema` rejects `roles: []` and `roles: ['admin']`; `InviteSchema.parse({ fullName: 'Γιώργος Παπαδόπουλος', ... }).fullName` is unchanged *(Review Focus 5)*; `CreateGymSchema` defaults `timezone` to `'Europe/Athens'`.
-- [ ] **Step 2: Run** `pnpm --filter shared test` → FAIL.
-- [ ] **Step 3: Implement** the schemas.
-- [ ] **Step 4: Run** → PASS.
-- [ ] **Step 5: Commit** `feat(shared): validation schemas for auth and accounts`.
+- [x] **Step 1: Write the failing tests:** `emailSchema.parse(' Maria@Example.com ') === 'maria@example.com'` *(Review Focus 2)*; `AcceptInviteSchema` rejects a 7-character password; `InviteSchema` rejects `roles: []` and `roles: ['admin']`; `InviteSchema.parse({ fullName: 'Γιώργος Παπαδόπουλος', ... }).fullName` is unchanged *(Review Focus 5)*; `CreateGymSchema` defaults `timezone` to `'Europe/Athens'`.
+- [x] **Step 2: Run** `pnpm --filter shared test` → FAIL.
+- [x] **Step 3: Implement** the schemas.
+- [x] **Step 4: Run** → PASS.
+- [x] **Step 5: Commit** `feat(shared): validation schemas for auth and accounts`.
 
 ---
 
@@ -156,7 +156,7 @@ git add spike docs/spikes && git commit -m "spike: verify PWA install and web pu
   - `RefreshStore.issue(userId: string, familyId?: string): Promise<string>`, `RefreshStore.rotate(raw: string): Promise<{ userId: string; raw: string }>`, `RefreshStore.revokeFamily(familyId: string): Promise<void>`.
   - Routes: `POST /auth/login` → `200 { accessToken }` + `gym_rt` cookie; `POST /auth/refresh` (cookie) → `200 { accessToken }` + new cookie; `POST /auth/logout` → `204`, cookie cleared, family revoked; `GET /auth/me` (Bearer) → `MeResponse`. `/auth/me` reads gym memberships through `systemDb` joined on `user_id = sub`.
 
-- [ ] **Step 1: Write the failing tests:**
+- [x] **Step 1: Write the failing tests:**
   - Login with wrong password → `401`, same body as unknown email (`{ message: 'Invalid credentials' }`).
   - Login with `'  ADMIN@x.gr '` for seeded `admin@x.gr` → `200`. *(Review Focus 2)*
   - Login sets cookie `gym_rt` with `HttpOnly`, `SameSite=Strict`, `Path=/auth`.
@@ -164,10 +164,10 @@ git add spike docs/spikes && git commit -m "spike: verify PWA install and web pu
   - Reusing the **old** refresh cookie → `401`, and the newer cookie from the same family is also rejected afterwards. *(Review Focus 3)*
   - `POST /auth/logout` then `POST /auth/refresh` → `401`.
   - `GET /auth/me` without token → `401`; with token → `MeResponse` with `isPlatformAdmin: true`, `gyms: []`.
-- [ ] **Step 2: Run** `pnpm --filter api test:e2e -- auth` → FAIL.
-- [ ] **Step 3: Implement** the module per the interfaces and Global Constraints. Rotation: mark the used row `revoked_at`, set `replaced_by`; on presenting a revoked token call `revokeFamily`.
-- [ ] **Step 4: Run** → PASS.
-- [ ] **Step 5: Commit** `feat(auth): login, rotating refresh tokens, logout, me`.
+- [x] **Step 2: Run** `pnpm --filter api test:e2e -- auth` → FAIL.
+- [x] **Step 3: Implement** the module per the interfaces and Global Constraints. Rotation: mark the used row `revoked_at`, set `replaced_by`; on presenting a revoked token call `revokeFamily`.
+- [x] **Step 4: Run** → PASS.
+- [x] **Step 5: Commit** `feat(auth): login, rotating refresh tokens, logout, me`.
 
 ---
 
@@ -186,16 +186,16 @@ git add spike docs/spikes && git commit -m "spike: verify PWA install and web pu
   - `@CurrentGym()` param decorator returning `req.gym`.
   - Platform admin gets **no** implicit access to gym-scoped routes.
 
-- [ ] **Step 1: Write the failing tests** against test routes `GET /gyms/:gymId/_owner` (`@GymRoles('owner')`), `GET /gyms/:gymId/_desk` (`@GymRoles('reception')`), `GET /platform/_ping` (`PlatformAdminGuard`):
+- [x] **Step 1: Write the failing tests** against test routes `GET /gyms/:gymId/_owner` (`@GymRoles('owner')`), `GET /gyms/:gymId/_desk` (`@GymRoles('reception')`), `GET /platform/_ping` (`PlatformAdminGuard`):
   - member of gym A → `/gyms/A/_owner` `403`.
   - owner of gym A → `/gyms/A/_desk` `200` (owner ⊇ reception).
   - owner of gym A → `/gyms/B/_owner` `403`.
   - platform admin → `/platform/_ping` `200`, `/gyms/A/_owner` `403`.
   - malformed `:gymId` (`not-a-uuid`) → `400`, not `500`.
-- [ ] **Step 2: Run** → FAIL.
-- [ ] **Step 3: Implement** guards and decorators. Validate `:gymId` with `ParseUUIDPipe`.
-- [ ] **Step 4: Run** → PASS.
-- [ ] **Step 5: Commit** `feat(access): gym role and platform admin guards`.
+- [x] **Step 2: Run** → FAIL.
+- [x] **Step 3: Implement** guards and decorators. Validate `:gymId` with `ParseUUIDPipe`.
+- [x] **Step 4: Run** → PASS.
+- [x] **Step 5: Commit** `feat(access): gym role and platform admin guards`.
 
 ---
 
@@ -216,17 +216,17 @@ git add spike docs/spikes && git commit -m "spike: verify PWA install and web pu
   - `POST /auth/accept-invite` body `AcceptInviteSchema` → `200 { accessToken }` + cookie. Looks up the token hash via `systemDb`; creates the user if the email is new (sets password), otherwise **only** adds `gym_roles` rows and ignores the password field; marks invitation accepted.
   - Invite link format: `${WEB_ORIGIN}/invite/${rawToken}`, emailed in the invitee's locale (default `el`).
 
-- [ ] **Step 1: Write the failing tests:**
+- [x] **Step 1: Write the failing tests:**
   - Platform admin creates gym "Γυμναστήριο Ναυπάκτου" → owner invite email captured containing `/invite/`.
   - Accepting the invite → `/auth/me` lists that gym with `roles: ['owner']`.
   - Same token accepted twice → `410`. Token older than 72 h (set `expires_at` in the past) → `410`.
   - Reception invites `roles: ['trainer']` → `403`; `roles: ['member']` → `201`.
   - Existing user `maria@x.gr` (member of gym A) invited to gym B as `' Maria@X.gr'` → after accept, `users` still has one row for that email, the password hash is unchanged, `/auth/me` shows both gyms. *(Review Focus 1, 2)*
   - Member full name `'Γιώργος Παπαδόπουλος'` is returned byte-identical by `/auth/me`. *(Review Focus 5)*
-- [ ] **Step 2: Run** → FAIL.
-- [ ] **Step 3: Implement.** All gym-scoped writes go through `withGym`.
-- [ ] **Step 4: Run** → PASS. Manual check: `docker compose up`, create a gym with curl, open Mailpit at `http://localhost:8025` and see the Greek invite email.
-- [ ] **Step 5: Commit** `feat: gym creation and email invitations for staff and members`.
+- [x] **Step 2: Run** → FAIL.
+- [x] **Step 3: Implement.** All gym-scoped writes go through `withGym`.
+- [x] **Step 4: Run** → PASS. Manual check: `docker compose up`, create a gym with curl, open Mailpit at `http://localhost:8025` and see the Greek invite email.
+- [x] **Step 5: Commit** `feat: gym creation and email invitations for staff and members`.
 
 ---
 
@@ -249,15 +249,15 @@ git add spike docs/spikes && git commit -m "spike: verify PWA install and web pu
   - Routes: `/login`, `/invite/:token`, `/gyms` (picker when the user has more than one gym), `/g/:gymId/*` → shell for the highest role in that gym (`owner` > `reception` > `trainer` > `member`), `/platform/*` for platform admins. Each shell is a layout with nav and a placeholder page titled by an i18n key.
   - Language: `LanguageSwitch` toggles `el`/`en` and persists to `localStorage` key `gym.lang` (wrapped in try/catch).
 
-- [ ] **Step 1: Write the failing tests:**
+- [x] **Step 1: Write the failing tests:**
   - `client.spec.ts`: three parallel `apiFetch` calls receive `401`, then exactly **one** call to `/auth/refresh` is made and all three resolve after retry. *(Review Focus 3)*
   - `router.spec.tsx`: `me` with roles `['trainer','member']` in one gym → visiting `/` lands on `TrainerShell`; with two gyms → `/gyms` picker; unauthenticated → `/login`.
   - `i18n.spec.ts`: default language `el`; `t('test.onlyInEnglish')` (key present only in `en.json`) returns the English string, not the key. *(Review Focus 5)*
   - `e2e/foundation.spec.ts`: seeded platform admin logs in → creates a gym → opens the invite link from Mailpit's API → sets a password → lands on `OwnerShell` in Greek → switches to English and the nav changes language.
-- [ ] **Step 2: Run** `pnpm --filter web test` and `pnpm e2e` → FAIL.
-- [ ] **Step 3: Implement** pages, shells, client and i18n. Platform shell has a "Create gym" form calling `POST /platform/gyms`.
-- [ ] **Step 4: Run** both → PASS. Manual check: Lighthouse PWA "installable" passes on `pnpm --filter web build && pnpm --filter web preview`.
-- [ ] **Step 5: Commit** `feat(web): bilingual PWA shell with sign-in, invitations and role areas`.
+- [x] **Step 2: Run** `pnpm --filter web test` and `pnpm e2e` → FAIL.
+- [x] **Step 3: Implement** pages, shells, client and i18n. Platform shell has a "Create gym" form calling `POST /platform/gyms`.
+- [x] **Step 4: Run** both → PASS. Manual check: Lighthouse PWA "installable" passes on `pnpm --filter web build && pnpm --filter web preview`.
+- [x] **Step 5: Commit** `feat(web): bilingual PWA shell with sign-in, invitations and role areas`.
 
 ---
 
