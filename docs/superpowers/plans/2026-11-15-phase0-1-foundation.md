@@ -186,16 +186,16 @@ git add spike docs/spikes && git commit -m "spike: verify PWA install and web pu
   - `@CurrentGym()` param decorator returning `req.gym`.
   - Platform admin gets **no** implicit access to gym-scoped routes.
 
-- [ ] **Step 1: Write the failing tests** against test routes `GET /gyms/:gymId/_owner` (`@GymRoles('owner')`), `GET /gyms/:gymId/_desk` (`@GymRoles('reception')`), `GET /platform/_ping` (`PlatformAdminGuard`):
+- [x] **Step 1: Write the failing tests** against test routes `GET /gyms/:gymId/_owner` (`@GymRoles('owner')`), `GET /gyms/:gymId/_desk` (`@GymRoles('reception')`), `GET /platform/_ping` (`PlatformAdminGuard`):
   - member of gym A → `/gyms/A/_owner` `403`.
   - owner of gym A → `/gyms/A/_desk` `200` (owner ⊇ reception).
   - owner of gym A → `/gyms/B/_owner` `403`.
   - platform admin → `/platform/_ping` `200`, `/gyms/A/_owner` `403`.
   - malformed `:gymId` (`not-a-uuid`) → `400`, not `500`.
-- [ ] **Step 2: Run** → FAIL.
-- [ ] **Step 3: Implement** guards and decorators. Validate `:gymId` with `ParseUUIDPipe`.
-- [ ] **Step 4: Run** → PASS.
-- [ ] **Step 5: Commit** `feat(access): gym role and platform admin guards`.
+- [x] **Step 2: Run** → FAIL.
+- [x] **Step 3: Implement** guards and decorators. Validate `:gymId` with `ParseUUIDPipe`.
+- [x] **Step 4: Run** → PASS.
+- [x] **Step 5: Commit** `feat(access): gym role and platform admin guards`.
 
 ---
 

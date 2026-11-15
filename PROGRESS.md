@@ -1,6 +1,7 @@
 # Progress
 
 ## Last finished
+- 2026-11-15: Task 6 (access control). Gym routes use `@GymRoles(...)` (owner covers reception; platform admin has no implicit gym access); platform routes use `@PlatformAdmin()`. A test fails if any `/gyms/:gymId` route lacks `@GymRoles`.
 - 2026-11-15: Task 5 (sign-in, rotating refresh tokens, sign-out, /auth/me). The API seeds the platform admin from `.env` (PLATFORM_ADMIN_EMAIL/PASSWORD) at startup. 60 API tests pass.
 - 2026-11-15: Task 4 (shared zod schemas: email, login, accept-invite, create-gym, invite, /auth/me response). `@gym/shared` is wired into the API: tests and typecheck read its TypeScript source, `nest build` and the running API use its `dist/` (built automatically by `build` / `start:dev`; restart `start:dev` after editing shared).
 - 2026-11-15: Task 3 (core schema, migrations, row-level security). Tables gyms, users, gym_roles, refresh_tokens, invitations; RLS forced on gym tables; gym_app limited by column grants and a trigger (cannot make platform admins). 45 API tests pass. Migrations: `pnpm --filter api db:migrate`; tests migrate gym_test themselves.
@@ -9,7 +10,7 @@
 - 2026-11-15: Design approved, plan for phases 0–1 written, Claude Code agents/hooks/skills adapted from LLM_Movies_Prediction_Model.
 
 ## In progress
-- Next: Task 6 (access control: gym roles and platform admin). Continue in **Claude Code on Windows**.
+- Next: Task 7 (gyms, invitations, account creation). Continue in **Claude Code on Windows**.
 - Carry-overs for Tasks 5–7 (from the database review) are in the ledger as `CARRY →` lines: /auth/me across gyms, atomic refresh rotation and invitation accept, uuid validation of :gymId, closing DB pools on shutdown.
 
 ## Local setup (Windows PC)

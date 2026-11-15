@@ -1,8 +1,8 @@
 import { Body, Controller, Get, HttpCode, Post, Req, Res, UseGuards } from '@nestjs/common';
 import { type Login, LoginSchema, type MeResponse } from '@gym/shared';
 import type { CookieOptions, Request, Response } from 'express';
+import { type AppRequest, JwtGuard } from '../access/jwt.guard';
 import { ZodValidationPipe } from '../common/zod-validation.pipe';
-import { AccessTokenGuard, type AuthedRequest } from './access-token.guard';
 import { AuthService } from './auth.service';
 import { REFRESH_TTL_MS } from './refresh-store';
 
@@ -54,8 +54,8 @@ export class AuthController {
   }
 
   @Get('me')
-  @UseGuards(AccessTokenGuard)
-  me(@Req() req: AuthedRequest): Promise<MeResponse> {
-    return this.auth.me(req.user.sub);
+  @UseGuards(JwtGuard)
+  me(@Req() req: AppRequest): Promise<MeResponse> {
+    return this.auth.me(req.user!.id);
   }
 }

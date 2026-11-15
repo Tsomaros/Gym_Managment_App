@@ -1,15 +1,18 @@
 import 'reflect-metadata';
-import type { INestApplication } from '@nestjs/common';
+import type { INestApplication, Type } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import cookieParser from 'cookie-parser';
 import { AppModule } from './app.module';
 import { getEnv } from './config/env';
 import { seedPlatformAdmin } from './seed';
 
-/** Builds the app without listening. Every e2e test starts here. Throws on an invalid environment. */
-export async function createApp(): Promise<INestApplication> {
+/**
+ * Builds the app without listening. Every e2e test starts here; a test may pass a module that
+ * imports AppModule and adds test-only controllers. Throws on an invalid environment.
+ */
+export async function createApp(rootModule: Type = AppModule): Promise<INestApplication> {
   const env = getEnv();
-  const app = await NestFactory.create(AppModule, { logger: ['error', 'warn'] });
+  const app = await NestFactory.create(rootModule, { logger: ['error', 'warn'] });
   app.use(cookieParser());
   app.enableCors({ origin: env.WEB_ORIGIN, credentials: true });
   return app;
