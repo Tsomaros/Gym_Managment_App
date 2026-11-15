@@ -4,12 +4,22 @@ import prettier from 'eslint-config-prettier';
 import globals from 'globals';
 
 export default tseslint.config(
-  { ignores: ['**/node_modules/', '**/dist/', '**/coverage/', 'spike/'] },
+  {
+    ignores: [
+      '**/node_modules/',
+      '**/dist/',
+      '**/coverage/',
+      '**/dev-dist/',
+      'spike/',
+      'playwright-report/',
+      'test-results/',
+    ],
+  },
   js.configs.recommended,
   ...tseslint.configs.recommended,
   prettier,
   {
-    languageOptions: { globals: { ...globals.node } },
+    languageOptions: { globals: { ...globals.node, ...globals.browser } },
     rules: {
       '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
     },

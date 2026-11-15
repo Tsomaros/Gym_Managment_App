@@ -1,0 +1,73 @@
+{
+  "app": {
+    "name": "Gym",
+    "loading": "Loading…"
+  },
+  "auth": {
+    "signIn": "Sign in",
+    "signOut": "Sign out",
+    "email": "Email",
+    "password": "Password",
+    "invalidCredentials": "Wrong email or password.",
+    "genericError": "Something went wrong. Please try again."
+  },
+  "invite": {
+    "title": "Invitation to {{gym}}",
+    "greeting": "Hi {{name}}.",
+    "choosePassword": "Choose a password (at least 8 characters)",
+    "accept": "Activate account",
+    "existingAccount": "You already have an account with {{email}}. Sign in with your password to join {{gym}}.",
+    "joinAndSignIn": "Sign in and join",
+    "expired": "This invitation is no longer valid or has already been used. Ask the gym for a new one.",
+    "passwordTooShort": "The password needs at least 8 characters."
+  },
+  "gyms": {
+    "pick": "Choose a gym",
+    "platform": "Platform admin",
+    "none": "You don't belong to a gym yet."
+  },
+  "roles": {
+    "owner": "Owner",
+    "reception": "Reception",
+    "trainer": "Trainer",
+    "member": "Member"
+  },
+  "nav": {
+    "dashboard": "Overview",
+    "members": "Members",
+    "staff": "Staff",
+    "checkIn": "Check-ins",
+    "schedule": "Schedule",
+    "plans": "Plans",
+    "myWorkouts": "My workouts",
+    "myMembership": "My membership",
+    "gyms": "Gyms",
+    "switchGym": "Switch gym"
+  },
+  "shell": {
+    "owner": "Owner area",
+    "reception": "Reception",
+    "trainer": "Trainer area",
+    "member": "My area",
+    "platform": "Platform admin",
+    "comingSoon": "This section is coming soon."
+  },
+  "platform": {
+    "createGym": "New gym",
+    "gymName": "Gym name",
+    "timezone": "Time zone",
+    "ownerEmail": "Owner email",
+    "ownerFullName": "Owner full name",
+    "create": "Create",
+    "created": "Gym created. The invitation was sent to {{email}}.",
+    "createdNoMail": "Gym created, but the email could not be sent. Send the invitation again."
+  },
+  "language": {
+    "label": "Language",
+    "el": "Ελληνικά",
+    "en": "English"
+  },
+  "test": {
+    "onlyInEnglish": "Only in English"
+  }
+}
