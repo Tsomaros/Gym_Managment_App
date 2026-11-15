@@ -76,9 +76,12 @@ async function parse<T>(res: Response): Promise<T> {
   return (text ? JSON.parse(text) : undefined) as T;
 }
 
+/** Auth calls that don't use the access token: a 401 there is the answer, not an expired token. */
+const NO_REFRESH = /^\/auth\/(login|refresh|logout|accept-invite|invitations\/)/;
+
 export async function apiFetch<T>(path: string, init: RequestInit = {}): Promise<T> {
   let res = await send(path, init);
-  if (res.status === 401 && !path.startsWith('/auth/')) {
+  if (res.status === 401 && !NO_REFRESH.test(path)) {
     if (await refreshSession()) res = await send(path, init);
     if (res.status === 401) signOut();
   }

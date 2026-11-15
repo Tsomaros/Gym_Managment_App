@@ -79,6 +79,24 @@ describe('apiFetch', () => {
     unsubscribe();
   });
 
+  it('refreshes and retries /auth/me after its access token expired', async () => {
+    fetchMock.mockImplementation(async (input, init) => {
+      const url = String(input);
+      if (url === '/api/auth/refresh') return json(200, { accessToken: 'fresh' });
+      const auth = new Headers(init?.headers).get('authorization');
+      return auth === 'Bearer fresh' ? json(200, { id: 'me' }) : json(401, {});
+    });
+    await expect(apiFetch('/auth/me')).resolves.toEqual({ id: 'me' });
+  });
+
+  it('does not try to refresh when signing in fails', async () => {
+    fetchMock.mockResolvedValueOnce(json(401, { message: 'Invalid credentials' }));
+    await expect(apiFetch('/auth/login', { method: 'POST', body: '{}' })).rejects.toMatchObject({
+      status: 401,
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
   it('passes other errors through without refreshing', async () => {
     fetchMock.mockResolvedValueOnce(json(403, { message: 'Forbidden' }));
     await expect(apiFetch('/a')).rejects.toMatchObject({ status: 403 });

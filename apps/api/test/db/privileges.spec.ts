@@ -99,31 +99,66 @@ describe('gym_app privileges on global and gym tables', () => {
   });
 });
 
-describe('row-level security catalog guard', () => {
-  it('every gym-owned table (gyms, or any table with gym_id) has RLS enabled, forced and a policy', async () => {
-    const { rows } = await systemDb.execute<{
-      table: string;
-      enabled: boolean;
-      forced: boolean;
-      policies: number;
-    }>(sql`
-      select c.relname as table, c.relrowsecurity as enabled, c.relforcerowsecurity as forced,
-             (select count(*)::int from pg_policies p
-               where p.schemaname = 'public' and p.tablename = c.relname) as policies
-      from pg_class c
-      join pg_namespace n on n.oid = c.relnamespace and n.nspname = 'public'
-      where c.relkind in ('r', 'p') -- ordinary and partitioned tables
-        and (c.relname = 'gyms' or exists (
-          select 1 from pg_attribute a
-          where a.attrelid = c.oid and a.attname = 'gym_id' and not a.attisdropped))
-      order by c.relname`);
+/**
+ * Every gym-owned table (gyms, or any table with gym_id) must have RLS enabled and forced, at least
+ * one policy, and every policy must tie the gym column to app.gym_id in both USING and WITH CHECK.
+ * Returns one line per problem.
+ */
+async function rlsProblems(): Promise<string[]> {
+  const { rows } = await systemDb.execute<{
+    table: string;
+    enabled: boolean;
+    forced: boolean;
+    policies: { name: string; qual: string | null; check: string | null }[] | null;
+  }>(sql`
+    select c.relname as table, c.relrowsecurity as enabled, c.relforcerowsecurity as forced,
+           (select json_agg(json_build_object('name', p.policyname, 'qual', p.qual,
+                                              'check', p.with_check))
+              from pg_policies p
+             where p.schemaname = 'public' and p.tablename = c.relname) as policies
+    from pg_class c
+    join pg_namespace n on n.oid = c.relnamespace and n.nspname = 'public'
+    where c.relkind in ('r', 'p') -- ordinary and partitioned tables
+      and (c.relname = 'gyms' or exists (
+        select 1 from pg_attribute a
+        where a.attrelid = c.oid and a.attname = 'gym_id' and not a.attisdropped))
+    order by c.relname`);
 
-    expect(rows.map((r) => r.table)).toEqual(
-      expect.arrayContaining(['gym_roles', 'gyms', 'invitations']),
-    );
-    for (const row of rows) {
-      expect(row, row.table).toMatchObject({ enabled: true, forced: true });
-      expect(row.policies, row.table).toBeGreaterThan(0);
+  const problems: string[] = [];
+  for (const t of rows) {
+    if (!t.enabled || !t.forced) problems.push(`${t.table}: RLS not enabled and forced`);
+    if (!t.policies?.length) problems.push(`${t.table}: no policy`);
+    const column = t.table === 'gyms' ? 'id' : 'gym_id';
+    // Postgres stores the expression normalised:
+    // (gym_id = (NULLIF(current_setting('app.gym_id'::text, true), ''::text))::uuid)
+    const expected = `(${column} = (NULLIF(current_setting('app.gym_id'::text, true), ''::text))::uuid)`;
+    for (const p of t.policies ?? []) {
+      if (p.qual !== expected || p.check !== expected) {
+        problems.push(`${t.table}.${p.name}: USING/WITH CHECK not tied to app.gym_id`);
+      }
+    }
+  }
+  return problems;
+}
+
+describe('row-level security catalog guard', () => {
+  it('every gym-owned table has forced RLS and only policies tied to app.gym_id', async () => {
+    expect(await rlsProblems()).toEqual([]);
+  });
+
+  it('flags a gym table whose policy lets everything through', async () => {
+    await systemDb.execute(sql`create table zz_rls_probe (gym_id uuid not null)`);
+    try {
+      await systemDb.execute(sql`alter table zz_rls_probe enable row level security`);
+      await systemDb.execute(sql`alter table zz_rls_probe force row level security`);
+      await systemDb.execute(
+        sql`create policy open on zz_rls_probe for all using (true) with check (true)`,
+      );
+      expect(await rlsProblems()).toEqual([
+        'zz_rls_probe.open: USING/WITH CHECK not tied to app.gym_id',
+      ]);
+    } finally {
+      await systemDb.execute(sql`drop table zz_rls_probe`);
     }
   });
 });

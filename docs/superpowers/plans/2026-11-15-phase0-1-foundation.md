@@ -14,7 +14,7 @@
 
 - TypeScript `strict: true` everywhere. No `any` in exported signatures.
 - All timestamps are `timestamptz`, stored UTC. `gyms.timezone` is an IANA name, default `'Europe/Athens'`.
-- Every gym-owned table has `gym_id uuid NOT NULL REFERENCES gyms(id)` and RLS enabled **and forced**, with policy `gym_id = current_setting('app.gym_id', true)::uuid`.
+- Every gym-owned table has `gym_id uuid NOT NULL REFERENCES gyms(id)` and RLS enabled **and forced**, with policy `gym_id = nullif(current_setting('app.gym_id', true), '')::uuid` (the nullif is required: see Task 3 ruling).
 - The API's runtime DB role is `gym_app` (not table owner, no `BYPASSRLS`). Migrations run as `gym_owner`.
 - Emails are normalised with `trim().toLowerCase()` before storage and lookup.
 - Gym roles: `'owner' | 'reception' | 'trainer' | 'member'`. Platform admin is `users.is_platform_admin boolean`.
@@ -44,14 +44,14 @@ Proves spec §4 option A on real phones before anything else is built. No tests;
 
 **Interfaces:** none (isolated; nothing later imports it).
 
-- [ ] **Step 1: Build the spike.** `server.mjs` (plain Node + `web-push`) serves the static files, exposes `GET /vapid-public-key`, `POST /subscribe` (keeps subscriptions in memory) and `POST /send` (pushes "Η συνδρομή σου λήγει σε 5 ημέρες" to all). The page has a "Enable notifications" button (permission must be requested from a user tap) and shows `navigator.standalone`/`display-mode` state.
-- [ ] **Step 2: Expose over HTTPS.** Run `cloudflared tunnel --url http://localhost:3000` (quick tunnel) and open the URL.
-- [ ] **Step 3: Test on an iPhone (iOS ≥ 16.4) with a Greek App Store region and an Android phone.** Checklist, each recorded pass/fail in `docs/spikes/2026-11-pwa-push.md`:
+- [x] **Step 1: Build the spike.** `server.mjs` (plain Node + `web-push`) serves the static files, exposes `GET /vapid-public-key`, `POST /subscribe` (keeps subscriptions in memory) and `POST /send` (pushes "Η συνδρομή σου λήγει σε 5 ημέρες" to all). The page has a "Enable notifications" button (permission must be requested from a user tap) and shows `navigator.standalone`/`display-mode` state.
+- [x] **Step 2: Expose over HTTPS.** Run `cloudflared tunnel --url http://localhost:3000` (quick tunnel) and open the URL.
+- [x] **Step 3: Test on an iPhone (iOS ≥ 16.4) with a Greek App Store region and an Android phone.** Checklist, each recorded pass/fail in `docs/spikes/2026-11-pwa-push.md`:
   - Safari → Share → Add to Home Screen; app opens without Safari bars.
   - Tap "Enable notifications" inside the installed app; permission granted.
   - `POST /send` → notification appears on the lock screen with the app closed.
   - Android Chrome: install prompt, permission, notification.
-- [ ] **Step 4: Decision gate.** If iPhone push fails in Greece, **stop and report**; spec §4 must be revisited before Task 2. If it passes, commit:
+- [x] **Step 4: Decision gate.** If iPhone push fails in Greece, **stop and report**; spec §4 must be revisited before Task 2. If it passes, commit:
 
 ```bash
 git add spike docs/spikes && git commit -m "spike: verify PWA install and web push on iOS (GR) and Android"
