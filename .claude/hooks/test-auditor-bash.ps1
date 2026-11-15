@@ -9,14 +9,13 @@ try {
 
 $allowed = @(
     '^\s*git\s+(status|diff|log|show|blame|ls-files|rev-parse|merge-base)(\s|$)',
-    '^\s*uv\s+run\s+pytest(\s|$)',
-    '^\s*npm\s+--prefix\s+web\s+(test(\s+--\s+[\w./-]+)?|run\s+(check|coverage))\s*$',
-    '^\s*rm\s+(tests/test_zz_mutant_\w+\.py|web/src/zz_mutant_\w+\.test\.tsx?)\s*$'
+    '^\s*pnpm\s+(-r\s+test|lint|e2e)\s*$',
+    '^\s*pnpm\s+--filter\s+(api|web|shared)\s+(test|test:e2e|typecheck|coverage)(\s+--\s+[\w./-]+)?\s*$',
+    '^\s*rm\s+(apps/api/test/zz_mutant_\w+\.spec\.ts|apps/web/src/zz_mutant_\w+\.spec\.tsx?|packages/shared/test/zz_mutant_\w+\.spec\.ts)\s*$'
 )
 $shellSyntax = '[;&|<>`$()\r\n]'
 # git: --output writes a file and --ext-diff runs a program, and git accepts them abbreviated.
-# pytest: --basetemp wipes the folder it is given; the others load other code or settings.
-$unsafeOption = '\s(--ou|--ex|--basetemp|--rootdir|--confcutdir|--override-ini|-c|-p|-o)(\s|=|$)|\s--(ou|ex)'
+$unsafeOption = '\s--(ou|ex)'
 
 $isAllowed = $false
 foreach ($pattern in $allowed) {
@@ -24,7 +23,7 @@ foreach ($pattern in $allowed) {
 }
 
 if (-not $isAllowed -or $command -match $shellSyntax -or $command -match $unsafeOption) {
-    [Console]::Error.WriteLine('Blocked: the test auditor may only run one plain read-only git command, uv run pytest, npm --prefix web test|run check|run coverage, or rm of its own zz_mutant test, with no pipes or redirects.')
+    [Console]::Error.WriteLine('Blocked: the test auditor may only run one plain read-only git command, pnpm -r test|lint|e2e, pnpm --filter api|web|shared test|test:e2e|typecheck|coverage, or rm of its own zz_mutant test, with no pipes or redirects.')
     exit 2
 }
 exit 0
