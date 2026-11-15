@@ -12,7 +12,7 @@
 - 2026-11-15: Design approved, plan for phases 0–1 written, Claude Code agents/hooks/skills adapted from LLM_Movies_Prediction_Model.
 
 ## In progress
-- Phase 0–1 complete and reviewed (fresh reviewer: "with fixes", both pre-merge fixes done). Branch `phase0-1-foundation` awaits a merge decision. Decisions and rulings: `docs/superpowers/plans/2026-11-15-phase0-1-foundation.ledger.md`.
+- 2026-11-15: phase 0–1 merged into `main` (merge f29a541); lint, typecheck, 152 unit/integration tests and the e2e pass on the merged result. Next: plan Phase 2 (memberships, payments, check-in) after deciding the open questions below. Decisions and rulings: `docs/superpowers/plans/2026-11-15-phase0-1-foundation.ledger.md`.
 
 ## Local setup (Windows PC)
 - Copy `.env.example` to `.env` and set real passwords (the local `.env` already exists, with random values).
@@ -22,7 +22,7 @@
 - API: `pnpm --filter api start:dev`, health at http://localhost:3000/health. Web: `pnpm --filter web dev` → http://localhost:5173 (calls the API through the /api proxy). E2E: `pnpm e2e` (uses gym_test; run `pnpm exec playwright install chromium` once).
 
 ## Execution
-- Native (superpowers:executing-plans) on branch `phase0-1-foundation`. Ledger copy (committed): `docs/superpowers/plans/2026-11-15-phase0-1-foundation.ledger.md`. CLAUDE.md hard rules (code-reviewer, test-auditor, ui-ux-reviewer, database-expert) apply per task; one whole-branch review at the end of the plan.
+- Phase 0–1 ran natively (superpowers:executing-plans) and is merged. Ledger copy (committed): `docs/superpowers/plans/2026-11-15-phase0-1-foundation.ledger.md`. CLAUDE.md hard rules (code-reviewer, test-auditor, ui-ux-reviewer, database-expert) apply per task; one whole-branch review at the end of the plan.
 
 ## Environment (Windows PC)
 - Node 24.22.1 locally (CI and `.nvmrc` use Node 22), pnpm 10.34.9, Docker 29.9.2. TypeScript is pinned to ~6.0 because typescript-eslint doesn't support 7 yet.
