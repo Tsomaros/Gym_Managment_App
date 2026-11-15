@@ -74,12 +74,12 @@ git add spike docs/spikes && git commit -m "spike: verify PWA install and web pu
 - Produces: `export const GYM_ROLES = ['owner','reception','trainer','member'] as const; export type GymRole = typeof GYM_ROLES[number];` in `packages/shared/src/roles.ts`.
 - Produces: `createApp(): Promise<INestApplication>` in `apps/api/src/main.ts` (used by every e2e test).
 
-- [ ] **Step 1: Write the failing test** `health.e2e.spec.ts`: `GET /health` → `200`, body `{ status: 'ok' }`.
-- [ ] **Step 2: Run** `pnpm --filter api test:e2e` → FAIL (no app).
-- [ ] **Step 3: Implement** the workspace, compose file and Nest app. `docker/postgres/init.sql` creates roles `gym_owner` (owns the DB) and `gym_app` (LOGIN, NOSUPERUSER, NOBYPASSRLS) and database `gym_test` for tests.
-- [ ] **Step 4: Run** `docker compose up -d && pnpm --filter api test:e2e` → PASS. Run `pnpm lint` → no errors.
-- [ ] **Step 5: CI.** `ci.yml` on push: setup pnpm, start a `postgres:17` service with `init.sql`, run `pnpm install --frozen-lockfile`, `pnpm lint`, `pnpm -r test`.
-- [ ] **Step 6: Commit** `chore: monorepo, docker services, api health check, CI`.
+- [x] **Step 1: Write the failing test** `health.e2e.spec.ts`: `GET /health` → `200`, body `{ status: 'ok' }`.
+- [x] **Step 2: Run** `pnpm --filter api test:e2e` → FAIL (no app).
+- [x] **Step 3: Implement** the workspace, compose file and Nest app. `docker/postgres/init.sql` creates roles `gym_owner` (owns the DB) and `gym_app` (LOGIN, NOSUPERUSER, NOBYPASSRLS) and database `gym_test` for tests.
+- [x] **Step 4: Run** `docker compose up -d && pnpm --filter api test:e2e` → PASS. Run `pnpm lint` → no errors.
+- [x] **Step 5: CI.** `ci.yml` on push: setup pnpm, start a `postgres:17` service with `init.sql`, run `pnpm install --frozen-lockfile`, `pnpm lint`, `pnpm -r test`.
+- [x] **Step 6: Commit** `chore: monorepo, docker services, api health check, CI`.
 
 ---
 

@@ -1,0 +1,42 @@
+name: gym
+
+services:
+  postgres:
+    image: postgres:17
+    environment:
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+      GYM_OWNER_PASSWORD: ${GYM_OWNER_PASSWORD:?set GYM_OWNER_PASSWORD in .env}
+      GYM_APP_PASSWORD: ${GYM_APP_PASSWORD:?set GYM_APP_PASSWORD in .env}
+    ports:
+      - '${POSTGRES_PORT:-5433}:5432'
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./docker/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -h 127.0.0.1 -U postgres -d gym']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  minio:
+    # MinIO no longer publishes free images on Docker Hub or quay.io; Chainguard's build is the same server.
+    image: cgr.dev/chainguard/minio:latest
+    command: server /data --console-address ':9001'
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:?set MINIO_ROOT_USER in .env}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?set MINIO_ROOT_PASSWORD in .env}
+    ports:
+      - '9000:9000'
+      - '9001:9001'
+    volumes:
+      - minio-data:/data
+
+  mailpit:
+    image: axllent/mailpit
+    ports:
+      - '1025:1025'
+      - '8025:8025'
+
+volumes:
+  postgres-data:
+  minio-data:
