@@ -6,8 +6,8 @@
     "experimentalDecorators": true,
     "emitDecoratorMetadata": true,
     "types": ["node"],
-    "rootDir": ".",
-    "outDir": "dist"
+    "outDir": "dist",
+    "customConditions": ["source"]
   },
   "include": ["src", "test", "vitest.config.ts"]
 }

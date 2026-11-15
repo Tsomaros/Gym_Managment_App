@@ -1,6 +1,6 @@
+import type { GymRole } from '@gym/shared';
 import { sql } from 'drizzle-orm';
 import { check, index, pgTable, text, timestamp, uniqueIndex, uuid } from 'drizzle-orm/pg-core';
-import type { DbGymRole } from './gym-roles';
 import { gyms } from './gyms';
 import { users } from './users';
 
@@ -14,7 +14,7 @@ export const invitations = pgTable(
       .references(() => gyms.id),
     email: text('email').notNull(),
     fullName: text('full_name').notNull(),
-    roles: text('roles').array().$type<DbGymRole[]>().notNull(),
+    roles: text('roles').array().$type<GymRole[]>().notNull(),
     tokenHash: text('token_hash').notNull().unique(),
     expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
     acceptedAt: timestamp('accepted_at', { withTimezone: true }),

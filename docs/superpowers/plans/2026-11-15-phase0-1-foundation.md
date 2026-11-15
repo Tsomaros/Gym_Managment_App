@@ -133,11 +133,11 @@ git add spike docs/spikes && git commit -m "spike: verify PWA install and web pu
   - `InviteSchema { email, fullName: string 1..120, roles: GymRole[] nonempty }`
   - `MeResponse { id, email, fullName, locale: 'el'|'en', isPlatformAdmin, gyms: { gymId, gymName, roles: GymRole[] }[] }`
 
-- [ ] **Step 1: Write the failing tests:** `emailSchema.parse(' Maria@Example.com ') === 'maria@example.com'` *(Review Focus 2)*; `AcceptInviteSchema` rejects a 7-character password; `InviteSchema` rejects `roles: []` and `roles: ['admin']`; `InviteSchema.parse({ fullName: 'Γιώργος Παπαδόπουλος', ... }).fullName` is unchanged *(Review Focus 5)*; `CreateGymSchema` defaults `timezone` to `'Europe/Athens'`.
-- [ ] **Step 2: Run** `pnpm --filter shared test` → FAIL.
-- [ ] **Step 3: Implement** the schemas.
-- [ ] **Step 4: Run** → PASS.
-- [ ] **Step 5: Commit** `feat(shared): validation schemas for auth and accounts`.
+- [x] **Step 1: Write the failing tests:** `emailSchema.parse(' Maria@Example.com ') === 'maria@example.com'` *(Review Focus 2)*; `AcceptInviteSchema` rejects a 7-character password; `InviteSchema` rejects `roles: []` and `roles: ['admin']`; `InviteSchema.parse({ fullName: 'Γιώργος Παπαδόπουλος', ... }).fullName` is unchanged *(Review Focus 5)*; `CreateGymSchema` defaults `timezone` to `'Europe/Athens'`.
+- [x] **Step 2: Run** `pnpm --filter shared test` → FAIL.
+- [x] **Step 3: Implement** the schemas.
+- [x] **Step 4: Run** → PASS.
+- [x] **Step 5: Commit** `feat(shared): validation schemas for auth and accounts`.
 
 ---
 

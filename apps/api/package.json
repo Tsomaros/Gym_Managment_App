@@ -3,9 +3,9 @@
   "version": "0.0.0",
   "private": true,
   "scripts": {
-    "build": "nest build",
+    "build": "pnpm --filter @gym/shared build && nest build",
     "start": "node --env-file-if-exists=../../.env dist/main.js",
-    "start:dev": "nest start --watch --env-file ../../.env",
+    "start:dev": "pnpm --filter @gym/shared build && nest start --watch --env-file ../../.env",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run",
     "test:e2e": "vitest run e2e",
@@ -13,6 +13,7 @@
     "db:migrate": "drizzle-kit migrate"
   },
   "dependencies": {
+    "@gym/shared": "workspace:*",
     "@nestjs/common": "^12.5.0",
     "@nestjs/core": "^12.5.0",
     "@nestjs/platform-express": "^12.5.0",
