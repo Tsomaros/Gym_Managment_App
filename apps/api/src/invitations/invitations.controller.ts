@@ -1,9 +1,20 @@
-import { Body, Controller, HttpCode, Param, ParseUUIDPipe, Post, Req, Res } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  HttpCode,
+  Param,
+  ParseUUIDPipe,
+  Post,
+  Req,
+  Res,
+} from '@nestjs/common';
 import {
   type AcceptInvite,
   type AcceptInviteResponse,
   AcceptInviteSchema,
   type Invite,
+  type InvitePreview,
   InviteSchema,
 } from '@gym/shared';
 import type { Response } from 'express';
@@ -33,6 +44,12 @@ export class InvitationsController {
     @Body(new ZodValidationPipe(InviteSchema)) body: Invite,
   ): Promise<{ invitationId: string; mailSent: boolean }> {
     return this.invitations.invite(gym, req.user!.id, body);
+  }
+
+  /** Public: what the invite page shows before the person accepts. 410 if not redeemable. */
+  @Get('auth/invitations/:token')
+  preview(@Param('token') token: string): Promise<InvitePreview> {
+    return this.invitations.preview(token);
   }
 
   /**

@@ -171,6 +171,25 @@ describe('gyms and invitations', () => {
     expect((await accept(tokenFrom(mail.sent[0]))).status).toBe(410);
   });
 
+  it('previews an invitation by token, so the invite page knows whether to ask for a password', async () => {
+    const res = await createGym(`Preview ${run}`, `owner-preview-${run}@x.gr`, 'Νίκος');
+    createdGyms.push((res.body as { gymId: string }).gymId);
+    const token = tokenFrom(mail.sent[0]);
+
+    const preview = await request(server()).get(`/auth/invitations/${token}`);
+    expect(preview.status).toBe(200);
+    expect(preview.body).toEqual({
+      gymName: `Preview ${run}`,
+      fullName: 'Νίκος',
+      email: `owner-preview-${run}@x.gr`,
+      accountExists: false,
+    });
+
+    await accept(token);
+    expect((await request(server()).get(`/auth/invitations/${token}`)).status).toBe(410);
+    expect((await request(server()).get('/auth/invitations/no-such-token')).status).toBe(410);
+  });
+
   it('answers an unknown token with 410', async () => {
     expect((await accept('no-such-token')).status).toBe(410);
   });

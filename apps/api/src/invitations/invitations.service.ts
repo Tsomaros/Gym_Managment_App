@@ -5,7 +5,7 @@ import {
   Injectable,
   Logger,
 } from '@nestjs/common';
-import type { AcceptInvite, GymRole, Invite, Locale } from '@gym/shared';
+import type { AcceptInvite, GymRole, Invite, InvitePreview, Locale } from '@gym/shared';
 import { and, eq, gt, isNull, sql } from 'drizzle-orm';
 import type { GymContext } from '../access/gym-context';
 import { hashToken, randomToken } from '../auth/opaque-token';
@@ -136,6 +136,27 @@ export class InvitationsService {
       rawToken,
     });
     return { invitationId: id, mailSent };
+  }
+
+  /** A pending, unexpired invitation by its raw token; 410 otherwise. Token lookup → systemDb. */
+  async preview(token: string): Promise<InvitePreview> {
+    const [inv] = await systemDb
+      .select({ gymName: gyms.name, fullName: invitations.fullName, email: invitations.email })
+      .from(invitations)
+      .innerJoin(gyms, eq(gyms.id, invitations.gymId))
+      .where(
+        and(
+          eq(invitations.tokenHash, hashToken(token)),
+          isNull(invitations.acceptedAt),
+          gt(invitations.expiresAt, sql`now()`),
+        ),
+      );
+    if (!inv) throw new GoneException('Invitation is invalid or has expired');
+    const [account] = await db
+      .select({ id: users.id })
+      .from(users)
+      .where(eq(users.email, inv.email));
+    return { ...inv, accountExists: !!account };
   }
 
   /**

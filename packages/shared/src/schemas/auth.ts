@@ -18,6 +18,14 @@ export const AcceptInviteSchema = z.object({
 });
 export type AcceptInvite = z.infer<typeof AcceptInviteSchema>;
 
+/** What the invite page shows before accepting. accountExists → no password field, sign in after. */
+export interface InvitePreview {
+  gymName: string;
+  fullName: string;
+  email: string;
+  accountExists: boolean;
+}
+
 /** New account: signed in. Existing account: roles added, sign in with the existing password. */
 export type AcceptInviteResponse = { accessToken: string } | { signInRequired: true };
 
