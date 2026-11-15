@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import { type ReactNode, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, NavLink, Route, Routes, useNavigate } from 'react-router';
 import { useAuth } from '../auth/AuthProvider';
@@ -12,7 +12,7 @@ export function SignOutButton() {
     <button
       type="button"
       onClick={() => void logout().finally(() => navigate('/login', { replace: true }))}
-      className="min-h-9 rounded-md px-3 text-sm font-medium text-slate-700 hover:bg-slate-100 focus-visible:outline-2 focus-visible:outline-slate-900"
+      className="min-h-11 rounded-md px-3 text-sm font-medium text-slate-700 hover:bg-slate-100 focus-visible:outline-2 focus-visible:outline-slate-900"
     >
       {t('auth.signOut')}
     </button>
@@ -52,18 +52,24 @@ export function ShellLayout({
   const { t } = useTranslation();
   const [first, ...rest] = nav;
 
+  useEffect(() => {
+    document.title = `${gymName ?? title} · ${t('app.name')}`;
+  }, [gymName, title, t]);
+
   return (
     <div data-testid={testId} className="min-h-dvh bg-slate-50">
       <header className="border-b border-slate-200 bg-white">
         <div className="mx-auto flex max-w-5xl flex-wrap items-center gap-3 px-4 py-3">
           <div className="mr-auto min-w-0">
             <p className="text-xs font-medium uppercase tracking-wide text-slate-500">{title}</p>
-            <p className="truncate text-lg font-bold text-slate-900">{gymName ?? t('app.name')}</p>
+            <h1 className="truncate text-lg font-bold text-slate-900">
+              {gymName ?? t('app.name')}
+            </h1>
           </div>
           {multipleGyms && (
             <Link
               to="/gyms"
-              className="min-h-9 content-center rounded-md px-3 text-sm font-medium text-slate-700 hover:bg-slate-100 focus-visible:outline-2 focus-visible:outline-slate-900"
+              className="min-h-11 content-center rounded-md px-3 text-sm font-medium text-slate-700 hover:bg-slate-100 focus-visible:outline-2 focus-visible:outline-slate-900"
             >
               {t('nav.switchGym')}
             </Link>
@@ -71,7 +77,7 @@ export function ShellLayout({
           <LanguageSwitch />
           <SignOutButton />
         </div>
-        <nav aria-label={title} className="mx-auto max-w-5xl overflow-x-auto px-2">
+        <nav aria-label={t('nav.label')} className="mx-auto max-w-5xl overflow-x-auto px-2">
           <ul className="flex gap-1">
             {nav.map((key, i) => (
               <li key={key}>

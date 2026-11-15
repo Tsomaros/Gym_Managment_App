@@ -12,8 +12,13 @@ const valid = {
 };
 
 describe('loadEnv', () => {
-  it('returns every key from a complete environment', () => {
-    expect(loadEnv(valid)).toEqual(valid);
+  it('returns every key from a complete environment, with COOKIE_PATH defaulting to /auth', () => {
+    expect(loadEnv(valid)).toEqual({ ...valid, COOKIE_PATH: '/auth' });
+  });
+
+  it('accepts a COOKIE_PATH for a deployment behind an /api prefix, and rejects a relative one', () => {
+    expect(loadEnv({ ...valid, COOKIE_PATH: '/api/auth' }).COOKIE_PATH).toBe('/api/auth');
+    expect(() => loadEnv({ ...valid, COOKIE_PATH: 'auth' })).toThrow('COOKIE_PATH');
   });
 
   it('normalises the platform admin email with trim and lowercase', () => {
@@ -69,6 +74,10 @@ describe('loadEnv', () => {
 
   it('does not change other values while normalising the email', () => {
     const env = loadEnv({ ...valid, PLATFORM_ADMIN_EMAIL: '\tAdmin@Example.com\n' });
-    expect(env).toEqual({ ...valid, PLATFORM_ADMIN_EMAIL: 'admin@example.com' });
+    expect(env).toEqual({
+      ...valid,
+      PLATFORM_ADMIN_EMAIL: 'admin@example.com',
+      COOKIE_PATH: '/auth',
+    });
   });
 });

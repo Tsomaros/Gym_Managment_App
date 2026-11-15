@@ -48,7 +48,7 @@ test('platform admin creates a gym, the owner accepts the emailed invite and lan
   const owner = await ownerContext.newPage();
   await owner.goto(await inviteLinkFor(ownerEmail));
   await expect(owner.getByRole('heading', { name: `Πρόσκληση στο ${gymName}` })).toBeVisible();
-  await owner.getByLabel('Διάλεξε κωδικό (τουλάχιστον 8 χαρακτήρες)').fill('owner password 123');
+  await owner.getByLabel('Διάλεξε κωδικό').fill('owner password 123');
   await owner.getByRole('button', { name: 'Ενεργοποίηση λογαριασμού' }).click();
 
   // Lands in the owner area, in Greek.
@@ -66,5 +66,6 @@ test('platform admin creates a gym, the owner accepts the emailed invite and lan
   // The session survives a reload (refresh cookie through the same-origin /api proxy).
   await owner.reload();
   await expect(owner.getByTestId('shell-owner')).toBeVisible();
+  await expect(owner.getByRole('navigation').getByRole('link', { name: 'Overview' })).toBeVisible();
   await ownerContext.close();
 });

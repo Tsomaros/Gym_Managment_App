@@ -8,6 +8,8 @@ const envSchema = z.object({
   SMTP_URL: z.url(),
   PLATFORM_ADMIN_EMAIL: z.string().trim().toLowerCase().pipe(z.email()),
   PLATFORM_ADMIN_PASSWORD: z.string().min(8),
+  /** Path of the refresh cookie as the browser sees it: /api/auth when a proxy serves the API under /api. */
+  COOKIE_PATH: z.string().startsWith('/').default('/auth'),
 });
 
 export type Env = z.infer<typeof envSchema>;

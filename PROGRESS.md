@@ -1,6 +1,7 @@
 # Progress
 
 ## Last finished
+- 2026-11-15: Task 8 (web app shell): bilingual PWA (el default, en), sign-in, invite page, gym picker, one area per role, platform "Create gym" form. Playwright e2e (`pnpm e2e`) covers admin → create gym → Mailpit invite → owner in Greek → English. All 8 tasks of phase 0–1 are done; the whole-branch review is next.
 - 2026-11-15: Task 7 (gym creation by the platform admin, email invitations, account creation on accept). Deviation from the plan, for security: accepting an invite for an **existing** account adds the roles but does not sign in (`{ signInRequired: true }`); the person signs in with their own password. Reception may invite members only. 96 API tests pass. Manual check done: Greek invite email in Mailpit.
 - 2026-11-15: Task 6 (access control). Gym routes use `@GymRoles(...)` (owner covers reception; platform admin has no implicit gym access); platform routes use `@PlatformAdmin()`. A test fails if any `/gyms/:gymId` route lacks `@GymRoles`.
 - 2026-11-15: Task 5 (sign-in, rotating refresh tokens, sign-out, /auth/me). The API seeds the platform admin from `.env` (PLATFORM_ADMIN_EMAIL/PASSWORD) at startup. 60 API tests pass.
@@ -11,7 +12,7 @@
 - 2026-11-15: Design approved, plan for phases 0–1 written, Claude Code agents/hooks/skills adapted from LLM_Movies_Prediction_Model.
 
 ## In progress
-- Next: Task 8 (web app shell: bilingual PWA, sign-in, per-role areas). Continue in **Claude Code on Windows**. Needs a small API addition first: a public invite preview (GET /auth/invitations/:token).
+- Next: final whole-branch review of phase0-1-foundation, then merge decision.
 - Carry-overs for Tasks 5–7 (from the database review) are in the ledger as `CARRY →` lines: /auth/me across gyms, atomic refresh rotation and invitation accept, uuid validation of :gymId, closing DB pools on shutdown.
 
 ## Local setup (Windows PC)
@@ -19,7 +20,7 @@
 - `docker compose up -d --wait`. Postgres listens on host port **5433** (5432 belongs to another project). Mailpit: http://localhost:8025, MinIO console: http://localhost:9001.
 - MinIO image is `cgr.dev/chainguard/minio` (MinIO no longer publishes free images on Docker Hub).
 - If you edit `docker/postgres/init.sql`: `docker compose down -v && docker compose up -d --wait`.
-- API: `pnpm --filter api start:dev`, health at http://localhost:3000/health.
+- API: `pnpm --filter api start:dev`, health at http://localhost:3000/health. Web: `pnpm --filter web dev` → http://localhost:5173 (calls the API through the /api proxy). E2E: `pnpm e2e` (uses gym_test; run `pnpm exec playwright install chromium` once).
 
 ## Execution
 - Native (superpowers:executing-plans) on branch `phase0-1-foundation`. Ledger: `.superpowers/sdd/2026-11-15-phase0-1-foundation/progress.md` (git-ignored, on this PC). CLAUDE.md hard rules (code-reviewer, test-auditor, ui-ux-reviewer, database-expert) apply per task; one whole-branch review at the end of the plan.
@@ -29,4 +30,4 @@
 
 ## Open questions
 - Login throttling (brute-force protection) is not in the phase 0–1 plan. Add `@nestjs/throttler` on /auth/login before the pilot?
-- Deployment: the web app and API must share a site (refresh cookie is SameSite=Strict, Path=/auth).
+- Deployment: the web app and API must share a site (refresh cookie is SameSite=Strict). The browser calls /api/*; the production proxy must strip /api, and set COOKIE_PATH=/api/auth.

@@ -35,8 +35,10 @@ void i18n.use(initReactI18next).init({
   initAsync: false,
 });
 
-i18n.on('languageChanged', (lng) => {
+function syncHtmlLang(lng: string): void {
   if (typeof document !== 'undefined') document.documentElement.lang = lng;
-});
+}
+i18n.on('languageChanged', syncHtmlLang);
+syncHtmlLang(i18n.language); // the stored language, for screen readers, from the first paint
 
 export default i18n;

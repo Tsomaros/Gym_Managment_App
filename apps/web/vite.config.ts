@@ -15,6 +15,7 @@ export default defineConfig({
       manifest: {
         name: 'Gym',
         short_name: 'Gym',
+        lang: 'el',
         display: 'standalone',
         start_url: '/',
         background_color: '#ffffff',

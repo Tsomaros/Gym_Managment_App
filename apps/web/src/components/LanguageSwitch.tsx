@@ -8,7 +8,7 @@ export function LanguageSwitch() {
     <div
       role="group"
       aria-label={t('language.label')}
-      className="flex rounded-md border border-slate-300 p-0.5 text-sm"
+      className="flex rounded-md border border-slate-500 p-0.5 text-sm"
     >
       {LANGUAGES.map((lang) => {
         const active = i18n.resolvedLanguage === lang;
@@ -19,7 +19,7 @@ export function LanguageSwitch() {
             lang={lang}
             aria-pressed={active}
             onClick={() => setLanguage(lang)}
-            className={`min-h-9 rounded px-3 font-medium focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-900 ${
+            className={`min-h-11 rounded px-3 font-medium focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-900 ${
               active ? 'bg-slate-900 text-white' : 'text-slate-700 hover:bg-slate-100'
             }`}
           >

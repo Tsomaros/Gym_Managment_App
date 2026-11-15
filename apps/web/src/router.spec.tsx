@@ -25,6 +25,7 @@ function renderAt(path: string, me: MeResponse | null) {
     login: vi.fn(),
     logout: vi.fn(),
     startSession: vi.fn(),
+    refreshMe: vi.fn(),
   };
   return render(
     <AuthContext.Provider value={auth}>
@@ -65,6 +66,30 @@ describe('routing', () => {
   it('sends a signed-out visitor to the sign-in page', async () => {
     renderAt('/', null);
     expect(await screen.findByTestId('login-page')).toBeInTheDocument();
+  });
+
+  it('gives reception the reception area even when they also train', async () => {
+    renderAt(
+      `/g/${GYM_A}`,
+      meWith([{ gymId: GYM_A, gymName: 'Gym A', roles: ['trainer', 'reception'] }]),
+    );
+    expect(await screen.findByTestId('shell-reception')).toBeInTheDocument();
+    expect(screen.queryByTestId('shell-trainer')).not.toBeInTheDocument();
+  });
+
+  it('picks the shell per gym: owner in one gym, member in another', async () => {
+    const gyms = [
+      { gymId: GYM_A, gymName: 'Gym A', roles: ['member' as const] },
+      { gymId: GYM_B, gymName: 'Gym B', roles: ['owner' as const] },
+    ];
+    renderAt(`/g/${GYM_A}`, meWith(gyms));
+    expect(await screen.findByTestId('shell-member')).toBeInTheDocument();
+  });
+
+  it('sends a signed-out visitor opening a gym link to sign-in, not the gym', async () => {
+    renderAt(`/g/${GYM_A}`, null);
+    expect(await screen.findByTestId('login-page')).toBeInTheDocument();
+    expect(screen.queryByTestId('shell-owner')).not.toBeInTheDocument();
   });
 
   it('sends a platform admin with no gyms to the platform area', async () => {

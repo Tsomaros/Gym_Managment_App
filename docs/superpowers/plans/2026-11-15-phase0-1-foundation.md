@@ -249,15 +249,15 @@ git add spike docs/spikes && git commit -m "spike: verify PWA install and web pu
   - Routes: `/login`, `/invite/:token`, `/gyms` (picker when the user has more than one gym), `/g/:gymId/*` → shell for the highest role in that gym (`owner` > `reception` > `trainer` > `member`), `/platform/*` for platform admins. Each shell is a layout with nav and a placeholder page titled by an i18n key.
   - Language: `LanguageSwitch` toggles `el`/`en` and persists to `localStorage` key `gym.lang` (wrapped in try/catch).
 
-- [ ] **Step 1: Write the failing tests:**
+- [x] **Step 1: Write the failing tests:**
   - `client.spec.ts`: three parallel `apiFetch` calls receive `401`, then exactly **one** call to `/auth/refresh` is made and all three resolve after retry. *(Review Focus 3)*
   - `router.spec.tsx`: `me` with roles `['trainer','member']` in one gym → visiting `/` lands on `TrainerShell`; with two gyms → `/gyms` picker; unauthenticated → `/login`.
   - `i18n.spec.ts`: default language `el`; `t('test.onlyInEnglish')` (key present only in `en.json`) returns the English string, not the key. *(Review Focus 5)*
   - `e2e/foundation.spec.ts`: seeded platform admin logs in → creates a gym → opens the invite link from Mailpit's API → sets a password → lands on `OwnerShell` in Greek → switches to English and the nav changes language.
-- [ ] **Step 2: Run** `pnpm --filter web test` and `pnpm e2e` → FAIL.
-- [ ] **Step 3: Implement** pages, shells, client and i18n. Platform shell has a "Create gym" form calling `POST /platform/gyms`.
-- [ ] **Step 4: Run** both → PASS. Manual check: Lighthouse PWA "installable" passes on `pnpm --filter web build && pnpm --filter web preview`.
-- [ ] **Step 5: Commit** `feat(web): bilingual PWA shell with sign-in, invitations and role areas`.
+- [x] **Step 2: Run** `pnpm --filter web test` and `pnpm e2e` → FAIL.
+- [x] **Step 3: Implement** pages, shells, client and i18n. Platform shell has a "Create gym" form calling `POST /platform/gyms`.
+- [x] **Step 4: Run** both → PASS. Manual check: Lighthouse PWA "installable" passes on `pnpm --filter web build && pnpm --filter web preview`.
+- [x] **Step 5: Commit** `feat(web): bilingual PWA shell with sign-in, invitations and role areas`.
 
 ---
 

@@ -11,6 +11,8 @@ export interface AuthState {
   logout(): Promise<void>;
   /** Starts a session from an access token the API just issued (e.g. after accepting an invite). */
   startSession(accessToken: string): Promise<void>;
+  /** Reloads /auth/me, e.g. after joining another gym. */
+  refreshMe(): Promise<void>;
 }
 
 export const AuthContext = createContext<AuthState | null>(null);
@@ -90,7 +92,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [me]);
 
   return (
-    <AuthContext.Provider value={{ me, status, login, logout, startSession }}>
+    <AuthContext.Provider value={{ me, status, login, logout, startSession, refreshMe: loadMe }}>
       {children}
     </AuthContext.Provider>
   );
