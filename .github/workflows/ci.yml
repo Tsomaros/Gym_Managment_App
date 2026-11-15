@@ -17,6 +17,11 @@ jobs:
       GYM_APP_PASSWORD: ci-app
       DATABASE_URL: postgres://gym_app:ci-app@localhost:5432/gym_test
       DATABASE_MIGRATOR_URL: postgres://gym_owner:ci-owner@localhost:5432/gym_test
+      JWT_SECRET: ci-only-jwt-secret-at-least-32-characters-long
+      WEB_ORIGIN: http://localhost:5173
+      SMTP_URL: smtp://localhost:1025
+      PLATFORM_ADMIN_EMAIL: admin@example.com
+      PLATFORM_ADMIN_PASSWORD: ci-admin-password
     services:
       postgres:
         image: postgres:17

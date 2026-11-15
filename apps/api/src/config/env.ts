@@ -21,3 +21,11 @@ export function loadEnv(source: Record<string, string | undefined> = process.env
   }
   return result.data;
 }
+
+let cached: Env | undefined;
+
+/** loadEnv() from process.env, validated once and reused. */
+export function getEnv(): Env {
+  cached ??= loadEnv();
+  return cached;
+}

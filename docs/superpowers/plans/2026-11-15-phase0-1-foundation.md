@@ -156,7 +156,7 @@ git add spike docs/spikes && git commit -m "spike: verify PWA install and web pu
   - `RefreshStore.issue(userId: string, familyId?: string): Promise<string>`, `RefreshStore.rotate(raw: string): Promise<{ userId: string; raw: string }>`, `RefreshStore.revokeFamily(familyId: string): Promise<void>`.
   - Routes: `POST /auth/login` → `200 { accessToken }` + `gym_rt` cookie; `POST /auth/refresh` (cookie) → `200 { accessToken }` + new cookie; `POST /auth/logout` → `204`, cookie cleared, family revoked; `GET /auth/me` (Bearer) → `MeResponse`. `/auth/me` reads gym memberships through `systemDb` joined on `user_id = sub`.
 
-- [ ] **Step 1: Write the failing tests:**
+- [x] **Step 1: Write the failing tests:**
   - Login with wrong password → `401`, same body as unknown email (`{ message: 'Invalid credentials' }`).
   - Login with `'  ADMIN@x.gr '` for seeded `admin@x.gr` → `200`. *(Review Focus 2)*
   - Login sets cookie `gym_rt` with `HttpOnly`, `SameSite=Strict`, `Path=/auth`.
@@ -164,10 +164,10 @@ git add spike docs/spikes && git commit -m "spike: verify PWA install and web pu
   - Reusing the **old** refresh cookie → `401`, and the newer cookie from the same family is also rejected afterwards. *(Review Focus 3)*
   - `POST /auth/logout` then `POST /auth/refresh` → `401`.
   - `GET /auth/me` without token → `401`; with token → `MeResponse` with `isPlatformAdmin: true`, `gyms: []`.
-- [ ] **Step 2: Run** `pnpm --filter api test:e2e -- auth` → FAIL.
-- [ ] **Step 3: Implement** the module per the interfaces and Global Constraints. Rotation: mark the used row `revoked_at`, set `replaced_by`; on presenting a revoked token call `revokeFamily`.
-- [ ] **Step 4: Run** → PASS.
-- [ ] **Step 5: Commit** `feat(auth): login, rotating refresh tokens, logout, me`.
+- [x] **Step 2: Run** `pnpm --filter api test:e2e -- auth` → FAIL.
+- [x] **Step 3: Implement** the module per the interfaces and Global Constraints. Rotation: mark the used row `revoked_at`, set `replaced_by`; on presenting a revoked token call `revokeFamily`.
+- [x] **Step 4: Run** → PASS.
+- [x] **Step 5: Commit** `feat(auth): login, rotating refresh tokens, logout, me`.
 
 ---
 

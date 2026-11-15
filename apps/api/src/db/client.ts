@@ -24,6 +24,10 @@ export const systemDb = drizzle({ client: makePool('DATABASE_MIGRATOR_URL', 5), 
 
 export type Db = typeof db;
 
-export async function closeDb(): Promise<void> {
-  await Promise.all([db.$client.end(), systemDb.$client.end()]);
+let closing: Promise<void> | undefined;
+
+/** Ends both pools. Safe to call more than once (Nest shutdown and test teardown both call it). */
+export function closeDb(): Promise<void> {
+  closing ??= Promise.all([db.$client.end(), systemDb.$client.end()]).then(() => undefined);
+  return closing;
 }

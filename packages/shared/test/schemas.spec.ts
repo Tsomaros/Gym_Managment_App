@@ -50,6 +50,15 @@ describe('LoginSchema', () => {
   it('rejects an empty password', () => {
     expect(LoginSchema.safeParse({ email: 'a@b.gr', password: '' }).success).toBe(false);
   });
+
+  it('caps the password at 256 characters, so login cannot be used to burn argon2 CPU', () => {
+    expect(LoginSchema.safeParse({ email: 'a@b.gr', password: 'p'.repeat(256) }).success).toBe(
+      true,
+    );
+    expect(LoginSchema.safeParse({ email: 'a@b.gr', password: 'p'.repeat(257) }).success).toBe(
+      false,
+    );
+  });
 });
 
 describe('AcceptInviteSchema', () => {
@@ -60,6 +69,15 @@ describe('AcceptInviteSchema', () => {
 
   it('rejects an empty token', () => {
     expect(AcceptInviteSchema.safeParse({ token: '', password: '12345678' }).success).toBe(false);
+  });
+
+  it('rejects a password longer than 256 characters', () => {
+    expect(AcceptInviteSchema.safeParse({ token: 't', password: 'p'.repeat(256) }).success).toBe(
+      true,
+    );
+    expect(AcceptInviteSchema.safeParse({ token: 't', password: 'p'.repeat(257) }).success).toBe(
+      false,
+    );
   });
 });
 
