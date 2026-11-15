@@ -1,12 +1,11 @@
-import { createHash, randomBytes, randomUUID } from 'node:crypto';
+import { randomUUID } from 'node:crypto';
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { and, eq, gt, isNull, sql } from 'drizzle-orm';
 import { db } from '../db/client';
 import { refreshTokens } from '../db/schema';
+import { hashToken, randomToken } from './opaque-token';
 
 export const REFRESH_TTL_MS = 30 * 24 * 3600 * 1000;
-
-const hashToken = (raw: string): string => createHash('sha256').update(raw).digest('hex');
 
 /**
  * Opaque refresh tokens: 32 random bytes, stored as sha256, rotated on every use.
@@ -15,7 +14,7 @@ const hashToken = (raw: string): string => createHash('sha256').update(raw).dige
 @Injectable()
 export class RefreshStore {
   async issue(userId: string, familyId: string = randomUUID()): Promise<string> {
-    const raw = randomBytes(32).toString('base64url');
+    const raw = randomToken();
     await db.insert(refreshTokens).values({
       userId,
       familyId,
@@ -46,7 +45,7 @@ export class RefreshStore {
         });
       if (!used) return undefined;
 
-      const next = randomBytes(32).toString('base64url');
+      const next = randomToken();
       const [created] = await tx
         .insert(refreshTokens)
         .values({

@@ -1,0 +1,203 @@
+import {
+  ConflictException,
+  ForbiddenException,
+  GoneException,
+  Injectable,
+  Logger,
+} from '@nestjs/common';
+import type { AcceptInvite, GymRole, Invite, Locale } from '@gym/shared';
+import { and, eq, gt, isNull, sql } from 'drizzle-orm';
+import type { GymContext } from '../access/gym-context';
+import { hashToken, randomToken } from '../auth/opaque-token';
+import { hashPassword } from '../auth/password';
+import { getEnv } from '../config/env';
+import { db, systemDb } from '../db/client';
+import { gymRoles, gyms, invitations, users } from '../db/schema';
+import { type Tx, withGym } from '../db/tenant';
+import { MailService } from '../mail/mail.service';
+import { inviteMail } from '../mail/templates/invite';
+
+export const INVITE_TTL_MS = 72 * 3600 * 1000;
+
+export interface NewInvitation {
+  gymId: string;
+  email: string;
+  fullName: string;
+  roles: GymRole[];
+  invitedBy: string;
+}
+
+export interface AcceptResult {
+  userId: string;
+  isPlatformAdmin: boolean;
+  /** True when this acceptance created the account (and set its password). */
+  created: boolean;
+}
+
+/** Roles reception may hand out; anything else needs the owner (spec §5). */
+const RECEPTION_MAY_INVITE: readonly GymRole[] = ['member'];
+
+@Injectable()
+export class InvitationsService {
+  private readonly logger = new Logger(InvitationsService.name);
+
+  constructor(private readonly mail: MailService) {}
+
+  /**
+   * Stores an invitation inside `tx` (withGym, or systemDb when the gym is being created).
+   * A pending invitation for the same gym and email is replaced, which invalidates its old link.
+   * With `memberInvitesOnly`, only a pending member-only invitation may be replaced (409 otherwise),
+   * so reception can't downgrade or cancel an owner's pending staff invitation.
+   */
+  async issue(
+    tx: Tx,
+    inv: NewInvitation,
+    opts: { memberInvitesOnly?: boolean } = {},
+  ): Promise<{ id: string; rawToken: string }> {
+    const rawToken = randomToken();
+    const fresh = {
+      fullName: inv.fullName,
+      roles: inv.roles,
+      tokenHash: hashToken(rawToken),
+      expiresAt: new Date(Date.now() + INVITE_TTL_MS),
+      invitedBy: inv.invitedBy,
+    };
+    const [row] = await tx
+      .insert(invitations)
+      .values({ gymId: inv.gymId, email: inv.email, ...fresh })
+      .onConflictDoUpdate({
+        target: [invitations.gymId, invitations.email],
+        targetWhere: sql`${invitations.acceptedAt} is null`,
+        set: { ...fresh, createdAt: sql`now()` },
+        setWhere: opts.memberInvitesOnly
+          ? sql`${invitations.roles} <@ array['member']::text[]`
+          : undefined,
+      })
+      .returning({ id: invitations.id });
+    if (!row) throw new ConflictException('A staff invitation for this email is pending');
+    return { id: row.id, rawToken };
+  }
+
+  /**
+   * Emails the invite link in the invitee's language (their account's, else Greek).
+   * Returns false instead of throwing when sending fails: the invitation is already stored and
+   * can be sent again by re-inviting.
+   */
+  async sendInviteMail(inv: {
+    email: string;
+    fullName: string;
+    gymName: string;
+    rawToken: string;
+  }): Promise<boolean> {
+    try {
+      const [existing] = await db
+        .select({ locale: users.locale })
+        .from(users)
+        .where(eq(users.email, inv.email));
+      const locale = (existing?.locale ?? 'el') as Locale;
+      await this.mail.send(
+        inviteMail(locale, {
+          to: inv.email,
+          fullName: inv.fullName,
+          gymName: inv.gymName,
+          link: `${getEnv().WEB_ORIGIN}/invite/${inv.rawToken}`,
+        }),
+      );
+      return true;
+    } catch (err) {
+      this.logger.error(`Invite email to ${inv.email} failed: ${(err as Error).message}`);
+      return false;
+    }
+  }
+
+  async invite(
+    gym: GymContext,
+    invitedBy: string,
+    body: Invite,
+  ): Promise<{ invitationId: string; mailSent: boolean }> {
+    const isOwner = gym.roles.includes('owner');
+    if (!isOwner && body.roles.some((r) => !RECEPTION_MAY_INVITE.includes(r))) {
+      throw new ForbiddenException('Reception may only invite members');
+    }
+
+    const { id, rawToken, gymName } = await withGym(gym.id, async (tx) => {
+      const [g] = await tx.select({ name: gyms.name }).from(gyms).where(eq(gyms.id, gym.id));
+      const issued = await this.issue(
+        tx,
+        { gymId: gym.id, invitedBy, ...body },
+        { memberInvitesOnly: !isOwner },
+      );
+      return { ...issued, gymName: g!.name };
+    });
+    const mailSent = await this.sendInviteMail({
+      email: body.email,
+      fullName: body.fullName,
+      gymName,
+      rawToken,
+    });
+    return { invitationId: id, mailSent };
+  }
+
+  /**
+   * Redeems an invitation. A new email gets an account with this password. An existing account
+   * only gains the roles; the password is ignored, and the caller must sign in normally (the link
+   * alone never opens a session for an existing account). Single use; expired, used or unknown → 410.
+   */
+  async accept({ token, password }: AcceptInvite): Promise<AcceptResult> {
+    const tokenHash = hashToken(token);
+    // No gym is known before the token is read, so this one lookup uses systemDb.
+    const [found] = await systemDb
+      .select({ gymId: invitations.gymId })
+      .from(invitations)
+      .where(eq(invitations.tokenHash, tokenHash));
+    if (!found) throw new GoneException('Invitation is invalid or has expired');
+
+    const accepted = await withGym(found.gymId, async (tx): Promise<AcceptResult | undefined> => {
+      // Claiming and redeeming in one transaction: a double click can't accept twice.
+      const [inv] = await tx
+        .update(invitations)
+        .set({ acceptedAt: sql`now()` })
+        .where(
+          and(
+            eq(invitations.tokenHash, tokenHash),
+            isNull(invitations.acceptedAt),
+            gt(invitations.expiresAt, sql`now()`),
+          ),
+        )
+        .returning({
+          gymId: invitations.gymId,
+          email: invitations.email,
+          fullName: invitations.fullName,
+          roles: invitations.roles,
+        });
+      if (!inv) return undefined;
+
+      const userCols = { id: users.id, isPlatformAdmin: users.isPlatformAdmin };
+      let created = false;
+      let [user] = await tx.select(userCols).from(users).where(eq(users.email, inv.email));
+      if (!user) {
+        [user] = await tx
+          .insert(users)
+          .values({
+            email: inv.email,
+            fullName: inv.fullName,
+            passwordHash: await hashPassword(password),
+          })
+          .onConflictDoNothing({ target: users.email })
+          .returning(userCols);
+        created = !!user;
+        // Lost a race with another acceptance for the same email: use the account it created.
+        user ??= (await tx.select(userCols).from(users).where(eq(users.email, inv.email)))[0];
+      }
+
+      await tx
+        .insert(gymRoles)
+        .values(inv.roles.map((role) => ({ gymId: inv.gymId, userId: user!.id, role })))
+        .onConflictDoNothing();
+      return { userId: user!.id, isPlatformAdmin: user!.isPlatformAdmin, created };
+    });
+
+    if (!accepted) throw new GoneException('Invitation is invalid or has expired');
+    return accepted;
+  }
+}

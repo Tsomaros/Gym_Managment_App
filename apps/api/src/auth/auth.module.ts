@@ -6,5 +6,6 @@ import { RefreshStore } from './refresh-store';
 @Module({
   controllers: [AuthController],
   providers: [AuthService, RefreshStore],
+  exports: [RefreshStore],
 })
 export class AuthModule {}

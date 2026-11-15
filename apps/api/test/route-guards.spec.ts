@@ -142,7 +142,7 @@ describe('every /gyms/:gymId route carries @GymRoles', () => {
       ].sort(),
     );
     const guarded = gymRoutes(app)
-      .filter((r) => r.guarded)
+      .filter((r) => r.guarded && r.id.startsWith('Probe'))
       .map((r) => r.id);
     expect(guarded.sort()).toEqual(
       [
@@ -158,8 +158,10 @@ describe('every /gyms/:gymId route carries @GymRoles', () => {
     app = await createApp(RealModule);
     await app.init();
     expect(unguarded(app)).toEqual([]);
-    // not vacuous: the scan must actually see the app's controllers (no gym routes exist yet)
-    const names = app.get(DiscoveryService).getControllers().map((w) => w.name);
-    expect(names).toContain('AuthController');
+    // not vacuous: the scan must see the app's real gym routes
+    expect(gymRoutes(app)).toContainEqual({
+      id: 'InvitationsController.invite /gyms/:gymId/invitations',
+      guarded: true,
+    });
   });
 });

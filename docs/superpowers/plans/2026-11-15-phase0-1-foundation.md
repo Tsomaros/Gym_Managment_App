@@ -216,17 +216,17 @@ git add spike docs/spikes && git commit -m "spike: verify PWA install and web pu
   - `POST /auth/accept-invite` body `AcceptInviteSchema` → `200 { accessToken }` + cookie. Looks up the token hash via `systemDb`; creates the user if the email is new (sets password), otherwise **only** adds `gym_roles` rows and ignores the password field; marks invitation accepted.
   - Invite link format: `${WEB_ORIGIN}/invite/${rawToken}`, emailed in the invitee's locale (default `el`).
 
-- [ ] **Step 1: Write the failing tests:**
+- [x] **Step 1: Write the failing tests:**
   - Platform admin creates gym "Γυμναστήριο Ναυπάκτου" → owner invite email captured containing `/invite/`.
   - Accepting the invite → `/auth/me` lists that gym with `roles: ['owner']`.
   - Same token accepted twice → `410`. Token older than 72 h (set `expires_at` in the past) → `410`.
   - Reception invites `roles: ['trainer']` → `403`; `roles: ['member']` → `201`.
   - Existing user `maria@x.gr` (member of gym A) invited to gym B as `' Maria@X.gr'` → after accept, `users` still has one row for that email, the password hash is unchanged, `/auth/me` shows both gyms. *(Review Focus 1, 2)*
   - Member full name `'Γιώργος Παπαδόπουλος'` is returned byte-identical by `/auth/me`. *(Review Focus 5)*
-- [ ] **Step 2: Run** → FAIL.
-- [ ] **Step 3: Implement.** All gym-scoped writes go through `withGym`.
-- [ ] **Step 4: Run** → PASS. Manual check: `docker compose up`, create a gym with curl, open Mailpit at `http://localhost:8025` and see the Greek invite email.
-- [ ] **Step 5: Commit** `feat: gym creation and email invitations for staff and members`.
+- [x] **Step 2: Run** → FAIL.
+- [x] **Step 3: Implement.** All gym-scoped writes go through `withGym`.
+- [x] **Step 4: Run** → PASS. Manual check: `docker compose up`, create a gym with curl, open Mailpit at `http://localhost:8025` and see the Greek invite email.
+- [x] **Step 5: Commit** `feat: gym creation and email invitations for staff and members`.
 
 ---
 

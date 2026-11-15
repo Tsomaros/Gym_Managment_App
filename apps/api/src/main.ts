@@ -11,10 +11,14 @@ import { seedPlatformAdmin } from './seed';
  * imports AppModule and adds test-only controllers. Throws on an invalid environment.
  */
 export async function createApp(rootModule: Type = AppModule): Promise<INestApplication> {
-  const env = getEnv();
-  const app = await NestFactory.create(rootModule, { logger: ['error', 'warn'] });
+  getEnv();
+  return configureApp(await NestFactory.create(rootModule, { logger: ['error', 'warn'] }));
+}
+
+/** Middleware every instance needs; also used by tests that build the app from a TestingModule. */
+export function configureApp(app: INestApplication): INestApplication {
   app.use(cookieParser());
-  app.enableCors({ origin: env.WEB_ORIGIN, credentials: true });
+  app.enableCors({ origin: getEnv().WEB_ORIGIN, credentials: true });
   return app;
 }
 

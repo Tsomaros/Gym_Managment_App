@@ -18,6 +18,9 @@ export const AcceptInviteSchema = z.object({
 });
 export type AcceptInvite = z.infer<typeof AcceptInviteSchema>;
 
+/** New account: signed in. Existing account: roles added, sign in with the existing password. */
+export type AcceptInviteResponse = { accessToken: string } | { signInRequired: true };
+
 export const MeResponseSchema = z.object({
   id: z.uuid(),
   email: z.string(),
