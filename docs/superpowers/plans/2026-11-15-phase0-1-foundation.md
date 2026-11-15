@@ -104,16 +104,16 @@ git add spike docs/spikes && git commit -m "spike: verify PWA install and web pu
 - Produces: `withGym<T>(gymId: string, fn: (tx: Tx) => Promise<T>): Promise<T>` in `db/tenant.ts`. Opens a transaction, runs `select set_config('app.gym_id', $1, true)`, then `fn(tx)`.
 - Produces: schema exports `gyms, users, gymRoles, refreshTokens, invitations` and type `Tx`.
 
-- [ ] **Step 1: Write the failing tests** in `rls.spec.ts` (seed gyms A and B with one `gym_roles` row each via `systemDb`):
+- [x] **Step 1: Write the failing tests** in `rls.spec.ts` (seed gyms A and B with one `gym_roles` row each via `systemDb`):
   - `withGym(A, tx => tx.select().from(gymRoles))` returns only A's row.
   - `withGym(A, tx => tx.insert(gymRoles).values({ gymId: B, ... }))` rejects with `/row-level security/`.
   - `db.select().from(gymRoles)` with no gym set returns `[]`. *(Review Focus 4)*
   - `db.insert(gymRoles).values({ gymId: A, ... })` with no gym set rejects.
   - `withGym(A, tx => tx.select().from(gyms))` returns exactly gym A.
-- [ ] **Step 2: Run** `pnpm --filter api test -- rls` → FAIL.
-- [ ] **Step 3: Implement** the schema. Generate the migration with `drizzle-kit generate`. Write `0001_rls.sql`: for `gyms`, `gym_roles`, `invitations`: `ENABLE` + `FORCE ROW LEVEL SECURITY`, one policy `FOR ALL USING (...) WITH CHECK (...)`, and `GRANT SELECT, INSERT, UPDATE, DELETE ... TO gym_app`. Grant `gym_app` full DML on `users` and `refresh_tokens`. Add `pnpm --filter api db:migrate` script running as `gym_owner`.
-- [ ] **Step 4: Run** `pnpm --filter api db:migrate && pnpm --filter api test -- rls` → PASS.
-- [ ] **Step 5: Commit** `feat(db): core schema with per-gym row-level security`.
+- [x] **Step 2: Run** `pnpm --filter api test -- rls` → FAIL.
+- [x] **Step 3: Implement** the schema. Generate the migration with `drizzle-kit generate`. Write `0001_rls.sql`: for `gyms`, `gym_roles`, `invitations`: `ENABLE` + `FORCE ROW LEVEL SECURITY`, one policy `FOR ALL USING (...) WITH CHECK (...)`, and `GRANT SELECT, INSERT, UPDATE, DELETE ... TO gym_app`. Grant `gym_app` full DML on `users` and `refresh_tokens`. Add `pnpm --filter api db:migrate` script running as `gym_owner`.
+- [x] **Step 4: Run** `pnpm --filter api db:migrate && pnpm --filter api test -- rls` → PASS.
+- [x] **Step 5: Commit** `feat(db): core schema with per-gym row-level security`.
 
 ---
 

@@ -1,13 +1,14 @@
 # Progress
 
 ## Last finished
+- 2026-11-15: Task 3 (core schema, migrations, row-level security). Tables gyms, users, gym_roles, refresh_tokens, invitations; RLS forced on gym tables; gym_app limited by column grants and a trigger (cannot make platform admins). 45 API tests pass. Migrations: `pnpm --filter api db:migrate`; tests migrate gym_test themselves.
 - 2026-11-15: Task 2 (monorepo, Docker services, API health check, CI) on branch `phase0-1-foundation`. `pnpm lint`, `pnpm typecheck`, `pnpm -r test` (22 tests) pass on Windows. CI workflow written but **not run yet** (repo has no git remote).
 - 2026-11-15: Task 1 (PWA push spike): install + push confirmed on iPhone (iOS 27, Greece) and Android 10. Lesson for the real app: subscribe through `navigator.serviceWorker.ready`. Result: `docs/spikes/2026-11-pwa-push.md`.
 - 2026-11-15: Design approved, plan for phases 0–1 written, Claude Code agents/hooks/skills adapted from LLM_Movies_Prediction_Model.
 
 ## In progress
-- Next: Task 3 (core schema, migrations, row-level security). Continue in **Claude Code on Windows**: the cloud side can't install npm packages or reach Docker on this account.
-- Notes for Task 3: `gym_app` has no table privileges yet (grant them in `0001_rls.sql`, consult database-expert); RLS tests must connect as `gym_app`, since `gym_owner` has BYPASSRLS.
+- Next: Task 4 (shared validation schemas). Continue in **Claude Code on Windows**.
+- Carry-overs for Tasks 5–7 (from the database review) are in the ledger as `CARRY →` lines: /auth/me across gyms, atomic refresh rotation and invitation accept, uuid validation of :gymId, closing DB pools on shutdown.
 - Note for Task 4: `@gym/shared` exports `dist/` but nothing builds it and `api` doesn't depend on it yet. Fix that when shared is first imported.
 
 ## Local setup (Windows PC)
