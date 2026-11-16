@@ -56,12 +56,8 @@
           "name": "gym_roles_gym_id_gyms_id_fk",
           "tableFrom": "gym_roles",
           "tableTo": "gyms",
-          "columnsFrom": [
-            "gym_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["gym_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -69,12 +65,8 @@
           "name": "gym_roles_user_id_users_id_fk",
           "tableFrom": "gym_roles",
           "tableTo": "users",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -82,11 +74,7 @@
       "compositePrimaryKeys": {
         "gym_roles_gym_id_user_id_role_pk": {
           "name": "gym_roles_gym_id_user_id_role_pk",
-          "columns": [
-            "gym_id",
-            "user_id",
-            "role"
-          ]
+          "columns": ["gym_id", "user_id", "role"]
         }
       },
       "uniqueConstraints": {},
@@ -256,12 +244,8 @@
           "name": "invitations_gym_id_gyms_id_fk",
           "tableFrom": "invitations",
           "tableTo": "gyms",
-          "columnsFrom": [
-            "gym_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["gym_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -269,12 +253,8 @@
           "name": "invitations_invited_by_users_id_fk",
           "tableFrom": "invitations",
           "tableTo": "users",
-          "columnsFrom": [
-            "invited_by"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["invited_by"],
+          "columnsTo": ["id"],
           "onDelete": "set null",
           "onUpdate": "no action"
         }
@@ -284,9 +264,7 @@
         "invitations_token_hash_unique": {
           "name": "invitations_token_hash_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "token_hash"
-          ]
+          "columns": ["token_hash"]
         }
       },
       "policies": {},
@@ -394,12 +372,8 @@
           "name": "refresh_tokens_user_id_users_id_fk",
           "tableFrom": "refresh_tokens",
           "tableTo": "users",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -407,12 +381,8 @@
           "name": "refresh_tokens_replaced_by_refresh_tokens_id_fk",
           "tableFrom": "refresh_tokens",
           "tableTo": "refresh_tokens",
-          "columnsFrom": [
-            "replaced_by"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["replaced_by"],
+          "columnsTo": ["id"],
           "onDelete": "set null",
           "onUpdate": "no action"
         }
@@ -422,9 +392,7 @@
         "refresh_tokens_token_hash_unique": {
           "name": "refresh_tokens_token_hash_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "token_hash"
-          ]
+          "columns": ["token_hash"]
         }
       },
       "policies": {},
@@ -535,9 +503,7 @@
         "users_email_unique": {
           "name": "users_email_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "email"
-          ]
+          "columns": ["email"]
         }
       },
       "policies": {},

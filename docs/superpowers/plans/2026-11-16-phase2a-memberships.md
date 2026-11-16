@@ -110,7 +110,7 @@
   - `POST /auth/resend-verification` (signed in, `JwtGuard`) → `204`; invalidates earlier tokens.
 - Change history: "signup code issued" (by reception) and "member signed up" are written in Task 4 when the history exists. Leave a `// history: Task 4` marker at both points.
 
-- [ ] **Step 1: Write the failing tests:**
+- [x] **Step 1: Write the failing tests:**
   - `signup-code.spec.ts`: 1,000 generated codes all match `^[ABCDEFGHJKMNPQRSTUVWXYZ23456789]{4}-[same]{4}$`; `normaliseSignupCode(' k7p2-qm9x ')` → `'K7P2QM9X'`; `'K7P2QM90'` → `null` (`0` not in alphabet).
   - `signup.e2e.spec.ts`:
     - Reception creates a code. Sign-up with it in lower case without the dash → `201` + access token. `/auth/me` shows the gym with `roles: ['member']`, `emailVerified: false`. A verification email is captured.
@@ -122,10 +122,10 @@
     - `acceptPrivacy: false` → `400`. Date of birth tomorrow → `400`.
     - Verify-email with the captured token → `204`, then `emailVerified: true`; same token again → `410`.
     - 11th sign-up attempt from one IP within 60 s → `429`.
-- [ ] **Step 2: Run** `pnpm --filter api test signup` → FAIL.
-- [ ] **Step 3: Implement.** Consult database-expert on the code-claiming `UPDATE` and the indexes.
-- [ ] **Step 4: Run** `pnpm --filter api test` → PASS.
-- [ ] **Step 5: Commit** `feat: reception sign-up codes, member self sign-up, email confirmation`.
+- [x] **Step 2: Run** `pnpm --filter api test signup` → FAIL.
+- [x] **Step 3: Implement.** Consult database-expert on the code-claiming `UPDATE` and the indexes.
+- [x] **Step 4: Run** `pnpm --filter api test` → PASS.
+- [x] **Step 5: Commit** `feat: reception sign-up codes, member self sign-up, email confirmation`.
 
 ---
 

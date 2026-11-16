@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { eq, inArray, sql } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { closeDb, db, systemDb } from '../../src/db/client';
-import { gymRoles, gyms, invitations, users } from '../../src/db/schema';
+import { gymRoles, gyms, invitations, signupCodes, users } from '../../src/db/schema';
 import { withGym } from '../../src/db/tenant';
 
 /** Drizzle wraps driver errors; the Postgres message lives on `cause`. */
@@ -17,6 +17,11 @@ async function rejectionMessage(promise: Promise<unknown>): Promise<string> {
 }
 
 const RLS_VIOLATION = /violates row-level security policy/;
+
+// Once, after every describe in this file: the pools are shared.
+afterAll(async () => {
+  await closeDb();
+});
 
 describe('row-level security (gym isolation)', () => {
   const run = randomUUID().slice(0, 8);
@@ -68,7 +73,6 @@ describe('row-level security (gym isolation)', () => {
     }
     const userIds = [userA, userB].filter(Boolean);
     if (userIds.length) await systemDb.delete(users).where(inArray(users.id, userIds));
-    await closeDb();
   });
 
   it('runs the API as gym_app, which cannot bypass row-level security', async () => {
@@ -203,5 +207,55 @@ describe('row-level security (gym isolation)', () => {
     it('returns no invitations when no gym is set', async () => {
       expect(await db.select().from(invitations)).toEqual([]);
     });
+  });
+});
+
+describe('row-level security: signup_codes', () => {
+  const run = randomUUID().slice(0, 8);
+  let gymA: string;
+  let gymB: string;
+
+  beforeAll(async () => {
+    const g = await systemDb
+      .insert(gyms)
+      .values([{ name: `Codes A ${run}` }, { name: `Codes B ${run}` }])
+      .returning({ id: gyms.id });
+    gymA = g[0]!.id;
+    gymB = g[1]!.id;
+    const expiresAt = new Date(Date.now() + 3600_000);
+    await systemDb.insert(signupCodes).values([
+      { gymId: gymA, codeHash: `a-${randomUUID()}`, expiresAt },
+      { gymId: gymB, codeHash: `b-${randomUUID()}`, expiresAt },
+    ]);
+  });
+
+  afterAll(async () => {
+    const gymIds = [gymA, gymB].filter(Boolean);
+    if (gymIds.length) {
+      await systemDb.delete(signupCodes).where(inArray(signupCodes.gymId, gymIds));
+      await systemDb.delete(gyms).where(inArray(gyms.id, gymIds));
+    }
+  });
+
+  it('withGym(A) sees only gym A codes', async () => {
+    const rows = await withGym(gymA, (tx) => tx.select().from(signupCodes));
+    expect(rows.map((r) => r.gymId)).toEqual([gymA]);
+  });
+
+  it('withGym(A) cannot create a code for gym B', async () => {
+    const msg = await rejectionMessage(
+      withGym(gymA, (tx) =>
+        tx.insert(signupCodes).values({
+          gymId: gymB,
+          codeHash: `x-${randomUUID()}`,
+          expiresAt: new Date(Date.now() + 3600_000),
+        }),
+      ),
+    );
+    expect(msg).toMatch(RLS_VIOLATION);
+  });
+
+  it('sees no codes when no gym is set', async () => {
+    expect(await db.select().from(signupCodes)).toEqual([]);
   });
 });

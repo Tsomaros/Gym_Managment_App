@@ -55,26 +55,18 @@
         "gym_roles_gym_id_gyms_id_fk": {
           "name": "gym_roles_gym_id_gyms_id_fk",
           "tableFrom": "gym_roles",
-          "columnsFrom": [
-            "gym_id"
-          ],
+          "columnsFrom": ["gym_id"],
           "tableTo": "gyms",
-          "columnsTo": [
-            "id"
-          ],
+          "columnsTo": ["id"],
           "onUpdate": "no action",
           "onDelete": "no action"
         },
         "gym_roles_user_id_users_id_fk": {
           "name": "gym_roles_user_id_users_id_fk",
           "tableFrom": "gym_roles",
-          "columnsFrom": [
-            "user_id"
-          ],
+          "columnsFrom": ["user_id"],
           "tableTo": "users",
-          "columnsTo": [
-            "id"
-          ],
+          "columnsTo": ["id"],
           "onUpdate": "no action",
           "onDelete": "no action"
         }
@@ -82,11 +74,7 @@
       "compositePrimaryKeys": {
         "gym_roles_gym_id_user_id_role_pk": {
           "name": "gym_roles_gym_id_user_id_role_pk",
-          "columns": [
-            "gym_id",
-            "user_id",
-            "role"
-          ]
+          "columns": ["gym_id", "user_id", "role"]
         }
       },
       "uniqueConstraints": {},
@@ -249,26 +237,18 @@
         "invitations_gym_id_gyms_id_fk": {
           "name": "invitations_gym_id_gyms_id_fk",
           "tableFrom": "invitations",
-          "columnsFrom": [
-            "gym_id"
-          ],
+          "columnsFrom": ["gym_id"],
           "tableTo": "gyms",
-          "columnsTo": [
-            "id"
-          ],
+          "columnsTo": ["id"],
           "onUpdate": "no action",
           "onDelete": "no action"
         },
         "invitations_invited_by_users_id_fk": {
           "name": "invitations_invited_by_users_id_fk",
           "tableFrom": "invitations",
-          "columnsFrom": [
-            "invited_by"
-          ],
+          "columnsFrom": ["invited_by"],
           "tableTo": "users",
-          "columnsTo": [
-            "id"
-          ],
+          "columnsTo": ["id"],
           "onUpdate": "no action",
           "onDelete": "set null"
         }
@@ -277,9 +257,7 @@
       "uniqueConstraints": {
         "invitations_token_hash_unique": {
           "name": "invitations_token_hash_unique",
-          "columns": [
-            "token_hash"
-          ],
+          "columns": ["token_hash"],
           "nullsNotDistinct": false
         }
       },
@@ -387,26 +365,18 @@
         "refresh_tokens_user_id_users_id_fk": {
           "name": "refresh_tokens_user_id_users_id_fk",
           "tableFrom": "refresh_tokens",
-          "columnsFrom": [
-            "user_id"
-          ],
+          "columnsFrom": ["user_id"],
           "tableTo": "users",
-          "columnsTo": [
-            "id"
-          ],
+          "columnsTo": ["id"],
           "onUpdate": "no action",
           "onDelete": "cascade"
         },
         "refresh_tokens_replaced_by_refresh_tokens_id_fk": {
           "name": "refresh_tokens_replaced_by_refresh_tokens_id_fk",
           "tableFrom": "refresh_tokens",
-          "columnsFrom": [
-            "replaced_by"
-          ],
+          "columnsFrom": ["replaced_by"],
           "tableTo": "refresh_tokens",
-          "columnsTo": [
-            "id"
-          ],
+          "columnsTo": ["id"],
           "onUpdate": "no action",
           "onDelete": "set null"
         }
@@ -415,9 +385,7 @@
       "uniqueConstraints": {
         "refresh_tokens_token_hash_unique": {
           "name": "refresh_tokens_token_hash_unique",
-          "columns": [
-            "token_hash"
-          ],
+          "columns": ["token_hash"],
           "nullsNotDistinct": false
         }
       },
@@ -482,9 +450,7 @@
       "uniqueConstraints": {
         "users_email_unique": {
           "name": "users_email_unique",
-          "columns": [
-            "email"
-          ],
+          "columns": ["email"],
           "nullsNotDistinct": false
         }
       },

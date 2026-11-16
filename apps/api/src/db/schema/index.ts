@@ -3,3 +3,5 @@ export * from './gyms';
 export * from './invitations';
 export * from './refresh-tokens';
 export * from './users';
+export * from './email-verifications';
+export * from './signup-codes';

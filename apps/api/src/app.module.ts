@@ -6,6 +6,7 @@ import { closeDb } from './db/client';
 import { GymsModule } from './gyms/gyms.module';
 import { InvitationsModule } from './invitations/invitations.module';
 import { MailModule } from './mail/mail.module';
+import { SignupModule } from './signup/signup.module';
 import { HealthController } from './health/health.controller';
 
 @Module({
@@ -15,6 +16,7 @@ import { HealthController } from './health/health.controller';
     AuthModule,
     InvitationsModule,
     GymsModule,
+    SignupModule,
   ],
   controllers: [HealthController],
 })
