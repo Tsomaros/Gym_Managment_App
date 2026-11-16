@@ -8,6 +8,7 @@ import { closeDb } from './db/client';
 import { GymsModule } from './gyms/gyms.module';
 import { InvitationsModule } from './invitations/invitations.module';
 import { MailModule } from './mail/mail.module';
+import { MembersModule } from './members/members.module';
 import { MembershipsModule } from './memberships/memberships.module';
 import { SignupModule } from './signup/signup.module';
 import { HealthController } from './health/health.controller';
@@ -23,6 +24,7 @@ import { HealthController } from './health/health.controller';
     GymsModule,
     SignupModule,
     MembershipsModule,
+    MembersModule,
   ],
   controllers: [HealthController],
 })

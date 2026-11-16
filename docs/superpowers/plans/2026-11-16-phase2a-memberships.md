@@ -314,15 +314,15 @@
   - `GET /gyms/:gymId/members/:memberId` (`@GymRoles('reception')`) → `MemberDetail`. Payments are included only for owner callers (reception sees `payments: []`). Not a member of this gym → `404`.
   - `GET /gyms/:gymId/me/memberships` (`@GymRoles('member')`) → `MyMemberships` for the caller only.
 
-- [ ] **Step 1: Write the failing tests:**
+- [x] **Step 1: Write the failing tests:**
   - A fresh sign-up appears with `status: 'new'`. After a sale → `active`. With 5 days left → `expiring`. After the end → `expired`. While frozen → `frozen`.
   - `q=γιωργος` finds "Γιώργος"; `q=6912` finds the phone `+306912345678`; a member of another gym is never listed.
   - Reception detail has `payments: []`; owner detail includes them.
   - A member calling `/me/memberships` gets only their own; a member calling `/members` → `403`.
-- [ ] **Step 2: Run** `pnpm --filter api test members` → FAIL.
-- [ ] **Step 3: Implement.**
-- [ ] **Step 4: Run** `pnpm --filter api test` → PASS.
-- [ ] **Step 5: Commit** `feat: members list and detail, member's own memberships`.
+- [x] **Step 2: Run** `pnpm --filter api test members` → FAIL.
+- [x] **Step 3: Implement.**
+- [x] **Step 4: Run** `pnpm --filter api test` → PASS.
+- [x] **Step 5: Commit** `feat: members list and detail, member's own memberships`.
 
 ---
 

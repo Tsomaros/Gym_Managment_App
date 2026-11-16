@@ -243,12 +243,20 @@ describe('freezes (gym in Europe/Athens)', () => {
     const asMember = signAccessToken({ sub: memberId, adm: false });
     const url = `/gyms/${gymId}/memberships/${membership.id}/freezes`;
     const body = { startsOn: '2027-06-04', endsOn: '2027-06-05' };
-    expect((await request(server()).post(url).auth(asMember, { type: 'bearer' }).send(body)).status).toBe(403);
+    expect(
+      (await request(server()).post(url).auth(asMember, { type: 'bearer' }).send(body)).status,
+    ).toBe(403);
     expect((await request(server()).post(url).send(body)).status).toBe(401);
     // The membership has expired (409), not refused by the guard: the owner satisfies reception.
-    expect((await request(server()).post(url).auth(ownerToken, { type: 'bearer' }).send(body)).status).toBe(409);
     expect(
-      (await request(server()).post(`/gyms/${gymId}/freezes/${freeze.id}/end`).auth(asMember, { type: 'bearer' })).status,
+      (await request(server()).post(url).auth(ownerToken, { type: 'bearer' }).send(body)).status,
+    ).toBe(409);
+    expect(
+      (
+        await request(server())
+          .post(`/gyms/${gymId}/freezes/${freeze.id}/end`)
+          .auth(asMember, { type: 'bearer' })
+      ).status,
     ).toBe(403);
     expect((await createFreeze('not-a-uuid', '2027-07-01', '2027-07-02')).status).toBe(400);
     expect((await endFreeze('not-a-uuid')).status).toBe(400);
