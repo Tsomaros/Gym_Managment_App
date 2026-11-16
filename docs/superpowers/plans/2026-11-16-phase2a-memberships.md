@@ -207,17 +207,17 @@
 - `membershipStatus(m: { kind: MembershipKind; startsOn: string; endsOn: string | null; visitsTotal: number | null; visitsUsed: number; voidedAt: Date | null }, freezes: { startsOn: string; endsOn: string }[], today: string): 'voided' | 'upcoming' | 'frozen' | 'active' | 'used_up' | 'expired'`, checked in that order. `endsOn` here is the effective end.
 - `remaining(m, freezes, today): { days: number | null; visits: number | null }`.
 
-- [ ] **Step 1: Write the failing tests** (values worked out by hand):
+- [x] **Step 1: Write the failing tests** (values worked out by hand):
   - `periodEnd('2027-01-15', 1)` = `'2027-02-14'`; `periodEnd('2027-01-31', 1)` = `'2027-02-28'`; `periodEnd('2028-01-31', 1)` = `'2028-02-29'`; `periodEnd('2027-03-31', 1)` = `'2027-04-30'`; `periodEnd('2027-11-01', 3)` = `'2028-01-31'`; `periodEnd('2027-01-01', 12)` = `'2027-12-31'`.
   - `todayIn('Europe/Athens', new Date('2027-03-28T21:30:00Z'))` = `'2027-03-29'`; `todayIn('Europe/Athens', new Date('2027-10-30T21:30:00Z'))` = `'2027-10-31'` (DST ends that night, UTC+2).
   - Status with `endsOn '2027-03-28'` and today `'2027-03-29'` → `'expired'`; today `'2027-03-28'` → `'active'`. *(Review Focus 1)*
   - `effectiveEnd('2027-05-31', [{ '2027-05-10'..'2027-05-16' }])` = `'2027-06-07'` (7 days).
   - Today inside a freeze → `'frozen'`; visits 10/10 used → `'used_up'` even before `endsOn`; voided wins over everything; start tomorrow → `'upcoming'`.
   - `remaining` on `endsOn '2027-05-31'`, today `'2027-05-29'` → `{ days: 3, visits: null }`.
-- [ ] **Step 2: Run** `pnpm --filter api test memberships/dates memberships/status` → FAIL.
-- [ ] **Step 3: Implement** with `Intl.DateTimeFormat` (`en-CA` gives `YYYY-MM-DD`) and UTC date arithmetic on ISO date strings. No date library.
-- [ ] **Step 4: Run** → PASS.
-- [ ] **Step 5: Commit** `feat: membership period, freeze and status rules`.
+- [x] **Step 2: Run** `pnpm --filter api test memberships/dates memberships/status` → FAIL.
+- [x] **Step 3: Implement** with `Intl.DateTimeFormat` (`en-CA` gives `YYYY-MM-DD`) and UTC date arithmetic on ISO date strings. No date library.
+- [x] **Step 4: Run** → PASS.
+- [x] **Step 5: Commit** `feat: membership period, freeze and status rules`.
 
 ---
 
