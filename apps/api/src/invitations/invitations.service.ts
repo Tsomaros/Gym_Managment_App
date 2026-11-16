@@ -8,6 +8,7 @@ import {
 import type { AcceptInvite, GymRole, Invite, InvitePreview, Locale } from '@gym/shared';
 import { and, eq, gt, isNull, sql } from 'drizzle-orm';
 import type { GymContext } from '../access/gym-context';
+import { AuditService } from '../audit/audit.service';
 import { hashToken, randomToken } from '../auth/opaque-token';
 import { hashPassword } from '../auth/password';
 import { getEnv } from '../config/env';
@@ -42,7 +43,10 @@ const RECEPTION_MAY_INVITE: readonly GymRole[] = ['member'];
 export class InvitationsService {
   private readonly logger = new Logger(InvitationsService.name);
 
-  constructor(private readonly mail: MailService) {}
+  constructor(
+    private readonly mail: MailService,
+    private readonly audit: AuditService,
+  ) {}
 
   /**
    * Stores an invitation inside `tx` (withGym, or systemDb when the gym is being created).
@@ -77,6 +81,15 @@ export class InvitationsService {
       })
       .returning({ id: invitations.id });
     if (!row) throw new ConflictException('A staff invitation for this email is pending');
+    await this.audit.record(tx, {
+      gymId: inv.gymId,
+      actorId: inv.invitedBy,
+      action: 'invitation.sent',
+      entity: 'invitation',
+      entityId: row.id,
+      // No email: history can't be erased, and the invitation row (entityId) holds it.
+      data: { roles: inv.roles },
+    });
     return { id: row.id, rawToken };
   }
 
@@ -188,6 +201,7 @@ export class InvitationsService {
           ),
         )
         .returning({
+          id: invitations.id,
           gymId: invitations.gymId,
           email: invitations.email,
           firstName: invitations.firstName,
@@ -221,6 +235,14 @@ export class InvitationsService {
         .insert(gymRoles)
         .values(inv.roles.map((role) => ({ gymId: inv.gymId, userId: user!.id, role })))
         .onConflictDoNothing();
+      await this.audit.record(tx, {
+        gymId: inv.gymId,
+        actorId: user!.id,
+        action: 'invitation.accepted',
+        entity: 'invitation',
+        entityId: inv.id,
+        data: { roles: inv.roles, newAccount: created },
+      });
       return { userId: user!.id, isPlatformAdmin: user!.isPlatformAdmin, created };
     });
 

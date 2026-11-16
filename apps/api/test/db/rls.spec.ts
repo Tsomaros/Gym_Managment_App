@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { eq, inArray, sql } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { closeDb, db, systemDb } from '../../src/db/client';
-import { gymRoles, gyms, invitations, signupCodes, users } from '../../src/db/schema';
+import { auditLog, gymRoles, gyms, invitations, signupCodes, users } from '../../src/db/schema';
 import { withGym } from '../../src/db/tenant';
 
 /** Drizzle wraps driver errors; the Postgres message lives on `cause`. */
@@ -257,5 +257,69 @@ describe('row-level security: signup_codes', () => {
 
   it('sees no codes when no gym is set', async () => {
     expect(await db.select().from(signupCodes)).toEqual([]);
+  });
+});
+
+describe('row-level security and privileges: audit_log', () => {
+  const run = randomUUID().slice(0, 8);
+  let gymA: string;
+  let gymB: string;
+
+  beforeAll(async () => {
+    const g = await systemDb
+      .insert(gyms)
+      .values([{ name: `Audit A ${run}` }, { name: `Audit B ${run}` }])
+      .returning({ id: gyms.id });
+    gymA = g[0]!.id;
+    gymB = g[1]!.id;
+    await systemDb.insert(auditLog).values([
+      { gymId: gymA, action: 'signup_code.issued', entity: 'signup_code' },
+      { gymId: gymB, action: 'signup_code.issued', entity: 'signup_code' },
+    ]);
+  });
+
+  afterAll(async () => {
+    const gymIds = [gymA, gymB].filter(Boolean);
+    if (gymIds.length) {
+      await systemDb.delete(auditLog).where(inArray(auditLog.gymId, gymIds));
+      await systemDb.delete(gyms).where(inArray(gyms.id, gymIds));
+    }
+  });
+
+  it('withGym(A) sees only gym A entries', async () => {
+    const rows = await withGym(gymA, (tx) => tx.select().from(auditLog));
+    expect(rows.map((r) => r.gymId)).toEqual([gymA]);
+    const rowsB = await withGym(gymB, (tx) => tx.select().from(auditLog));
+    expect(rowsB.length).toBeGreaterThanOrEqual(1);
+    expect(rowsB.every((r) => r.gymId === gymB)).toBe(true);
+  });
+
+  it('withGym(A) can append to its own history but not to gym B', async () => {
+    await withGym(gymA, (tx) =>
+      tx.insert(auditLog).values({ gymId: gymA, action: 'freeze.created', entity: 'freeze' }),
+    );
+    const msg = await rejectionMessage(
+      withGym(gymA, (tx) =>
+        tx.insert(auditLog).values({ gymId: gymB, action: 'freeze.created', entity: 'freeze' }),
+      ),
+    );
+    expect(msg).toMatch(RLS_VIOLATION);
+  });
+
+  it('entries cannot be edited or deleted by gym_app, even in its own gym', async () => {
+    const upd = await rejectionMessage(
+      withGym(gymA, (tx) =>
+        tx.update(auditLog).set({ action: 'x' }).where(eq(auditLog.gymId, gymA)),
+      ),
+    );
+    expect(upd).toMatch(/permission denied/);
+    const del = await rejectionMessage(
+      withGym(gymA, (tx) => tx.delete(auditLog).where(eq(auditLog.gymId, gymA))),
+    );
+    expect(del).toMatch(/permission denied/);
+  });
+
+  it('sees no entries when no gym is set', async () => {
+    expect(await db.select().from(auditLog)).toEqual([]);
   });
 });

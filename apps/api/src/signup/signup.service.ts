@@ -1,6 +1,7 @@
 import { ConflictException, GoneException, Injectable, Logger } from '@nestjs/common';
 import type { Locale, Signup, SignupCodeResponse } from '@gym/shared';
 import { and, eq, gt, isNull, sql } from 'drizzle-orm';
+import { AuditService } from '../audit/audit.service';
 import { hashToken, randomToken } from '../auth/opaque-token';
 import { hashPassword } from '../auth/password';
 import { getEnv } from '../config/env';
@@ -27,7 +28,10 @@ export interface SignupResult {
 export class SignupService {
   private readonly logger = new Logger(SignupService.name);
 
-  constructor(private readonly mail: MailService) {}
+  constructor(
+    private readonly mail: MailService,
+    private readonly audit: AuditService,
+  ) {}
 
   /** Reception issues a one-time code for its gym (24 hours, single use, stored hashed). */
   async issueCode(gymId: string, createdBy: string): Promise<SignupCodeResponse> {
@@ -35,14 +39,25 @@ export class SignupService {
     // 31^8 codes: a clash with a stored hash is very unlikely, but retry rather than fail.
     for (let attempt = 0; attempt < 3; attempt++) {
       const { display, hash } = generateSignupCode();
-      const [row] = await withGym(gymId, (tx) =>
-        tx
+      const row = await withGym(gymId, async (tx) => {
+        const [inserted] = await tx
           .insert(signupCodes)
           .values({ gymId, codeHash: hash, expiresAt, createdBy })
           .onConflictDoNothing({ target: signupCodes.codeHash })
-          .returning({ id: signupCodes.id }),
-      );
-      // history: Task 4 (signup_code.issued)
+          .returning({ id: signupCodes.id });
+        if (inserted) {
+          // The code itself is a credential while unused, so it is not in the history.
+          await this.audit.record(tx, {
+            gymId,
+            actorId: createdBy,
+            action: 'signup_code.issued',
+            entity: 'signup_code',
+            entityId: inserted.id,
+            data: { expiresAt: expiresAt.toISOString() },
+          });
+        }
+        return inserted;
+      });
       if (row) return { code: display, expiresAt: expiresAt.toISOString() };
     }
     throw new Error('Could not generate a unique sign-up code');
@@ -109,7 +124,14 @@ export class SignupService {
       if (!role) throw new ConflictException({ message: 'Already a member of this gym' });
 
       await tx.update(signupCodes).set({ usedBy: user!.id }).where(eq(signupCodes.id, claimed.id));
-      // history: Task 4 (member.signed_up)
+      await this.audit.record(tx, {
+        gymId: claimed.gymId,
+        actorId: user!.id,
+        action: 'member.signed_up',
+        entity: 'member',
+        entityId: user!.id,
+        data: { signupCodeId: claimed.id, existingAccount: !created },
+      });
 
       const verifyToken = created ? await this.storeVerification(tx, user!.id) : undefined;
       return { user: user!, created, verifyToken };

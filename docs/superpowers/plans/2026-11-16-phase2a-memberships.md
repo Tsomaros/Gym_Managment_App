@@ -144,16 +144,16 @@
 - `AuditService.record(tx: Tx, e: { gymId: string; actorId: string | null; action: AuditAction; entity: string; entityId?: string; data?: Record<string, unknown> }): Promise<void>`. Always takes the caller's transaction, never opens its own. For `systemDb` paths (sign-up), pass the `systemDb` transaction.
 - `GET /gyms/:gymId/audit?before=<id>&limit=50&entity=<entity>&entityId=<uuid>` (`@GymRoles('owner')`) → `{ entries: AuditEntry[]; nextBefore: string | null }`, newest first.
 
-- [ ] **Step 1: Write the failing tests:**
+- [x] **Step 1: Write the failing tests:**
   - As `gym_app` inside `withGym(A)`: `UPDATE audit_log …` and `DELETE FROM audit_log …` reject with `/permission denied/`.
   - Two-gym isolation for `audit_log`.
   - After a sign-up with a code: gym history has `signup_code.issued` (actor = receptionist) then `member.signed_up` (actor = new member), and neither entry's `data` contains the password or its hash.
   - When the transaction that records an entry rolls back (sign-up with an already-member email, see Task 3), no `member.signed_up` row exists.
   - `GET /audit` as reception → `403`; as owner with `limit=1` → one entry and a `nextBefore` that returns the next one.
-- [ ] **Step 2: Run** → FAIL.
-- [ ] **Step 3: Implement**, replacing the `// history: Task 4` markers.
-- [ ] **Step 4: Run** `pnpm --filter api test` → PASS.
-- [ ] **Step 5: Commit** `feat: append-only change history`.
+- [x] **Step 2: Run** → FAIL.
+- [x] **Step 3: Implement**, replacing the `// history: Task 4` markers.
+- [x] **Step 4: Run** `pnpm --filter api test` → PASS.
+- [x] **Step 5: Commit** `feat: append-only change history`.
 
 ---
 

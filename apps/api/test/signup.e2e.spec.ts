@@ -11,6 +11,7 @@ import { hashPassword } from '../src/auth/password';
 import { signAccessToken } from '../src/auth/tokens';
 import { systemDb } from '../src/db/client';
 import {
+  auditLog,
   emailVerifications,
   gymRoles,
   gyms,
@@ -138,6 +139,7 @@ describe('sign-up codes and member self sign-up', () => {
     if (gymIds.length) {
       await systemDb.delete(signupCodes).where(inArray(signupCodes.gymId, gymIds));
       await systemDb.delete(gymRoles).where(inArray(gymRoles.gymId, gymIds));
+      await systemDb.delete(auditLog).where(inArray(auditLog.gymId, gymIds));
       await systemDb.delete(gyms).where(inArray(gyms.id, gymIds));
     }
     await systemDb.delete(emailVerifications).where(inArray(emailVerifications.userId, ids));

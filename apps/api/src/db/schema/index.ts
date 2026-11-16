@@ -5,3 +5,4 @@ export * from './refresh-tokens';
 export * from './users';
 export * from './email-verifications';
 export * from './signup-codes';
+export * from './audit-log';
