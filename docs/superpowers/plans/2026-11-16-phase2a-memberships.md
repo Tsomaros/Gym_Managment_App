@@ -366,17 +366,17 @@
 - `PaymentsPage`: date range (default today), list with totals for cash and card, and a void action that requires a reason.
 - `HistoryPage`: newest first, "load more" using `nextBefore`, readable sentences per action in el/en (e.g. "Η Μαρία πούλησε «Μηνιαία» στον Γιώργο — 40,00 €, μετρητά").
 
-- [ ] **Step 1: Write the failing tests:**
+- [x] **Step 1: Write the failing tests:**
   - `formatMoney(4000, 'el')` = `'40,00 €'`; `formatMoney(4000, 'en')` = `'€40.00'`; `formatDate('2027-02-28', 'el')` = `'28/2/2027'`.
   - `StatusBadge` renders visible text for each status.
   - Sell dialog: the amount prefilled with the type price; changing to card sends `method: 'card'`.
   - `MyMembershipCard`: 3 days left shows "3 ημέρες"; a frozen membership shows the frozen state and the new end date.
   - Payments page: totals per method; void needs a reason before the button enables.
   - E2E: owner creates a type → reception sells it to a signed-up member → the member sees days remaining → reception freezes it → the member sees the frozen state → owner voids the payment → the member sees no active membership → the history shows sale, freeze, void.
-- [ ] **Step 2: Run** `pnpm --filter web test && pnpm e2e` → FAIL.
+- [x] **Step 2: Run** `pnpm --filter web test && pnpm e2e` → FAIL.
 - [ ] **Step 3: Implement.** Run ui-ux-reviewer on each new component (reception screens readable at a glance; member card at 375 px).
-- [ ] **Step 4: Run** `pnpm lint && pnpm typecheck && pnpm -r test && pnpm e2e` → PASS.
-- [ ] **Step 5: Commit** `feat(web): members, selling, freezes, my membership, payments, history`.
+- [x] **Step 4: Run** `pnpm lint && pnpm typecheck && pnpm -r test && pnpm e2e` → PASS.
+- [x] **Step 5: Commit** `feat(web): members, selling, freezes, my membership, payments, history`.
 
 ---
 

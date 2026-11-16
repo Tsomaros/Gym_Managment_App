@@ -1,6 +1,6 @@
 import { type ReactNode, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Link, NavLink, Route, Routes, useNavigate } from 'react-router';
+import { Link, NavLink, Route, Routes, useNavigate, useParams } from 'react-router';
 import { useAuth } from '../auth/AuthProvider';
 import { LanguageSwitch } from '../components/LanguageSwitch';
 
@@ -60,6 +60,9 @@ export function ShellLayout({
 }) {
   const { t } = useTranslation();
   const [first, ...rest] = nav;
+  // Absolute links: relative ones would nest under the current section (/g/x/a/b/...).
+  const { gymId } = useParams();
+  const base = gymId ? `/g/${gymId}` : '/platform';
 
   useEffect(() => {
     document.title = `${gymName ?? title} · ${t('app.name')}`;
@@ -92,7 +95,7 @@ export function ShellLayout({
             {nav.map((key, i) => (
               <li key={key}>
                 <NavLink
-                  to={i === 0 ? '.' : key}
+                  to={i === 0 ? base : `${base}/${key}`}
                   end={i === 0}
                   className={({ isActive }) =>
                     `inline-flex min-h-11 items-center border-b-2 px-3 text-sm font-medium whitespace-nowrap focus-visible:outline-2 focus-visible:outline-slate-900 ${
@@ -116,7 +119,7 @@ export function ShellLayout({
           {rest.map((key) => (
             <Route
               key={key}
-              path={key}
+              path={`${key}/*`}
               element={pages?.[key] ?? <Placeholder title={t(`nav.${key}`)} />}
             />
           ))}

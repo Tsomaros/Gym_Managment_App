@@ -1,7 +1,7 @@
 import type { MeResponse } from '@gym/shared';
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { AuthContext, type AuthState } from './auth/AuthProvider';
 import './i18n';
 import { AppRoutes } from './router';
@@ -40,6 +40,28 @@ function renderAt(path: string, me: MeResponse | null) {
 }
 
 describe('routing', () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it('keeps section links absolute when already inside a section', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => new Response('[]', { status: 200 })),
+    );
+    renderAt(
+      `/g/${GYM_A}/membershipTypes`,
+      meWith([{ gymId: GYM_A, gymName: 'Gym A', roles: ['owner'] }]),
+    );
+    const nav = await screen.findByRole('navigation');
+    expect(within(nav).getByRole('link', { name: 'Πληρωμές' })).toHaveAttribute(
+      'href',
+      `/g/${GYM_A}/payments`,
+    );
+    expect(within(nav).getByRole('link', { name: 'Επισκόπηση' })).toHaveAttribute(
+      'href',
+      `/g/${GYM_A}`,
+    );
+  });
+
   it('sends a trainer who is also a member in one gym to the trainer area', async () => {
     renderAt('/', meWith([{ gymId: GYM_A, gymName: 'Gym A', roles: ['trainer', 'member'] }]));
     expect(await screen.findByTestId('shell-trainer')).toBeInTheDocument();

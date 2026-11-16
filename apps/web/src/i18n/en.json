@@ -50,7 +50,9 @@
     "gyms": "Gyms",
     "switchGym": "Switch gym",
     "label": "Sections",
-    "membershipTypes": "Membership types"
+    "membershipTypes": "Membership types",
+    "payments": "Payments",
+    "history": "History"
   },
   "shell": {
     "owner": "Owner area",
@@ -181,5 +183,114 @@
     "resend": "Send again",
     "sent": "A new email was sent.",
     "sending": "Sending…"
+  },
+  "status": {
+    "new": "New member",
+    "active": "Active",
+    "frozen": "Frozen",
+    "expiring": "Expiring soon",
+    "expired": "Expired",
+    "upcoming": "Starts later",
+    "used_up": "Used up",
+    "voided": "Voided"
+  },
+  "members": {
+    "search": "Search",
+    "searchPlaceholder": "Name, email or mobile",
+    "status": "Status",
+    "allStatuses": "All",
+    "empty": "No members found.",
+    "unverified": "Email not confirmed",
+    "until": "until {{date}}",
+    "notFound": "No such member in this gym.",
+    "memberships": "Memberships",
+    "noMemberships": "No membership bought yet.",
+    "visitsUsed": "{{used}} of {{total}} visits"
+  },
+  "sell": {
+    "open": "New membership",
+    "title": "New membership for {{member}}",
+    "type": "Membership type",
+    "noTypes": "There are no membership types. The owner needs to add some.",
+    "amount": "Amount (€)",
+    "amountHint": "The type's price; change it for a discount.",
+    "method": "Payment method",
+    "cash": "Cash",
+    "card": "Card",
+    "startsOn": "Start (optional)",
+    "startsOnHint": "Empty: today, or after the current one ends.",
+    "submit": "Sell",
+    "chooseType": "Choose a membership type.",
+    "aboveprice": "The amount is above the price.",
+    "archived": "This type is no longer sold.",
+    "badRequest": "Check the details (the start can't be in the past).",
+    "doneTitle": "Sale recorded",
+    "done": "“{{name}}” for {{member}}.",
+    "period": "From {{from}} to {{to}}",
+    "from": "From {{from}}"
+  },
+  "freeze": {
+    "open": "Freeze",
+    "openNamed": "Freeze “{{name}}”",
+    "title": "Freeze “{{name}}”",
+    "left_one": "Freeze days left: {{count}}",
+    "left_other": "Freeze days left: {{count}}",
+    "from": "From",
+    "to": "To",
+    "submit": "Freeze",
+    "endBeforeStart": "The end is before the start.",
+    "notEnough_one": "Only {{count}} freeze day left.",
+    "notEnough_other": "Only {{count}} freeze days left.",
+    "conflict": "Can't freeze: it overlaps another freeze or the membership doesn't allow it.",
+    "badDates": "Dates must start today or later and within the membership."
+  },
+  "my": {
+    "days_one": "{{count}} day",
+    "days_other": "{{count}} days",
+    "visits_one": "{{count}} visit",
+    "visits_other": "{{count}} visits",
+    "left": "left",
+    "ends": "Ends on {{date}}",
+    "newEnd": "New end: {{date}}",
+    "next": "Next: {{name}} from {{from}}",
+    "none": "You have no active membership.",
+    "askReception": "Talk to reception to renew."
+  },
+  "payments": {
+    "from": "From",
+    "to": "To",
+    "totals": "Totals",
+    "total": "Total",
+    "empty": "No payments in this period.",
+    "void": "Void payment",
+    "voidNamed": "Void payment: {{member}}, {{amount}}",
+    "voidTitle": "Void payment",
+    "voidExplain": "The {{amount}} payment by {{member}} and the membership “{{name}}” will be voided. This can't be undone.",
+    "reason": "Reason",
+    "reasonHint": "At least 3 characters. Kept in the history.",
+    "voided": "Voided by {{by}} — “{{reason}}”",
+    "voidedNotice": "The payment was voided."
+  },
+  "history": {
+    "someone": "Someone",
+    "empty": "Nothing recorded yet.",
+    "more": "Load more",
+    "actions": {
+      "signup_code.issued": "{{actor}} issued a member sign-up code",
+      "member.signed_up": "{{actor}} signed up as a member",
+      "invitation.sent": "{{actor}} sent an invitation",
+      "invitation.accepted": "{{actor}} accepted an invitation",
+      "membership_type.created": "{{actor}} created the type “{{name}}”",
+      "membership_type.updated": "{{actor}} changed the type “{{name}}”",
+      "membership_type.archived": "{{actor}} archived the type “{{name}}”",
+      "membership.sold": "{{actor}} sold “{{name}}” — {{amount}}, {{method}}",
+      "payment.voided": "{{actor}} voided a payment of {{amount}} — “{{reason}}”",
+      "freeze.created": "{{actor}} froze a membership from {{from}} to {{to}}",
+      "freeze.ended": "{{actor}} ended a freeze"
+    },
+    "methods": {
+      "cash": "cash",
+      "card": "card"
+    }
   }
 }

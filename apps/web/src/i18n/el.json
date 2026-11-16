@@ -50,7 +50,9 @@
     "gyms": "Γυμναστήρια",
     "switchGym": "Αλλαγή γυμναστηρίου",
     "label": "Ενότητες",
-    "membershipTypes": "Τύποι συνδρομής"
+    "membershipTypes": "Τύποι συνδρομής",
+    "payments": "Πληρωμές",
+    "history": "Ιστορικό"
   },
   "shell": {
     "owner": "Περιοχή ιδιοκτήτη",
@@ -178,5 +180,114 @@
     "resend": "Στείλε ξανά",
     "sent": "Στάλθηκε νέο email.",
     "sending": "Στέλνεται…"
+  },
+  "status": {
+    "new": "Νέο μέλος",
+    "active": "Ενεργή",
+    "frozen": "Σε πάγωμα",
+    "expiring": "Λήγει σύντομα",
+    "expired": "Έληξε",
+    "upcoming": "Ξεκινά αργότερα",
+    "used_up": "Εξαντλήθηκε",
+    "voided": "Ακυρώθηκε"
+  },
+  "members": {
+    "search": "Αναζήτηση",
+    "searchPlaceholder": "Όνομα, email ή κινητό",
+    "status": "Κατάσταση",
+    "allStatuses": "Όλες",
+    "empty": "Δεν βρέθηκαν μέλη.",
+    "unverified": "Email χωρίς επιβεβαίωση",
+    "until": "έως {{date}}",
+    "notFound": "Δεν υπάρχει τέτοιο μέλος σε αυτό το γυμναστήριο.",
+    "memberships": "Συνδρομές",
+    "noMemberships": "Δεν έχει αγοράσει ακόμα συνδρομή.",
+    "visitsUsed": "{{used}} από {{total}} επισκέψεις"
+  },
+  "sell": {
+    "open": "Νέα συνδρομή",
+    "title": "Νέα συνδρομή για {{member}}",
+    "type": "Τύπος συνδρομής",
+    "noTypes": "Δεν υπάρχουν τύποι συνδρομής. Ο ιδιοκτήτης πρέπει να προσθέσει.",
+    "amount": "Ποσό (€)",
+    "amountHint": "Η τιμή του τύπου· άλλαξέ τη για έκπτωση.",
+    "method": "Τρόπος πληρωμής",
+    "cash": "Μετρητά",
+    "card": "Κάρτα",
+    "startsOn": "Έναρξη (προαιρετικό)",
+    "startsOnHint": "Κενό: σήμερα ή μετά τη λήξη της τρέχουσας.",
+    "submit": "Πώληση",
+    "chooseType": "Διάλεξε τύπο συνδρομής.",
+    "aboveprice": "Το ποσό είναι μεγαλύτερο από την τιμή.",
+    "archived": "Αυτός ο τύπος δεν πωλείται πια.",
+    "badRequest": "Έλεγξε τα στοιχεία (η έναρξη δεν μπορεί να είναι στο παρελθόν).",
+    "doneTitle": "Η πώληση έγινε",
+    "done": "«{{name}}» για {{member}}.",
+    "period": "Από {{from}} έως {{to}}",
+    "from": "Από {{from}}"
+  },
+  "freeze": {
+    "open": "Πάγωμα",
+    "openNamed": "Πάγωμα «{{name}}»",
+    "title": "Πάγωμα «{{name}}»",
+    "left_one": "Υπόλοιπο ημερών παγώματος: {{count}}",
+    "left_other": "Υπόλοιπο ημερών παγώματος: {{count}}",
+    "from": "Από",
+    "to": "Έως",
+    "submit": "Πάγωμα",
+    "endBeforeStart": "Η λήξη είναι πριν από την έναρξη.",
+    "notEnough_one": "Απομένει μόνο {{count}} ημέρα παγώματος.",
+    "notEnough_other": "Απομένουν μόνο {{count}} ημέρες παγώματος.",
+    "conflict": "Δεν γίνεται πάγωμα: επικαλύπτεται με άλλο ή η συνδρομή δεν το επιτρέπει.",
+    "badDates": "Οι ημερομηνίες πρέπει να είναι από σήμερα και μέσα στη συνδρομή."
+  },
+  "my": {
+    "days_one": "{{count}} ημέρα",
+    "days_other": "{{count}} ημέρες",
+    "visits_one": "{{count}} επίσκεψη",
+    "visits_other": "{{count}} επισκέψεις",
+    "left": "απομένουν",
+    "ends": "Λήγει στις {{date}}",
+    "newEnd": "Νέα λήξη: {{date}}",
+    "next": "Επόμενη: {{name}} από {{from}}",
+    "none": "Δεν έχεις ενεργή συνδρομή.",
+    "askReception": "Για ανανέωση μίλησε με την υποδοχή."
+  },
+  "payments": {
+    "from": "Από",
+    "to": "Έως",
+    "totals": "Σύνολα",
+    "total": "Σύνολο",
+    "empty": "Καμία πληρωμή σε αυτό το διάστημα.",
+    "void": "Ακύρωση πληρωμής",
+    "voidNamed": "Ακύρωση πληρωμής: {{member}}, {{amount}}",
+    "voidTitle": "Ακύρωση πληρωμής",
+    "voidExplain": "Θα ακυρωθεί η πληρωμή {{amount}} του/της {{member}} και η συνδρομή «{{name}}». Δεν αναιρείται.",
+    "reason": "Αιτία",
+    "reasonHint": "Τουλάχιστον 3 χαρακτήρες. Μένει στο ιστορικό.",
+    "voided": "Ακυρώθηκε από {{by}} — «{{reason}}»",
+    "voidedNotice": "Η πληρωμή ακυρώθηκε."
+  },
+  "history": {
+    "someone": "Κάποιος",
+    "empty": "Δεν υπάρχουν ακόμα καταγραφές.",
+    "more": "Περισσότερα",
+    "actions": {
+      "signup_code.issued": "{{actor}} έβγαλε κωδικό εγγραφής μέλους",
+      "member.signed_up": "{{actor}} έκανε εγγραφή ως μέλος",
+      "invitation.sent": "{{actor}} έστειλε πρόσκληση",
+      "invitation.accepted": "{{actor}} αποδέχτηκε πρόσκληση",
+      "membership_type.created": "{{actor}} δημιούργησε τον τύπο «{{name}}»",
+      "membership_type.updated": "{{actor}} άλλαξε τον τύπο «{{name}}»",
+      "membership_type.archived": "{{actor}} αρχειοθέτησε τον τύπο «{{name}}»",
+      "membership.sold": "{{actor}} πούλησε «{{name}}» — {{amount}}, {{method}}",
+      "payment.voided": "{{actor}} ακύρωσε μια πληρωμή {{amount}} — «{{reason}}»",
+      "freeze.created": "{{actor}} πάγωσε μια συνδρομή από {{from}} έως {{to}}",
+      "freeze.ended": "{{actor}} τερμάτισε ένα πάγωμα"
+    },
+    "methods": {
+      "cash": "μετρητά",
+      "card": "κάρτα"
+    }
   }
 }

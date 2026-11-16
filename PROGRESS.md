@@ -1,6 +1,7 @@
 # Progress
 
 ## Last finished
+- 2026-11-16: Plan 2a Tasks 1–11 implemented and committed on `phase2a-memberships` (sign-up codes, self sign-up, email confirmation, change history, membership types, selling/payments/void, freezes, members API, web screens). lint, typecheck, 60 shared + 255 API + 89 web tests and 3 e2e pass. Ledger with every ruling: `docs/superpowers/plans/2026-11-16-phase2a-memberships.ledger.md`.
 - 2026-11-16: Plan 2a Task 1 (hardening) on branch `phase2a-memberships`: new DB role `gym_system` (systemDb: BYPASSRLS, DML only, no DDL; `DATABASE_SYSTEM_URL`), RLS on `users` for gym_app (read-only, only people with a role in the current gym), all `users` writes through systemDb, login throttling (5 per 60 s per IP + email → 429). GitHub push (Task 1 Step 6) is held until the end of the plan, to be confirmed.
 - 2026-11-15: Task 8 (web app shell): bilingual PWA (el default, en), sign-in, invite page, gym picker, one area per role, platform "Create gym" form. Playwright e2e (`pnpm e2e`) covers admin → create gym → Mailpit invite → owner in Greek → English. All 8 tasks of phase 0–1 are done and the whole-branch review is closed (25 shared + 28 web + 99 API tests + 1 e2e).
 - 2026-11-15: Task 7 (gym creation by the platform admin, email invitations, account creation on accept). Deviation from the plan, for security: accepting an invite for an **existing** account adds the roles but does not sign in (`{ signInRequired: true }`); the person signs in with their own password. Reception may invite members only. 96 API tests pass. Manual check done: Greek invite email in Mailpit.
@@ -13,6 +14,8 @@
 - 2026-11-15: Design approved, plan for phases 0–1 written, Claude Code agents/hooks/skills adapted from LLM_Movies_Prediction_Model.
 
 ## In progress
+- Plan 2a, still to do: (1) run ui-ux-reviewer, test-auditor and code-reviewer on Task 11 (web members/selling/freezes/my membership/payments/history); (2) final whole-branch review (executing-plans); (3) push to GitHub (Task 1 Step 6) — ask the user first; (4) merge.
+- Open questions for the user (from plan 2a): someone with a valid desk code can register another person's email (accepted risk?); freezing a membership that already has an early renewal pushes its end into the renewal (shift renewals or forbid?).
 - 2026-11-16: Spec updated (§6.0): members self-sign-up with a one-time reception code; required first/last name, email, mobile, date of birth. Plan 2a written: `docs/superpowers/plans/2026-11-16-phase2a-memberships.md` (hardening + GitHub push, sign-up, history, membership types, selling/payments/void, freezes, members API, web). Phase 0–1 open questions are handled in its Task 1. Next: execute plan 2a natively in Claude Code on a new branch `phase2a-memberships`.
 - 2026-11-15: phase 0–1 merged into `main` (merge f29a541); lint, typecheck, 152 unit/integration tests and the e2e pass on the merged result. Next: plan Phase 2 (memberships, payments, check-in) after deciding the open questions below. Decisions and rulings: `docs/superpowers/plans/2026-11-15-phase0-1-foundation.ledger.md`.
 

@@ -3,6 +3,10 @@ import { useTranslation } from 'react-i18next';
 import { useParams } from 'react-router';
 import { useAuth } from '../auth/AuthProvider';
 import { EmailNotVerifiedBanner } from '../components/EmailNotVerifiedBanner';
+import { HistoryPage } from '../features/audit/HistoryPage';
+import { MembersSection } from '../features/members/MembersSection';
+import { MyMembershipPage } from '../features/my-membership/MyMembershipPage';
+import { PaymentsPage } from '../features/payments/PaymentsPage';
 import { NewMemberCodeDialog } from '../features/signup/NewMemberCodeDialog';
 import { MembershipTypesPage } from '../features/membership-types/MembershipTypesPage';
 import { ShellLayout } from './ShellLayout';
@@ -37,8 +41,13 @@ export function OwnerShell(props: GymShellProps) {
     <ShellLayout
       testId="shell-owner"
       title={t('shell.owner')}
-      nav={['dashboard', 'members', 'membershipTypes', 'staff', 'checkIn']}
-      pages={{ membershipTypes: <MembershipTypesPage /> }}
+      nav={['dashboard', 'members', 'membershipTypes', 'payments', 'history', 'staff', 'checkIn']}
+      pages={{
+        members: <MembersSection />,
+        membershipTypes: <MembershipTypesPage />,
+        payments: <PaymentsPage />,
+        history: <HistoryPage />,
+      }}
       actions={<NewMemberCodeButton />}
       {...props}
     />
@@ -52,6 +61,7 @@ export function ReceptionShell(props: GymShellProps) {
       testId="shell-reception"
       title={t('shell.reception')}
       nav={['checkIn', 'members', 'schedule']}
+      pages={{ members: <MembersSection /> }}
       actions={<NewMemberCodeButton />}
       {...props}
     />
@@ -77,7 +87,8 @@ export function MemberShell(props: GymShellProps) {
     <ShellLayout
       testId="shell-member"
       title={t('shell.member')}
-      nav={['myWorkouts', 'myMembership']}
+      nav={['myMembership', 'myWorkouts']}
+      home={<MyMembershipPage />}
       banner={me && !me.emailVerified ? <EmailNotVerifiedBanner email={me.email} /> : undefined}
       {...props}
     />
