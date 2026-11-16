@@ -62,7 +62,7 @@ A person signs in once. Their **role is per gym**, so one person can hold severa
 | Create gyms, platform settings | ✅ | | | | |
 | Gym settings, membership types, prices | | ✅ | | | |
 | See all members and memberships | | ✅ | ✅ | | |
-| Register members, record payments, freeze | | ✅ | ✅ | | |
+| Issue sign-up codes, confirm new members, record payments, freeze | | ✅ | ✅ | | |
 | Assign a trainer to a member, assign cover | | ✅ | ✅ | | |
 | Live check-ins, who's in, today's visitors | | ✅ | ✅ | ✅ | |
 | Manage staff and shifts | | ✅ | (view) | own (view) | |
@@ -74,6 +74,16 @@ A person signs in once. Their **role is per gym**, so one person can hold severa
 *The owner can do everything reception can.* The **Platform admin** is Dimitris, as the operator of the platform.
 
 ## 6. Features
+
+### 6.0 Member sign-up (decided 2026-11-16)
+- Members create their own account on their phone, but only with a **one-time sign-up code** that reception generates at the desk (prevents spam and bot accounts).
+- Reception presses "New member code". The app shows a code (8 characters, easy to read aloud, valid 24 hours, single use, tied to the gym).
+- The member opens the app, enters the code and their details. **Required:** first name, last name, email, mobile phone, date of birth, password, acceptance of the privacy notice. **Optional:** emergency contact (name + phone).
+- The member gets an email to confirm their address. Reception sees whether the email is confirmed.
+- New sign-ups appear on reception's screen as "New, no membership yet". Reception checks the person in front of them and sells the first membership.
+- An email that already has an account (e.g. a member of another gym) is linked, not duplicated: the person signs in with their existing password and the code adds the member role.
+- The member photo is optional and is taken later by reception with the tablet camera (with the check-in work).
+- Staff (owner, reception, trainers) are still added by email invitation.
 
 ### 6.1 Memberships and payments
 - **Membership types** (owner-defined, per gym):
@@ -183,7 +193,7 @@ A person signs in once. Their **role is per gym**, so one person can hold severa
 
 **Accounts and sign-in**
 - Email + password. Short-lived access token plus a refresh token in a secure httpOnly cookie. Password reset by email.
-- Reception registers members at the desk. The member gets an email to set a password and install the app.
+- Members sign up themselves with a one-time code from reception (§6.0). Staff are invited by email.
 - The Kiosk tablet signs in as a restricted *device* account that can only run check-ins.
 
 ## 8. Privacy and GDPR
@@ -222,7 +232,7 @@ Each phase ends with something the gym owner can try.
 - Early renewals start when the current membership ends. Freeze pushes the end date forward.
 - Reminders **5 days** before expiry (configurable) by email and push.
 - Cover access ends at midnight in the gym's time zone. Cover trainers can't edit, but members can still log.
-- Reception registers members. Members don't sign up on their own in v1.
+- ~~Reception registers members~~ → replaced 2026-11-16 by Dimitris's decision: members self-sign-up with a reception code (§6.0).
 - **Drizzle ORM**, **NestJS scheduled jobs** (no Redis in v1), **MinIO** for files locally.
 - One active plan per member at a time.
 - Members can hold several memberships at once (e.g. gym + class pack). Trainer link pauses when personal training lapses. Members without a trainer can log free workouts.
