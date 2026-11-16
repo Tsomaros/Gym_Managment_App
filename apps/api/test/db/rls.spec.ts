@@ -2,7 +2,15 @@ import { randomUUID } from 'node:crypto';
 import { eq, inArray, sql } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { closeDb, db, systemDb } from '../../src/db/client';
-import { auditLog, gymRoles, gyms, invitations, signupCodes, users } from '../../src/db/schema';
+import {
+  auditLog,
+  gymRoles,
+  gyms,
+  invitations,
+  membershipTypes,
+  signupCodes,
+  users,
+} from '../../src/db/schema';
 import { withGym } from '../../src/db/tenant';
 
 /** Drizzle wraps driver errors; the Postgres message lives on `cause`. */
@@ -321,5 +329,72 @@ describe('row-level security and privileges: audit_log', () => {
 
   it('sees no entries when no gym is set', async () => {
     expect(await db.select().from(auditLog)).toEqual([]);
+  });
+});
+
+describe('row-level security: membership_types', () => {
+  const run = randomUUID().slice(0, 8);
+  let gymA: string;
+  let gymB: string;
+
+  beforeAll(async () => {
+    const g = await systemDb
+      .insert(gyms)
+      .values([{ name: `MT A ${run}` }, { name: `MT B ${run}` }])
+      .returning({ id: gyms.id });
+    gymA = g[0]!.id;
+    gymB = g[1]!.id;
+    await systemDb.insert(membershipTypes).values([
+      { gymId: gymA, name: 'A', kind: 'day_pass', priceCents: 1000 },
+      { gymId: gymB, name: 'B', kind: 'day_pass', priceCents: 1000 },
+    ]);
+  });
+
+  afterAll(async () => {
+    const gymIds = [gymA, gymB].filter(Boolean);
+    if (gymIds.length) {
+      await systemDb.delete(membershipTypes).where(inArray(membershipTypes.gymId, gymIds));
+      await systemDb.delete(gyms).where(inArray(gyms.id, gymIds));
+    }
+  });
+
+  it('each gym sees only its own types', async () => {
+    const a = await withGym(gymA, (tx) => tx.select().from(membershipTypes));
+    const b = await withGym(gymB, (tx) => tx.select().from(membershipTypes));
+    expect(a.map((r) => r.name)).toEqual(['A']);
+    expect(b.map((r) => r.name)).toEqual(['B']);
+  });
+
+  it('withGym(A) cannot create a type for gym B or move one there', async () => {
+    const insert = await rejectionMessage(
+      withGym(gymA, (tx) =>
+        tx
+          .insert(membershipTypes)
+          .values({ gymId: gymB, name: 'X', kind: 'day_pass', priceCents: 1 }),
+      ),
+    );
+    expect(insert).toMatch(RLS_VIOLATION);
+    const move = await rejectionMessage(
+      withGym(gymA, (tx) =>
+        tx.update(membershipTypes).set({ gymId: gymB }).where(eq(membershipTypes.gymId, gymA)),
+      ),
+    );
+    expect(move).toMatch(RLS_VIOLATION);
+  });
+
+  it('the database enforces the kind rules too', async () => {
+    const msg = await rejectionMessage(
+      withGym(gymA, (tx) =>
+        tx.insert(membershipTypes).values({
+          gymId: gymA,
+          name: 'Bad',
+          kind: 'visits',
+          visitCount: 10,
+          maxFreezeDays: 5,
+          priceCents: 1,
+        }),
+      ),
+    );
+    expect(msg).toMatch(/violates check constraint/);
   });
 });

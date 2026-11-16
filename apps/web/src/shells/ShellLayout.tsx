@@ -39,6 +39,7 @@ export function ShellLayout({
   gymName,
   nav,
   home,
+  pages,
   multipleGyms,
 }: {
   testId: string;
@@ -47,6 +48,8 @@ export function ShellLayout({
   nav: string[];
   /** Content of the area's home page; defaults to a placeholder. */
   home?: ReactNode;
+  /** Content of other sections by nav key; a section without one shows a placeholder. */
+  pages?: Partial<Record<string, ReactNode>>;
   multipleGyms?: boolean;
 }) {
   const { t } = useTranslation();
@@ -103,7 +106,11 @@ export function ShellLayout({
         <Routes>
           <Route index element={home ?? <Placeholder title={t(`nav.${first}`)} />} />
           {rest.map((key) => (
-            <Route key={key} path={key} element={<Placeholder title={t(`nav.${key}`)} />} />
+            <Route
+              key={key}
+              path={key}
+              element={pages?.[key] ?? <Placeholder title={t(`nav.${key}`)} />}
+            />
           ))}
         </Routes>
       </main>

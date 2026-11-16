@@ -181,14 +181,14 @@
   - No delete route; archive replaces it.
 - Owner screen: list of types (name, kind, duration or visits, price formatted `el-GR`/`en-GB` EUR, badges for trainer/classes), create/edit form switching fields by kind, archive with a confirm dialog.
 
-- [ ] **Step 1: Write the failing tests:**
+- [x] **Step 1: Write the failing tests:**
   - Shared: `{ kind: 'time', durationMonths: 0 }` rejects; `{ kind: 'classes', includesClasses: false }` rejects; `{ kind: 'visits', visitCount: 10, maxFreezeDays: 5 }` rejects.
   - API: owner creates "Μηνιαία" time 1 month 4000 cents → `201`; reception `POST` → `403`; reception `GET` → `200`; archived types are hidden by default and shown with `includeArchived=true`; each change writes `membership_type.created/updated/archived`; two-gym isolation.
   - Web: switching kind to "Πακέτο επισκέψεων" shows the visit-count field and hides months; a price of `4000` cents renders as `40,00 €` in Greek; archiving asks for confirmation before calling the API.
-- [ ] **Step 2: Run** `pnpm --filter shared test && pnpm --filter api test membership-types && pnpm --filter web test MembershipTypes` → FAIL.
-- [ ] **Step 3: Implement.** Run ui-ux-reviewer on the new components.
-- [ ] **Step 4: Run** → PASS.
-- [ ] **Step 5: Commit** `feat: membership types for owners`.
+- [x] **Step 2: Run** `pnpm --filter shared test && pnpm --filter api test membership-types && pnpm --filter web test MembershipTypes` → FAIL.
+- [x] **Step 3: Implement.** Run ui-ux-reviewer on the new components.
+- [x] **Step 4: Run** → PASS.
+- [x] **Step 5: Commit** `feat: membership types for owners`.
 
 ---
 

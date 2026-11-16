@@ -1,4 +1,5 @@
 import { useTranslation } from 'react-i18next';
+import { MembershipTypesPage } from '../features/membership-types/MembershipTypesPage';
 import { ShellLayout } from './ShellLayout';
 
 export interface GymShellProps {
@@ -12,7 +13,8 @@ export function OwnerShell(props: GymShellProps) {
     <ShellLayout
       testId="shell-owner"
       title={t('shell.owner')}
-      nav={['dashboard', 'members', 'staff', 'checkIn']}
+      nav={['dashboard', 'members', 'membershipTypes', 'staff', 'checkIn']}
+      pages={{ membershipTypes: <MembershipTypesPage /> }}
       {...props}
     />
   );

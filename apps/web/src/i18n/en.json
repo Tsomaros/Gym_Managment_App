@@ -49,7 +49,8 @@
     "myMembership": "My membership",
     "gyms": "Gyms",
     "switchGym": "Switch gym",
-    "label": "Sections"
+    "label": "Sections",
+    "membershipTypes": "Membership types"
   },
   "shell": {
     "owner": "Owner area",
@@ -77,5 +78,61 @@
   },
   "test": {
     "onlyInEnglish": "Only in English"
+  },
+  "common": {
+    "cancel": "Cancel",
+    "save": "Save",
+    "required": "Fill in this field.",
+    "genericError": "Something went wrong. Try again.",
+    "checkFields": "Check the form fields.",
+    "working": "Please wait…"
+  },
+  "types": {
+    "new": "New type",
+    "edit": "Edit",
+    "editNamed": "Edit “{{name}}”",
+    "archive": "Archive",
+    "archiveNamed": "Archive “{{name}}”",
+    "archiveTitle": "Archive membership type",
+    "archiveConfirm": "“{{name}}” will no longer be sold. Memberships already sold don't change.",
+    "archivedNotice": "“{{name}}” was archived.",
+    "created": "“{{name}}” was created.",
+    "saved": "Changes to “{{name}}” were saved.",
+    "archived": "Archived",
+    "showArchived": "Show archived",
+    "empty": "No membership types yet. Add the first one.",
+    "loadFailed": "Couldn't load the membership types.",
+    "name": "Name",
+    "nameEn": "English name (optional)",
+    "nameEnHint": "Shown when the app is in English.",
+    "kind": "Kind",
+    "kinds": {
+      "time": "Time-based",
+      "visits": "Visit pack",
+      "day_pass": "Day pass",
+      "classes": "Class pack"
+    },
+    "durationMonths": "Duration (months)",
+    "visitCount": "Number of visits",
+    "validityDays": "Valid for days (optional)",
+    "validityHint": "Leave empty if the pack doesn't expire.",
+    "price": "Price (€)",
+    "maxFreezeDays": "Maximum freeze days",
+    "includes": "Includes",
+    "includesTrainer": "Personal trainer",
+    "includesClasses": "Group classes",
+    "withTrainer": "With trainer",
+    "withClasses": "With classes",
+    "months_one": "{{count}} month",
+    "months_other": "{{count}} months",
+    "visits_one": "{{count}} visit",
+    "visits_other": "{{count}} visits",
+    "validFor_one": "valid {{count}} day",
+    "validFor_other": "valid {{count}} days",
+    "priceInvalid": "Enter an amount in euros, e.g. 40 or 39.50.",
+    "durationInvalid": "1 to 36 months.",
+    "visitsInvalid": "1 to 500 visits.",
+    "validityInvalid": "1 to 730 days, or empty.",
+    "freezeInvalid": "0 to 365 days."
   }
 }
