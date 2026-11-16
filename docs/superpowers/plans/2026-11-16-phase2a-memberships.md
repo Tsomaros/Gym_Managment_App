@@ -281,17 +281,17 @@
   - `POST /gyms/:gymId/freezes/:id/end` → `204`. A freeze not started yet is deleted. A running freeze gets `ends_on = today − 1` and `ended_early_at = now()`, or is deleted if it started today. Recompute `ends_on`.
   - History rows: `freeze.created` and `freeze.ended`.
 
-- [ ] **Step 1: Write the failing tests** (type: 1 month, `max_freeze_days 14`; sold 2027-05-01 → base end 2027-05-31):
+- [x] **Step 1: Write the failing tests** (type: 1 month, `max_freeze_days 14`; sold 2027-05-01 → base end 2027-05-31):
   - Freeze 05-10..05-16 → `201`; membership `effectiveEndsOn '2027-06-07'`; status on 05-12 `frozen`.
   - Second freeze 05-20..05-27 (8 days, total 15) → `409` with `remainingFreezeDays: 7`. Overlapping freeze → `409`. Freeze starting yesterday → `400`.
   - Ending the running freeze on 05-12 → freeze becomes 05-10..05-11; `effectiveEndsOn '2027-06-02'`.
   - Freezing a visit pack → `409`.
   - While frozen, selling another 1-month time membership without `startsOn` starts it on `'2027-06-08'`. *(Review Focus 3)*
   - History has `freeze.created` and `freeze.ended`. Two-gym isolation.
-- [ ] **Step 2: Run** `pnpm --filter api test freezes` → FAIL.
-- [ ] **Step 3: Implement.**
-- [ ] **Step 4: Run** `pnpm --filter api test` → PASS.
-- [ ] **Step 5: Commit** `feat: freeze and unfreeze memberships`.
+- [x] **Step 2: Run** `pnpm --filter api test freezes` → FAIL.
+- [x] **Step 3: Implement.**
+- [x] **Step 4: Run** `pnpm --filter api test` → PASS.
+- [x] **Step 5: Commit** `feat: freeze and unfreeze memberships`.
 
 ---
 

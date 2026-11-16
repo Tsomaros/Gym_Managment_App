@@ -154,3 +154,19 @@ export const PaymentsQuerySchema = z
     message: 'At most 366 days per request (both ends included)',
   });
 export type PaymentsQuery = z.infer<typeof PaymentsQuerySchema>;
+
+/** Reception pauses a time-based membership; days in the gym's time zone, both included. */
+export const CreateFreezeSchema = z
+  .object({ startsOn: isoDateSchema, endsOn: isoDateSchema })
+  .refine((f) => f.startsOn <= f.endsOn, { message: 'The freeze ends before it starts' });
+export type CreateFreeze = z.infer<typeof CreateFreezeSchema>;
+
+export interface Freeze {
+  id: string;
+  membershipId: string;
+  startsOn: string;
+  endsOn: string;
+  /** True when a running freeze was ended before its planned end. */
+  endedEarly: boolean;
+  createdAt: string;
+}

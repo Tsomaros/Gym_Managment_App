@@ -7,6 +7,7 @@ import {
   gymRoles,
   gyms,
   invitations,
+  membershipFreezes,
   memberships,
   membershipTypes,
   payments,
@@ -592,6 +593,130 @@ describe('row-level security: memberships and payments', () => {
       await rejectionMessage(
         withGym(gymA, (tx) =>
           tx.update(payments).set({ voidedAt: new Date() }).where(eq(payments.gymId, gymA)),
+        ),
+      ),
+    ).toMatch(/violates check constraint/);
+  });
+});
+
+describe('row-level security: membership_freezes', () => {
+  const run = randomUUID().slice(0, 8);
+  let gymA: string;
+  let gymB: string;
+  let member: string;
+  const membershipOf: Record<string, string> = {};
+
+  beforeAll(async () => {
+    const g = await systemDb
+      .insert(gyms)
+      .values([{ name: `FR A ${run}` }, { name: `FR B ${run}` }])
+      .returning({ id: gyms.id });
+    gymA = g[0]!.id;
+    gymB = g[1]!.id;
+    const [u] = await systemDb
+      .insert(users)
+      .values({ email: `fr-${run}@example.com`, firstName: 'Μέλος', lastName: 'Παγώματος' })
+      .returning({ id: users.id });
+    member = u!.id;
+    for (const gymId of [gymA, gymB]) {
+      const [t] = await systemDb
+        .insert(membershipTypes)
+        .values({
+          gymId,
+          name: 'M',
+          kind: 'time',
+          durationMonths: 1,
+          priceCents: 1,
+          maxFreezeDays: 14,
+        })
+        .returning({ id: membershipTypes.id });
+      const [m] = await systemDb
+        .insert(memberships)
+        .values({
+          gymId,
+          memberId: member,
+          typeId: t!.id,
+          name: 'M',
+          kind: 'time',
+          priceCents: 1,
+          maxFreezeDays: 14,
+          startsOn: '2027-05-01',
+          baseEndsOn: '2027-05-31',
+          endsOn: '2027-05-31',
+        })
+        .returning({ id: memberships.id });
+      membershipOf[gymId] = m!.id;
+      await systemDb.insert(membershipFreezes).values({
+        gymId,
+        membershipId: m!.id,
+        startsOn: '2027-05-10',
+        endsOn: '2027-05-12',
+      });
+    }
+  });
+
+  afterAll(async () => {
+    const gymIds = [gymA, gymB].filter(Boolean);
+    if (gymIds.length) {
+      await systemDb.delete(membershipFreezes).where(inArray(membershipFreezes.gymId, gymIds));
+      await systemDb.delete(memberships).where(inArray(memberships.gymId, gymIds));
+      await systemDb.delete(membershipTypes).where(inArray(membershipTypes.gymId, gymIds));
+      await systemDb.delete(gyms).where(inArray(gyms.id, gymIds));
+    }
+    if (member) await systemDb.delete(users).where(eq(users.id, member));
+  });
+
+  it('each gym sees only its own freezes', async () => {
+    const a = await withGym(gymA, (tx) => tx.select().from(membershipFreezes));
+    const b = await withGym(gymB, (tx) => tx.select().from(membershipFreezes));
+    expect(a.map((r) => r.membershipId)).toEqual([membershipOf[gymA]]);
+    expect(b.map((r) => r.membershipId)).toEqual([membershipOf[gymB]]);
+  });
+
+  it('withGym(A) cannot add a freeze to gym B, nor delete one there', async () => {
+    expect(
+      await rejectionMessage(
+        withGym(gymA, (tx) =>
+          tx.insert(membershipFreezes).values({
+            gymId: gymB,
+            membershipId: membershipOf[gymB]!,
+            startsOn: '2027-05-20',
+            endsOn: '2027-05-21',
+          }),
+        ),
+      ),
+    ).toMatch(RLS_VIOLATION);
+    await withGym(gymA, (tx) =>
+      tx.delete(membershipFreezes).where(eq(membershipFreezes.gymId, gymB)),
+    );
+    expect(
+      await systemDb.select().from(membershipFreezes).where(eq(membershipFreezes.gymId, gymB)),
+    ).toHaveLength(1);
+  });
+
+  it('a freeze of gym A cannot point at a membership of gym B, even through systemDb', async () => {
+    expect(
+      await rejectionMessage(
+        systemDb.insert(membershipFreezes).values({
+          gymId: gymA,
+          membershipId: membershipOf[gymB]!,
+          startsOn: '2027-05-20',
+          endsOn: '2027-05-21',
+        }),
+      ),
+    ).toMatch(/violates foreign key constraint/);
+  });
+
+  it('the database refuses a freeze that ends before it starts', async () => {
+    expect(
+      await rejectionMessage(
+        withGym(gymA, (tx) =>
+          tx.insert(membershipFreezes).values({
+            gymId: gymA,
+            membershipId: membershipOf[gymA]!,
+            startsOn: '2027-05-20',
+            endsOn: '2027-05-19',
+          }),
         ),
       ),
     ).toMatch(/violates check constraint/);
