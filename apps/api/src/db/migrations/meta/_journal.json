@@ -22,6 +22,13 @@
       "when": 1794819409504,
       "tag": "0002_users_rls",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1794819831665,
+      "tag": "0003_person_details",
+      "breakpoints": true
     }
   ]
 }

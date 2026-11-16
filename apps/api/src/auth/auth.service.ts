@@ -66,6 +66,9 @@ export class AuthService {
         id: users.id,
         email: users.email,
         fullName: users.fullName,
+        firstName: users.firstName,
+        lastName: users.lastName,
+        emailVerifiedAt: users.emailVerifiedAt,
         locale: users.locale,
         isPlatformAdmin: users.isPlatformAdmin,
       })
@@ -88,6 +91,12 @@ export class AuthService {
       byGym.set(gymId, gym);
     }
 
-    return { ...user, locale: user.locale as MeResponse['locale'], gyms: [...byGym.values()] };
+    const { emailVerifiedAt, ...rest } = user;
+    return {
+      ...rest,
+      emailVerified: emailVerifiedAt !== null,
+      locale: user.locale as MeResponse['locale'],
+      gyms: [...byGym.values()],
+    };
   }
 }

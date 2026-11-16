@@ -1,14 +1,26 @@
-import { sql } from 'drizzle-orm';
-import { boolean, check, pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core';
+import { type SQL, sql } from 'drizzle-orm';
+import { boolean, check, date, pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core';
 
-/** Global accounts (no RLS). One row per person, whatever gyms and roles they have. */
+/**
+ * Global accounts. One row per person, whatever gyms and roles they have. gym_app may only read
+ * people with a role in the current gym (RLS, migration 0002); every write goes through systemDb.
+ */
 export const users = pgTable(
   'users',
   {
     id: uuid('id').primaryKey().defaultRandom(),
     email: text('email').notNull().unique(),
     passwordHash: text('password_hash'),
-    fullName: text('full_name').notNull(),
+    firstName: text('first_name').notNull(),
+    lastName: text('last_name').notNull(),
+    fullName: text('full_name')
+      .notNull()
+      .generatedAlwaysAs((): SQL => sql`btrim(${users.firstName} || ' ' || ${users.lastName})`),
+    phone: text('phone'),
+    dateOfBirth: date('date_of_birth'),
+    emergencyContactName: text('emergency_contact_name'),
+    emergencyContactPhone: text('emergency_contact_phone'),
+    emailVerifiedAt: timestamp('email_verified_at', { withTimezone: true }),
     locale: text('locale').notNull().default('el'),
     isPlatformAdmin: boolean('is_platform_admin').notNull().default(false),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),

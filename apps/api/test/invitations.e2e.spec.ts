@@ -40,11 +40,16 @@ describe('gyms and invitations', () => {
   let adminToken: string;
 
   const server = () => app.getHttpServer();
-  const createGym = (name: string, ownerEmail: string, ownerFullName = 'Owner') =>
+  const createGym = (
+    name: string,
+    ownerEmail: string,
+    ownerFirstName = 'Owner',
+    ownerLastName = 'Test',
+  ) =>
     request(server())
       .post('/platform/gyms')
       .auth(adminToken, { type: 'bearer' })
-      .send({ name, ownerEmail, ownerFullName });
+      .send({ name, ownerEmail, ownerFirstName, ownerLastName });
   const accept = (token: string, password = 'a new password') =>
     request(server()).post('/auth/accept-invite').send({ token, password });
   const me = (accessToken: string) =>
@@ -71,7 +76,12 @@ describe('gyms and invitations', () => {
 
     const [admin] = await systemDb
       .insert(users)
-      .values({ email: `admin-${run}@x.gr`, fullName: 'Admin', isPlatformAdmin: true })
+      .values({
+        email: `admin-${run}@x.gr`,
+        firstName: 'Admin',
+        lastName: 'Test',
+        isPlatformAdmin: true,
+      })
       .returning({ id: users.id });
     adminToken = signAccessToken({ sub: admin!.id, adm: true });
   });
@@ -131,7 +141,12 @@ describe('gyms and invitations', () => {
     const res = await request(server())
       .post('/platform/gyms')
       .auth(ownerToken, { type: 'bearer' })
-      .send({ name: 'Mine', ownerEmail: `x-${run}@x.gr`, ownerFullName: 'X' });
+      .send({
+        name: 'Mine',
+        ownerEmail: `x-${run}@x.gr`,
+        ownerFirstName: 'X',
+        ownerLastName: 'Test',
+      });
     expect(res.status).toBe(403);
   });
 
@@ -172,7 +187,7 @@ describe('gyms and invitations', () => {
   });
 
   it('previews an invitation by token, so the invite page knows whether to ask for a password', async () => {
-    const res = await createGym(`Preview ${run}`, `owner-preview-${run}@x.gr`, 'Νίκος');
+    const res = await createGym(`Preview ${run}`, `owner-preview-${run}@x.gr`, 'Νίκος', 'Αλεξίου');
     createdGyms.push((res.body as { gymId: string }).gymId);
     const token = tokenFrom(mail.sent[0]);
 
@@ -180,7 +195,7 @@ describe('gyms and invitations', () => {
     expect(preview.status).toBe(200);
     expect(preview.body).toEqual({
       gymName: `Preview ${run}`,
-      fullName: 'Νίκος',
+      fullName: 'Νίκος Αλεξίου',
       email: `owner-preview-${run}@x.gr`,
       accountExists: false,
     });
@@ -210,7 +225,8 @@ describe('gyms and invitations', () => {
       mail.sent = [];
       const res = await invite(ownerToken, {
         email: `reception-${run}@x.gr`,
-        fullName: 'Reception',
+        firstName: 'Reception',
+        lastName: 'Test',
         roles: ['reception'],
       });
       expect(res.status).toBe(201);
@@ -221,14 +237,16 @@ describe('gyms and invitations', () => {
     it('lets reception invite a member (201) but not a trainer (403)', async () => {
       const trainer = await invite(receptionToken, {
         email: `trainer-${run}@x.gr`,
-        fullName: 'Trainer',
+        firstName: 'Trainer',
+        lastName: 'Test',
         roles: ['trainer'],
       });
       expect(trainer.status).toBe(403);
 
       const member = await invite(receptionToken, {
         email: `walkin-${run}@x.gr`,
-        fullName: 'Walk In',
+        firstName: 'Walk',
+        lastName: 'In',
         roles: ['member'],
       });
       expect(member.status).toBe(201);
@@ -238,12 +256,18 @@ describe('gyms and invitations', () => {
     it('does not let reception overwrite a pending trainer invitation (409), the trainer link stays valid', async () => {
       const email = `pending-coach-${run}@x.gr`;
       mail.sent = [];
-      const first = await invite(ownerToken, { email, fullName: 'Coach', roles: ['trainer'] });
+      const first = await invite(ownerToken, {
+        email,
+        firstName: 'Coach',
+        lastName: 'Test',
+        roles: ['trainer'],
+      });
       expect(first.status).toBe(201);
       const trainerToken = tokenFrom(mail.sent[0]);
       const overwrite = await invite(receptionToken, {
         email,
-        fullName: 'Coach',
+        firstName: 'Coach',
+        lastName: 'Test',
         roles: ['member'],
       });
       expect(overwrite.status).toBe(409);
@@ -260,10 +284,20 @@ describe('gyms and invitations', () => {
 
     it('lets reception re-send a pending member invitation, replacing the old link', async () => {
       const email = `resend-${run}@x.gr`;
-      const first = await invite(receptionToken, { email, fullName: 'Resend', roles: ['member'] });
+      const first = await invite(receptionToken, {
+        email,
+        firstName: 'Resend',
+        lastName: 'Test',
+        roles: ['member'],
+      });
       expect(first.status).toBe(201);
       const oldToken = tokenFrom(mail.sent.at(-1));
-      const again = await invite(receptionToken, { email, fullName: 'Resend', roles: ['member'] });
+      const again = await invite(receptionToken, {
+        email,
+        firstName: 'Resend',
+        lastName: 'Test',
+        roles: ['member'],
+      });
       expect(again.status).toBe(201);
       expect(again.body).toEqual({ invitationId: first.body.invitationId, mailSent: true });
       expect((await accept(oldToken)).status).toBe(410);
@@ -273,7 +307,8 @@ describe('gyms and invitations', () => {
     it('lets the owner invite a trainer', async () => {
       const res = await invite(ownerToken, {
         email: `coach-${run}@x.gr`,
-        fullName: 'Coach',
+        firstName: 'Coach',
+        lastName: 'Test',
         roles: ['trainer'],
       });
       expect(res.status).toBe(201);
@@ -283,7 +318,8 @@ describe('gyms and invitations', () => {
       mail.sent = [];
       const res = await invite(receptionToken, {
         email: `mixed-${run}@x.gr`,
-        fullName: 'Mixed',
+        firstName: 'Mixed',
+        lastName: 'Test',
         roles: ['member', 'owner'],
       });
       expect(res.status).toBe(403);
@@ -292,7 +328,12 @@ describe('gyms and invitations', () => {
 
     it('re-inviting a pending email replaces the old link (old 410, new 200)', async () => {
       mail.sent = [];
-      const body = { email: `again-${run}@x.gr`, fullName: 'Again', roles: ['member'] };
+      const body = {
+        email: `again-${run}@x.gr`,
+        firstName: 'Again',
+        lastName: 'Test',
+        roles: ['member'],
+      };
       expect((await invite(ownerToken, body)).status).toBe(201);
       expect((await invite(ownerToken, body)).status).toBe(201);
       const [first, second] = mail.sent.map(tokenFrom);
@@ -306,7 +347,8 @@ describe('gyms and invitations', () => {
       mail.sent = [];
       await invite(ownerToken, {
         email: `shortpw-${run}@x.gr`,
-        fullName: 'Short',
+        firstName: 'Short',
+        lastName: 'Test',
         roles: ['member'],
       });
       const token = tokenFrom(mail.sent[0]);
@@ -316,9 +358,16 @@ describe('gyms and invitations', () => {
 
     it('writes the invite in English when the existing account prefers en', async () => {
       const email = `english-${run}@x.gr`;
-      await systemDb.insert(users).values({ email, fullName: 'Eng', locale: 'en' });
+      await systemDb
+        .insert(users)
+        .values({ email, firstName: 'Eng', lastName: 'Test', locale: 'en' });
       mail.sent = [];
-      const res = await invite(ownerToken, { email, fullName: 'Eng', roles: ['member'] });
+      const res = await invite(ownerToken, {
+        email,
+        firstName: 'Eng',
+        lastName: 'Test',
+        roles: ['member'],
+      });
       expect(res.status).toBe(201);
       expect(mail.sent[0]!.subject).toMatch(/^Invitation to /);
       expect(mail.sent[0]!.text).toContain('You have been invited');
@@ -328,13 +377,20 @@ describe('gyms and invitations', () => {
       const name = 'Γιώργος Παπαδόπουλος';
       await invite(receptionToken, {
         email: `giorgos-${run}@x.gr`,
-        fullName: name,
+        firstName: 'Γιώργος',
+        lastName: 'Παπαδόπουλος',
         roles: ['member'],
       });
       const accepted = await accept(tokenFrom(mail.sent.at(-1)));
       const body = MeResponseSchema.parse((await me(accepted.body.accessToken as string)).body);
       expect(body.fullName).toBe(name);
       expect(Buffer.from(body.fullName).equals(Buffer.from(name))).toBe(true);
+      // An account created from an emailed invite link has a confirmed email.
+      expect(body).toMatchObject({
+        firstName: 'Γιώργος',
+        lastName: 'Παπαδόπουλος',
+        emailVerified: true,
+      });
     });
   });
 
@@ -343,7 +399,7 @@ describe('gyms and invitations', () => {
     const originalHash = await hashPassword('maria original password');
     const [maria] = await systemDb
       .insert(users)
-      .values({ email, fullName: 'Μαρία', passwordHash: originalHash })
+      .values({ email, firstName: 'Μαρία', lastName: 'Test', passwordHash: originalHash })
       .returning({ id: users.id });
     const gymA = await gymWithOwner(`Maria A ${run}`);
     await systemDb
@@ -355,7 +411,12 @@ describe('gyms and invitations', () => {
     const invited = await request(server())
       .post(`/gyms/${gymB.gymId}/invitations`)
       .auth(gymB.ownerToken, { type: 'bearer' })
-      .send({ email: ` Maria-${run}@X.gr`, fullName: 'Μαρία', roles: ['member'] });
+      .send({
+        email: ` Maria-${run}@X.gr`,
+        firstName: 'Μαρία',
+        lastName: 'Test',
+        roles: ['member'],
+      });
     expect(invited.status).toBe(201);
     expect(mail.sent[0]!.to).toBe(email);
 

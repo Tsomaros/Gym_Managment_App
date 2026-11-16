@@ -33,6 +33,9 @@ export const MeResponseSchema = z.object({
   id: z.uuid(),
   email: z.string(),
   fullName: z.string(),
+  firstName: z.string(),
+  lastName: z.string(),
+  emailVerified: z.boolean(),
   locale: z.enum(LOCALES),
   isPlatformAdmin: z.boolean(),
   gyms: z.array(

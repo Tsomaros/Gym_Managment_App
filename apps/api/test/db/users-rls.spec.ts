@@ -35,10 +35,10 @@ describe('row-level security on users (gym_app)', () => {
     const u = await systemDb
       .insert(users)
       .values([
-        { email: `ua-${run}@example.com`, fullName: 'In A' },
-        { email: `uab-${run}@example.com`, fullName: 'In Both' },
-        { email: `ub-${run}@example.com`, fullName: 'In B only' },
-        { email: `un-${run}@example.com`, fullName: 'No gym' },
+        { email: `ua-${run}@example.com`, firstName: 'In', lastName: 'A' },
+        { email: `uab-${run}@example.com`, firstName: 'In', lastName: 'Both' },
+        { email: `ub-${run}@example.com`, firstName: 'In', lastName: 'B only' },
+        { email: `un-${run}@example.com`, firstName: 'No', lastName: 'gym' },
       ])
       .returning({ id: users.id });
     [inA, inBoth, inBOnly, noGym] = u.map((r) => r.id) as [string, string, string, string];
@@ -84,7 +84,7 @@ describe('row-level security on users (gym_app)', () => {
       withGym(gymA, (tx) =>
         tx
           .update(users)
-          .set({ fullName: 'Hacked' })
+          .set({ firstName: 'Hacked', lastName: 'Test' })
           .where(inArray(users.id, [inA])),
       ),
     );
@@ -93,7 +93,9 @@ describe('row-level security on users (gym_app)', () => {
 
   it('cannot insert users', async () => {
     const msg = await rejectionMessage(
-      db.insert(users).values({ email: `ins-${run}@example.com`, fullName: 'Nope' }),
+      db
+        .insert(users)
+        .values({ email: `ins-${run}@example.com`, firstName: 'Nope', lastName: 'Test' }),
     );
     expect(msg).toMatch(/permission denied/);
   });

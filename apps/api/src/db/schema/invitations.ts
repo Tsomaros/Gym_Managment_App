@@ -13,7 +13,8 @@ export const invitations = pgTable(
       .notNull()
       .references(() => gyms.id),
     email: text('email').notNull(),
-    fullName: text('full_name').notNull(),
+    firstName: text('first_name').notNull(),
+    lastName: text('last_name').notNull(),
     roles: text('roles').array().$type<GymRole[]>().notNull(),
     tokenHash: text('token_hash').notNull().unique(),
     expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),

@@ -50,7 +50,8 @@ describe('auth', () => {
       .insert(users)
       .values({
         email: memberEmail,
-        fullName: 'Γιώργος Παπαδόπουλος',
+        firstName: 'Γιώργος',
+        lastName: 'Παπαδόπουλος',
         passwordHash: await hashPassword(PASSWORD),
         isPlatformAdmin: false,
       })
@@ -218,6 +219,12 @@ describe('auth', () => {
       const me = MeResponseSchema.parse(res.body);
       expect(me.isPlatformAdmin).toBe(false);
       expect(me.fullName).toBe('Γιώργος Παπαδόπουλος');
+      // Seeded directly, never confirmed by email.
+      expect(me).toMatchObject({
+        firstName: 'Γιώργος',
+        lastName: 'Παπαδόπουλος',
+        emailVerified: false,
+      });
       expect(me.gyms).toHaveLength(1);
       expect(me.gyms[0]).toMatchObject({ gymId, gymName: `Γυμναστήριο ${run}` });
       expect([...me.gyms[0]!.roles].sort()).toEqual(['member', 'trainer']);

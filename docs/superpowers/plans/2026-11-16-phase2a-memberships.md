@@ -49,15 +49,15 @@
 - Produces: RLS on `users` for `gym_app`: `FOR SELECT USING (id IN (SELECT user_id FROM gym_roles WHERE gym_id = nullif(current_setting('app.gym_id', true), '')::uuid))`. Revoke `INSERT, UPDATE` on `users` from `gym_app`.
 - Produces: `@ThrottleLogin()` and `@ThrottleSignup()` decorators in `auth/throttle.ts` (in-memory storage; comment `shortcut: in-memory throttle store, move to Redis when running more than one API instance`).
 
-- [ ] **Step 1: Write the failing tests:**
+- [x] **Step 1: Write the failing tests:**
   - `users-rls.spec.ts`: `withGym(A, tx => tx.select().from(users))` returns only users with a role in gym A. A user of gym B only is absent. With no gym set → `[]`. `db.insert(users)` as `gym_app` rejects with `/permission denied/`.
   - `privileges.spec.ts`: as `gym_system`, `CREATE TABLE x(...)` rejects; `SELECT` from `gym_roles` across gyms works.
   - `throttle.e2e.spec.ts`: 6th wrong login for the same email + IP within 60 s → `429`; a different email from the same IP still gets `401`.
   - Existing suites (`auth`, `invitations`, `access`, `rls`) still pass.
-- [ ] **Step 2: Run** `pnpm --filter api test` → the new tests FAIL.
-- [ ] **Step 3: Implement.** Recreate the local DB volume for the new role (`docker compose down -v && docker compose up -d --wait`, documented in PROGRESS.md).
-- [ ] **Step 4: Run** `pnpm lint && pnpm typecheck && pnpm -r test && pnpm e2e` → all PASS.
-- [ ] **Step 5: Commit** `feat: gym_system role, users RLS, login throttling`.
+- [x] **Step 2: Run** `pnpm --filter api test` → the new tests FAIL.
+- [x] **Step 3: Implement.** Recreate the local DB volume for the new role (`docker compose down -v && docker compose up -d --wait`, documented in PROGRESS.md).
+- [x] **Step 4: Run** `pnpm lint && pnpm typecheck && pnpm -r test && pnpm e2e` → all PASS.
+- [x] **Step 5: Commit** `feat: gym_system role, users RLS, login throttling`.
 - [ ] **Step 6: Push to GitHub.** `git remote add origin https://github.com/Tsomaros/Gym_Managment_App.git`, `git push -u origin main` and the working branch. Open the Actions tab. Expected: CI green. If CI fails, fix it on the branch with a commit `ci: …` and push again until green.
 
 ---
@@ -76,15 +76,15 @@
 - `invitations`: `full_name` → `first_name`, `last_name`.
 - Shared exports: `phoneSchema` (normalises per Global Constraints), `dateOfBirthSchema` (`YYYY-MM-DD`, range per Global Constraints; takes an optional `today` for tests via `makeDateOfBirthSchema(today: string)`), `personNameSchema` (trimmed, 1..60). `InviteSchema` and `CreateGymSchema` replace `fullName`/`ownerFullName` with `firstName`/`lastName` (`ownerFirstName`/`ownerLastName`). `MeResponse` keeps `fullName` and adds `firstName`, `lastName`, `emailVerified: boolean`.
 
-- [ ] **Step 1: Write the failing tests:**
+- [x] **Step 1: Write the failing tests:**
   - `phoneSchema`: `'69 1234 5678'` → `'+306912345678'`; `'2634012345'` → `'+302634012345'`; `'0044 7700 900123'` → `'+447700900123'`; `'12345'` rejects; `'+30 691-234-5678'` → `'+306912345678'`.
   - `makeDateOfBirthSchema('2026-11-16')`: `'2026-11-17'` rejects; `'1916-11-15'` rejects; `'1916-11-16'` accepts; `'1990-02-30'` rejects.
   - `personNameSchema`: `'  Γιώργος '` → `'Γιώργος'`; `''` rejects.
   - DB: inserting `first_name 'Γιώργος', last_name 'Παπαδόπουλος'` reads back `full_name 'Γιώργος Παπαδόπουλος'`.
-- [ ] **Step 2: Run** `pnpm --filter shared test && pnpm --filter api test person` → FAIL.
-- [ ] **Step 3: Implement**, updating every caller of `fullName` until `pnpm typecheck` passes.
-- [ ] **Step 4: Run** `pnpm lint && pnpm typecheck && pnpm -r test && pnpm e2e` → PASS.
-- [ ] **Step 5: Commit** `feat: first/last name, phone, date of birth, emergency contact`.
+- [x] **Step 2: Run** `pnpm --filter shared test && pnpm --filter api test person` → FAIL.
+- [x] **Step 3: Implement**, updating every caller of `fullName` until `pnpm typecheck` passes.
+- [x] **Step 4: Run** `pnpm lint && pnpm typecheck && pnpm -r test && pnpm e2e` → PASS.
+- [x] **Step 5: Commit** `feat: first/last name, phone, date of birth, emergency contact`.
 
 ---
 

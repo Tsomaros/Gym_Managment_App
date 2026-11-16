@@ -9,6 +9,8 @@ import {
 } from '../src/index.js';
 
 const greekName = 'Γιώργος Παπαδόπουλος';
+const first = 'Γιώργος';
+const last = 'Παπαδόπουλος';
 
 describe('emailSchema', () => {
   it('trims and lowercases, so " Maria@Example.com " is maria@example.com', () => {
@@ -82,17 +84,23 @@ describe('AcceptInviteSchema', () => {
 });
 
 describe('InviteSchema', () => {
-  const valid = { email: 'Giorgos@Example.com ', fullName: greekName, roles: ['member'] };
+  const valid = {
+    email: 'Giorgos@Example.com ',
+    firstName: first,
+    lastName: last,
+    roles: ['member'],
+  };
 
-  it('keeps a Greek full name unchanged and normalises the email', () => {
+  it('keeps a Greek name unchanged and normalises the email', () => {
     const parsed = InviteSchema.parse(valid);
-    expect(parsed.fullName).toBe(greekName);
+    expect(parsed).toMatchObject({ firstName: first, lastName: last });
     expect(parsed.email).toBe('giorgos@example.com');
   });
 
-  it('trims the full name and rejects a whitespace-only one', () => {
-    expect(InviteSchema.parse({ ...valid, fullName: ` ${greekName}\n` }).fullName).toBe(greekName);
-    expect(InviteSchema.safeParse({ ...valid, fullName: '   ' }).success).toBe(false);
+  it('trims the names and rejects a whitespace-only one', () => {
+    expect(InviteSchema.parse({ ...valid, firstName: ` ${first}\n` }).firstName).toBe(first);
+    expect(InviteSchema.safeParse({ ...valid, firstName: '   ' }).success).toBe(false);
+    expect(InviteSchema.safeParse({ ...valid, lastName: '   ' }).success).toBe(false);
   });
 
   it('rejects an empty role list', () => {
@@ -109,10 +117,10 @@ describe('InviteSchema', () => {
     );
   });
 
-  it('rejects an empty or 121-character full name and accepts 120 characters', () => {
-    expect(InviteSchema.safeParse({ ...valid, fullName: '' }).success).toBe(false);
-    expect(InviteSchema.safeParse({ ...valid, fullName: 'α'.repeat(121) }).success).toBe(false);
-    expect(InviteSchema.safeParse({ ...valid, fullName: 'α'.repeat(120) }).success).toBe(true);
+  it('rejects an empty or 61-character name and accepts 60 characters', () => {
+    expect(InviteSchema.safeParse({ ...valid, lastName: '' }).success).toBe(false);
+    expect(InviteSchema.safeParse({ ...valid, lastName: 'α'.repeat(61) }).success).toBe(false);
+    expect(InviteSchema.safeParse({ ...valid, lastName: 'α'.repeat(60) }).success).toBe(true);
   });
 });
 
@@ -120,7 +128,8 @@ describe('CreateGymSchema', () => {
   const valid = {
     name: 'Γυμναστήριο Αθηνών',
     ownerEmail: 'Owner@Example.com',
-    ownerFullName: greekName,
+    ownerFirstName: first,
+    ownerLastName: last,
   };
 
   it("defaults the timezone to 'Europe/Athens'", () => {
@@ -128,7 +137,8 @@ describe('CreateGymSchema', () => {
       name: 'Γυμναστήριο Αθηνών',
       timezone: 'Europe/Athens',
       ownerEmail: 'owner@example.com',
-      ownerFullName: greekName,
+      ownerFirstName: first,
+      ownerLastName: last,
     });
   });
 
@@ -153,12 +163,12 @@ describe('CreateGymSchema', () => {
     const parsed = CreateGymSchema.parse({
       ...valid,
       name: '  Γυμναστήριο Αθηνών ',
-      ownerFullName: ` ${greekName} `,
+      ownerFirstName: ` ${first} `,
     });
     expect(parsed.name).toBe('Γυμναστήριο Αθηνών');
-    expect(parsed.ownerFullName).toBe(greekName);
+    expect(parsed.ownerFirstName).toBe(first);
     expect(CreateGymSchema.safeParse({ ...valid, name: '   ' }).success).toBe(false);
-    expect(CreateGymSchema.safeParse({ ...valid, ownerFullName: '   ' }).success).toBe(false);
+    expect(CreateGymSchema.safeParse({ ...valid, ownerLastName: '   ' }).success).toBe(false);
   });
 
   it('rejects an empty or 121-character gym name', () => {
@@ -172,6 +182,9 @@ describe('MeResponseSchema', () => {
     id: '6f1c2b8e-3d4a-4f5b-9c6d-7e8f9a0b1c2d',
     email: 'maria@example.com',
     fullName: greekName,
+    firstName: first,
+    lastName: last,
+    emailVerified: true,
     locale: 'el',
     isPlatformAdmin: false,
     gyms: [

@@ -22,7 +22,8 @@ export const INVITE_TTL_MS = 72 * 3600 * 1000;
 export interface NewInvitation {
   gymId: string;
   email: string;
-  fullName: string;
+  firstName: string;
+  lastName: string;
   roles: GymRole[];
   invitedBy: string;
 }
@@ -56,7 +57,8 @@ export class InvitationsService {
   ): Promise<{ id: string; rawToken: string }> {
     const rawToken = randomToken();
     const fresh = {
-      fullName: inv.fullName,
+      firstName: inv.firstName,
+      lastName: inv.lastName,
       roles: inv.roles,
       tokenHash: hashToken(rawToken),
       expiresAt: new Date(Date.now() + INVITE_TTL_MS),
@@ -85,7 +87,7 @@ export class InvitationsService {
    */
   async sendInviteMail(inv: {
     email: string;
-    fullName: string;
+    firstName: string;
     gymName: string;
     rawToken: string;
   }): Promise<boolean> {
@@ -98,7 +100,7 @@ export class InvitationsService {
       await this.mail.send(
         inviteMail(locale, {
           to: inv.email,
-          fullName: inv.fullName,
+          firstName: inv.firstName,
           gymName: inv.gymName,
           link: `${getEnv().WEB_ORIGIN}/invite/${inv.rawToken}`,
         }),
@@ -131,7 +133,7 @@ export class InvitationsService {
     });
     const mailSent = await this.sendInviteMail({
       email: body.email,
-      fullName: body.fullName,
+      firstName: body.firstName,
       gymName,
       rawToken,
     });
@@ -141,7 +143,11 @@ export class InvitationsService {
   /** A pending, unexpired invitation by its raw token; 410 otherwise. Token lookup → systemDb. */
   async preview(token: string): Promise<InvitePreview> {
     const [inv] = await systemDb
-      .select({ gymName: gyms.name, fullName: invitations.fullName, email: invitations.email })
+      .select({
+        gymName: gyms.name,
+        fullName: sql<string>`${invitations.firstName} || ' ' || ${invitations.lastName}`,
+        email: invitations.email,
+      })
       .from(invitations)
       .innerJoin(gyms, eq(gyms.id, invitations.gymId))
       .where(
@@ -184,7 +190,8 @@ export class InvitationsService {
         .returning({
           gymId: invitations.gymId,
           email: invitations.email,
-          fullName: invitations.fullName,
+          firstName: invitations.firstName,
+          lastName: invitations.lastName,
           roles: invitations.roles,
         });
       if (!inv) return undefined;
@@ -197,7 +204,10 @@ export class InvitationsService {
           .insert(users)
           .values({
             email: inv.email,
-            fullName: inv.fullName,
+            firstName: inv.firstName,
+            lastName: inv.lastName,
+            // The emailed link proves the address.
+            emailVerifiedAt: sql`now()`,
             passwordHash: await hashPassword(password),
           })
           .onConflictDoNothing({ target: users.email })

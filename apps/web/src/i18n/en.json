@@ -64,7 +64,8 @@
     "gymName": "Gym name",
     "timezone": "Time zone",
     "ownerEmail": "Owner email",
-    "ownerFullName": "Owner full name",
+    "ownerFirstName": "Owner first name",
+    "ownerLastName": "Owner last name",
     "create": "Create",
     "created": "Gym created. The invitation was sent to {{email}}.",
     "createdNoMail": "Gym created, but the email could not be sent. Send the invitation again."

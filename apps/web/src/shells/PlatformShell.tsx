@@ -9,7 +9,8 @@ function CreateGymForm() {
   const [name, setName] = useState('');
   const [timezone, setTimezone] = useState('Europe/Athens');
   const [ownerEmail, setOwnerEmail] = useState('');
-  const [ownerFullName, setOwnerFullName] = useState('');
+  const [ownerFirstName, setOwnerFirstName] = useState('');
+  const [ownerLastName, setOwnerLastName] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -22,7 +23,7 @@ function CreateGymForm() {
     try {
       const res = await apiFetch<{ gymId: string; mailSent: boolean }>('/platform/gyms', {
         method: 'POST',
-        body: JSON.stringify({ name, timezone, ownerEmail, ownerFullName }),
+        body: JSON.stringify({ name, timezone, ownerEmail, ownerFirstName, ownerLastName }),
       });
       setDone(
         res.mailSent
@@ -31,7 +32,8 @@ function CreateGymForm() {
       );
       setName('');
       setOwnerEmail('');
-      setOwnerFullName('');
+      setOwnerFirstName('');
+      setOwnerLastName('');
     } catch {
       setError(t('auth.genericError'));
     } finally {
@@ -69,11 +71,20 @@ function CreateGymForm() {
           onChange={(e) => setOwnerEmail(e.target.value)}
         />
         <Field
-          label={t('platform.ownerFullName')}
+          label={t('platform.ownerFirstName')}
           required
-          maxLength={120}
-          value={ownerFullName}
-          onChange={(e) => setOwnerFullName(e.target.value)}
+          maxLength={60}
+          autoComplete="off"
+          value={ownerFirstName}
+          onChange={(e) => setOwnerFirstName(e.target.value)}
+        />
+        <Field
+          label={t('platform.ownerLastName')}
+          required
+          maxLength={60}
+          autoComplete="off"
+          value={ownerLastName}
+          onChange={(e) => setOwnerLastName(e.target.value)}
         />
         <FormError message={error} />
         <p role="status" className="text-sm text-green-800">

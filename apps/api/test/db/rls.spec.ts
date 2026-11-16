@@ -28,7 +28,8 @@ describe('row-level security (gym isolation)', () => {
   const invitation = (gymId: string, invitedBy: string) => ({
     gymId,
     email: `invitee-${randomUUID()}@example.com`,
-    fullName: 'Γιώργος Παπαδόπουλος',
+    firstName: 'Γιώργος',
+    lastName: 'Παπαδόπουλος',
     roles: ['member' as const],
     tokenHash: randomUUID(),
     expiresAt: new Date(Date.now() + 72 * 3600 * 1000),
@@ -45,8 +46,8 @@ describe('row-level security (gym isolation)', () => {
     const u = await systemDb
       .insert(users)
       .values([
-        { email: `a-${run}@example.com`, fullName: 'Owner A' },
-        { email: `b-${run}@example.com`, fullName: 'Owner B' },
+        { email: `a-${run}@example.com`, firstName: 'Owner', lastName: 'A' },
+        { email: `b-${run}@example.com`, firstName: 'Owner', lastName: 'B' },
       ])
       .returning({ id: users.id });
     userA = u[0]!.id;
@@ -88,7 +89,7 @@ describe('row-level security (gym isolation)', () => {
     it('withGym(A) can write its own gym rows (so the rejections below are RLS, not a broken setup)', async () => {
       const extra = await systemDb
         .insert(users)
-        .values({ email: `extra-${run}@example.com`, fullName: 'Extra' })
+        .values({ email: `extra-${run}@example.com`, firstName: 'Extra', lastName: 'Test' })
         .returning({ id: users.id });
       const extraId = extra[0]!.id;
       try {
@@ -185,7 +186,11 @@ describe('row-level security (gym isolation)', () => {
     it('withGym(B) sees only gym B invitations', async () => {
       const rows = await withGym(gymB, (tx) => tx.select().from(invitations));
       expect(rows).toHaveLength(1);
-      expect(rows[0]).toMatchObject({ gymId: gymB, fullName: 'Γιώργος Παπαδόπουλος' });
+      expect(rows[0]).toMatchObject({
+        gymId: gymB,
+        firstName: 'Γιώργος',
+        lastName: 'Παπαδόπουλος',
+      });
     });
 
     it('withGym(B) cannot insert an invitation for gym A', async () => {

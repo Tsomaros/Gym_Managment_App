@@ -29,7 +29,7 @@ describe('gym_app privileges on global and gym tables', () => {
   beforeAll(async () => {
     const [u] = await systemDb
       .insert(users)
-      .values({ email: `priv-${run}@example.com`, fullName: 'Plain User' })
+      .values({ email: `priv-${run}@example.com`, firstName: 'Plain', lastName: 'User' })
       .returning({ id: users.id });
     userId = u!.id;
     const [g] = await systemDb
@@ -46,7 +46,9 @@ describe('gym_app privileges on global and gym tables', () => {
 
   it('cannot create accounts (users are written only through systemDb)', async () => {
     const msg = await rejectionMessage(
-      db.insert(users).values({ email: `new-${run}@example.com`, fullName: 'Μαρία Νέα' }),
+      db
+        .insert(users)
+        .values({ email: `new-${run}@example.com`, firstName: 'Μαρία', lastName: 'Νέα' }),
     );
     expect(msg).toMatch(/permission denied for table users/);
   });
@@ -59,14 +61,23 @@ describe('gym_app privileges on global and gym tables', () => {
         tx.select({ id: users.id }).from(users).where(eq(users.id, userId)),
       );
       expect(visible).toHaveLength(1);
-      for (const set of [{ fullName: 'Renamed' }, { passwordHash: 'x' }, { locale: 'en' }]) {
+      for (const set of [
+        { firstName: 'Renamed', lastName: 'Test' },
+        { passwordHash: 'x' },
+        { locale: 'en' },
+      ]) {
         const msg = await rejectionMessage(
           withGym(gymId, (tx) => tx.update(users).set(set).where(eq(users.id, userId))),
         );
         expect(msg).toMatch(/permission denied for table users/);
       }
       const [row] = await systemDb.select().from(users).where(eq(users.id, userId));
-      expect(row).toMatchObject({ fullName: 'Plain User', passwordHash: null, locale: 'el' });
+      expect(row).toMatchObject({
+        firstName: 'Plain',
+        lastName: 'User',
+        passwordHash: null,
+        locale: 'el',
+      });
     } finally {
       await systemDb.delete(gymRoles).where(eq(gymRoles.userId, userId));
     }
@@ -79,6 +90,27 @@ describe('gym_app privileges on global and gym tables', () => {
              has_column_privilege('gym_app', 'users', c, 'UPDATE') as upd
       from unnest(array['email', 'password_hash', 'full_name', 'locale']) as c`);
     expect(rows.filter((r) => r.ins || r.upd)).toEqual([]);
+  });
+
+  it('reads personal details of a gym member but never the password hash or admin flag', async () => {
+    await systemDb.insert(gymRoles).values({ gymId, userId, role: 'member' });
+    try {
+      const rows = await withGym(gymId, (tx) =>
+        tx
+          .select({ phone: users.phone, dob: users.dateOfBirth, name: users.fullName })
+          .from(users)
+          .where(eq(users.id, userId)),
+      );
+      expect(rows).toHaveLength(1);
+      for (const col of [users.passwordHash, users.isPlatformAdmin]) {
+        const msg = await rejectionMessage(
+          withGym(gymId, (tx) => tx.select({ c: col }).from(users).where(eq(users.id, userId))),
+        );
+        expect(msg).toMatch(/permission denied for table users/);
+      }
+    } finally {
+      await systemDb.delete(gymRoles).where(eq(gymRoles.userId, userId));
+    }
   });
 
   it('cannot promote an account to platform admin', async () => {
@@ -126,7 +158,7 @@ describe('gym_system privileges (systemDb)', () => {
     gymB = g[1]!.id;
     const [u] = await systemDb
       .insert(users)
-      .values({ email: `sys-${run}@example.com`, fullName: 'Sys User' })
+      .values({ email: `sys-${run}@example.com`, firstName: 'Sys', lastName: 'User' })
       .returning({ id: users.id });
     userId = u!.id;
     await systemDb.insert(gymRoles).values([
@@ -158,9 +190,12 @@ describe('gym_system privileges (systemDb)', () => {
     const email = `sysw-${run}@example.com`;
     const [created] = await systemDb
       .insert(users)
-      .values({ email, fullName: 'Writer' })
+      .values({ email, firstName: 'Writer', lastName: 'Test' })
       .returning({ id: users.id });
-    await systemDb.update(users).set({ fullName: 'Writer 2' }).where(eq(users.id, created!.id));
+    await systemDb
+      .update(users)
+      .set({ firstName: 'Writer', lastName: '2' })
+      .where(eq(users.id, created!.id));
     const [row] = await systemDb.select().from(users).where(eq(users.id, created!.id));
     expect(row?.fullName).toBe('Writer 2');
     await systemDb.delete(users).where(eq(users.id, created!.id));

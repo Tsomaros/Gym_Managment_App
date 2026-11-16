@@ -18,7 +18,9 @@ export async function seedPlatformAdmin(rawEmail: string, password: string): Pro
     .insert(users)
     .values({
       email,
-      fullName: 'Platform admin',
+      firstName: 'Platform',
+      lastName: 'admin',
+      emailVerifiedAt: new Date(),
       passwordHash: await hashPassword(password),
       isPlatformAdmin: true,
     })

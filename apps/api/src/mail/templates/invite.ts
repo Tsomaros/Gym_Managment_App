@@ -3,7 +3,7 @@ import type { MailMessage } from '../mail.service';
 
 export interface InviteMailData {
   to: string;
-  fullName: string;
+  firstName: string;
   gymName: string;
   link: string;
 }
@@ -12,7 +12,7 @@ const templates: Record<Locale, (d: InviteMailData) => Omit<MailMessage, 'to'>> 
   el: (d) => ({
     subject: `Πρόσκληση στο ${d.gymName}`,
     text: [
-      `Γεια σου ${d.fullName},`,
+      `Γεια σου ${d.firstName},`,
       '',
       `Σε προσκάλεσαν στο ${d.gymName}. Άνοιξε τον παρακάτω σύνδεσμο για να ενεργοποιήσεις τον λογαριασμό σου:`,
       d.link,
@@ -23,7 +23,7 @@ const templates: Record<Locale, (d: InviteMailData) => Omit<MailMessage, 'to'>> 
   en: (d) => ({
     subject: `Invitation to ${d.gymName}`,
     text: [
-      `Hi ${d.fullName},`,
+      `Hi ${d.firstName},`,
       '',
       `You have been invited to ${d.gymName}. Open this link to activate your account:`,
       d.link,
