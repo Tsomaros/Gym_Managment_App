@@ -76,9 +76,13 @@ describe('membershipStatus precedence', () => {
   it('is frozen before used up and before expired', () => {
     const m = { ...usedUp, endsOn: '2027-06-10' };
     expect(membershipStatus(m, freezes, '2027-06-03')).toBe('frozen');
-    expect(membershipStatus({ ...time, endsOn: '2027-03-05' }, [
-      { startsOn: '2027-03-10', endsOn: '2027-03-12' },
-    ], '2027-03-11')).toBe('frozen');
+    expect(
+      membershipStatus(
+        { ...time, endsOn: '2027-03-05' },
+        [{ startsOn: '2027-03-10', endsOn: '2027-03-12' }],
+        '2027-03-11',
+      ),
+    ).toBe('frozen');
   });
 
   it('is upcoming before the start even when used up', () => {

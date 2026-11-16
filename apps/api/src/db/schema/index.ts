@@ -7,3 +7,5 @@ export * from './email-verifications';
 export * from './signup-codes';
 export * from './audit-log';
 export * from './membership-types';
+export * from './memberships';
+export * from './payments';

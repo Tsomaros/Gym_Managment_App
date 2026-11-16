@@ -1,8 +1,8 @@
 import { Injectable } from '@nestjs/common';
 import type { AuditAction, AuditEntry, AuditPage, AuditQuery } from '@gym/shared';
-import { and, desc, eq, inArray, lt, type SQL } from 'drizzle-orm';
-import { systemDb } from '../db/client';
-import { auditLog, users } from '../db/schema';
+import { and, desc, eq, lt, type SQL } from 'drizzle-orm';
+import { namesOf, person } from '../common/names';
+import { auditLog } from '../db/schema';
 import { type Tx, withGym } from '../db/tenant';
 
 export interface AuditEvent {
@@ -49,29 +49,16 @@ export class AuditService {
         .limit(q.limit + 1),
     );
 
-    // Actors may no longer hold a role in this gym (so gym_app can't see them under users RLS).
-    // Their names are read through systemDb, only for ids that appear in this gym's history.
     const page = rows.slice(0, q.limit);
-    const actorIds = [...new Set(page.map((r) => r.actorId).filter((id): id is string => !!id))];
-    const names = new Map(
-      actorIds.length
-        ? (
-            await systemDb
-              .select({ id: users.id, fullName: users.fullName })
-              .from(users)
-              .where(inArray(users.id, actorIds))
-          ).map((u) => [u.id, u.fullName])
-        : [],
-    );
+    const names = await namesOf(page.map((r) => r.actorId));
 
     const entries: AuditEntry[] = page.map((r) => {
-      const name = r.actorId ? names.get(r.actorId) : undefined;
       return {
         id: String(r.id),
         action: r.action as AuditAction,
         entity: r.entity,
         entityId: r.entityId,
-        actor: r.actorId && name !== undefined ? { id: r.actorId, fullName: name } : null,
+        actor: person(r.actorId, names),
         data: r.data,
         at: r.at.toISOString(),
       };

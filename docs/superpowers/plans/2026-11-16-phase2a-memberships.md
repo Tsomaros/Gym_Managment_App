@@ -245,7 +245,7 @@
   - `POST /gyms/:gymId/payments/:paymentId/void` (`@GymRoles('owner')`) body `VoidPaymentSchema` → `204`; voids the payment **and** its membership; `payment.voided` history row; already voided → `409`.
   - `GET /gyms/:gymId/payments?from=&to=` (`@GymRoles('owner')`, ISO dates in gym time) → `Payment[]` with member name and recorder name.
 
-- [ ] **Step 1: Write the failing tests** (gym `Europe/Athens`; inject "today" through a test clock provider `Clock` with `now(): Date`, overridden in tests):
+- [x] **Step 1: Write the failing tests** (gym `Europe/Athens`; inject "today" through a test clock provider `Clock` with `now(): Date`, overridden in tests):
   - Today 2027-01-31: sell 1-month time type without `startsOn` → `startsOn '2027-01-31'`, `endsOn '2027-02-28'`, status `active`; one cash payment of the given amount; one `membership.sold` row.
   - Sell again the same day → starts `'2027-03-01'` (after the current end), status `upcoming`.
   - Edit the type's price and name, then archive it: existing membership still shows the old name and `price_cents`; selling the archived type → `409`. *(Review Focus 4)*
@@ -253,10 +253,10 @@
   - Selling to a user who is not a member of this gym → `404`. `startsOn` yesterday → `400`. Trainer → `403`.
   - Void as owner → `204`; membership status `voided`; payment has `voidedBy` and the reason; second void → `409`; reception void → `403`. *(Review Focus 5)*
   - `GET /payments?from=2027-01-31&to=2027-01-31` lists both payments with member and recorder names. Two-gym isolation for both tables.
-- [ ] **Step 2: Run** `pnpm --filter api test memberships` → FAIL.
-- [ ] **Step 3: Implement.** Consult database-expert on the schema and indexes.
-- [ ] **Step 4: Run** `pnpm --filter api test` → PASS.
-- [ ] **Step 5: Commit** `feat: sell and renew memberships, record and void payments`.
+- [x] **Step 2: Run** `pnpm --filter api test memberships` → FAIL.
+- [x] **Step 3: Implement.** Consult database-expert on the schema and indexes.
+- [x] **Step 4: Run** `pnpm --filter api test` → PASS.
+- [x] **Step 5: Commit** `feat: sell and renew memberships, record and void payments`.
 
 ---
 

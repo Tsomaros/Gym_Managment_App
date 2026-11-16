@@ -50,6 +50,13 @@
       "when": 1794821057072,
       "tag": "0006_membership_types",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1794822118676,
+      "tag": "0007_memberships_payments",
+      "breakpoints": true
     }
   ]
 }

@@ -7,7 +7,9 @@ import {
   gymRoles,
   gyms,
   invitations,
+  memberships,
   membershipTypes,
+  payments,
   signupCodes,
   users,
 } from '../../src/db/schema';
@@ -396,5 +398,202 @@ describe('row-level security: membership_types', () => {
       ),
     );
     expect(msg).toMatch(/violates check constraint/);
+  });
+});
+
+describe('row-level security: memberships and payments', () => {
+  const run = randomUUID().slice(0, 8);
+  let gymA: string;
+  let gymB: string;
+  let member: string;
+  let typeA: string;
+  let typeB: string;
+  let membershipA: string;
+  let membershipB: string;
+
+  const membership = (gymId: string, typeId: string) => ({
+    gymId,
+    memberId: member,
+    typeId,
+    name: 'Ημερήσια',
+    kind: 'day_pass' as const,
+    priceCents: 800,
+    startsOn: '2027-01-31',
+    baseEndsOn: '2027-01-31',
+    endsOn: '2027-01-31',
+    visitsTotal: 1,
+    createdBy: member,
+  });
+
+  beforeAll(async () => {
+    const g = await systemDb
+      .insert(gyms)
+      .values([{ name: `MP A ${run}` }, { name: `MP B ${run}` }])
+      .returning({ id: gyms.id });
+    gymA = g[0]!.id;
+    gymB = g[1]!.id;
+    const [u] = await systemDb
+      .insert(users)
+      .values({ email: `mp-${run}@example.com`, firstName: 'Μέλος', lastName: 'Δύο γυμναστηρίων' })
+      .returning({ id: users.id });
+    member = u!.id;
+    const t = await systemDb
+      .insert(membershipTypes)
+      .values([
+        { gymId: gymA, name: 'A', kind: 'day_pass', priceCents: 800 },
+        { gymId: gymB, name: 'B', kind: 'day_pass', priceCents: 800 },
+      ])
+      .returning({ id: membershipTypes.id });
+    typeA = t[0]!.id;
+    typeB = t[1]!.id;
+    const m = await systemDb
+      .insert(memberships)
+      .values([membership(gymA, typeA), membership(gymB, typeB)])
+      .returning({ id: memberships.id });
+    membershipA = m[0]!.id;
+    membershipB = m[1]!.id;
+    await systemDb.insert(payments).values([
+      {
+        gymId: gymA,
+        membershipId: membershipA,
+        memberId: member,
+        amountCents: 800,
+        method: 'cash',
+        recordedBy: member,
+      },
+      {
+        gymId: gymB,
+        membershipId: membershipB,
+        memberId: member,
+        amountCents: 800,
+        method: 'card',
+        recordedBy: member,
+      },
+    ]);
+  });
+
+  afterAll(async () => {
+    const gymIds = [gymA, gymB].filter(Boolean);
+    if (gymIds.length) {
+      await systemDb.delete(payments).where(inArray(payments.gymId, gymIds));
+      await systemDb.delete(memberships).where(inArray(memberships.gymId, gymIds));
+      await systemDb.delete(membershipTypes).where(inArray(membershipTypes.gymId, gymIds));
+      await systemDb.delete(gyms).where(inArray(gyms.id, gymIds));
+    }
+    if (member) await systemDb.delete(users).where(eq(users.id, member));
+  });
+
+  it('each gym sees only its own memberships and payments', async () => {
+    const a = await withGym(gymA, async (tx) => ({
+      m: await tx.select().from(memberships),
+      p: await tx.select().from(payments),
+    }));
+    const b = await withGym(gymB, async (tx) => ({
+      m: await tx.select().from(memberships),
+      p: await tx.select().from(payments),
+    }));
+    expect(a.m.map((r) => r.id)).toEqual([membershipA]);
+    expect(a.p.map((r) => r.method)).toEqual(['cash']);
+    expect(b.m.map((r) => r.id)).toEqual([membershipB]);
+    expect(b.p.map((r) => r.method)).toEqual(['card']);
+    expect(await db.select().from(payments)).toEqual([]);
+  });
+
+  it('withGym(A) cannot write a membership or payment for gym B', async () => {
+    expect(
+      await rejectionMessage(
+        withGym(gymA, (tx) => tx.insert(memberships).values(membership(gymB, typeB))),
+      ),
+    ).toMatch(RLS_VIOLATION);
+    expect(
+      await rejectionMessage(
+        withGym(gymA, (tx) =>
+          tx.insert(payments).values({
+            gymId: gymB,
+            membershipId: membershipB,
+            memberId: member,
+            amountCents: 1,
+            method: 'cash',
+            recordedBy: member,
+          }),
+        ),
+      ),
+    ).toMatch(RLS_VIOLATION);
+  });
+
+  it('a membership of gym A cannot point at a type of gym B, even through systemDb', async () => {
+    expect(
+      await rejectionMessage(systemDb.insert(memberships).values(membership(gymA, typeB))),
+    ).toMatch(/violates foreign key constraint/);
+  });
+
+  it('a payment of gym A cannot point at a membership of gym B, even through systemDb', async () => {
+    expect(
+      await rejectionMessage(
+        systemDb.insert(payments).values({
+          gymId: gymA,
+          membershipId: membershipB,
+          memberId: member,
+          amountCents: 1,
+          method: 'cash',
+          recordedBy: member,
+        }),
+      ),
+    ).toMatch(/violates foreign key constraint/);
+  });
+
+  it('gym_app cannot delete payments or change their amount', async () => {
+    expect(
+      await rejectionMessage(
+        withGym(gymA, (tx) => tx.delete(payments).where(eq(payments.gymId, gymA))),
+      ),
+    ).toMatch(/permission denied/);
+    expect(
+      await rejectionMessage(
+        withGym(gymA, (tx) =>
+          tx.update(payments).set({ amountCents: 1 }).where(eq(payments.gymId, gymA)),
+        ),
+      ),
+    ).toMatch(/permission denied/);
+  });
+
+  it('a voided payment or membership cannot be un-voided', async () => {
+    // Gym B's rows, so gym A's stay unvoided for the void-reason test below.
+    await withGym(gymB, (tx) =>
+      tx
+        .update(payments)
+        .set({ voidedAt: new Date(), voidedBy: member, voidReason: 'test' })
+        .where(eq(payments.gymId, gymB)),
+    );
+    await withGym(gymB, (tx) =>
+      tx.update(memberships).set({ voidedAt: new Date() }).where(eq(memberships.gymId, gymB)),
+    );
+    expect(
+      await rejectionMessage(
+        withGym(gymB, (tx) =>
+          tx
+            .update(payments)
+            .set({ voidedAt: null, voidedBy: null, voidReason: null })
+            .where(eq(payments.gymId, gymB)),
+        ),
+      ),
+    ).toMatch(/cannot be un-voided/);
+    expect(
+      await rejectionMessage(
+        withGym(gymB, (tx) =>
+          tx.update(memberships).set({ voidedAt: null }).where(eq(memberships.gymId, gymB)),
+        ),
+      ),
+    ).toMatch(/cannot be un-voided/);
+  });
+
+  it('the database requires a void reason exactly when a payment is voided', async () => {
+    expect(
+      await rejectionMessage(
+        withGym(gymA, (tx) =>
+          tx.update(payments).set({ voidedAt: new Date() }).where(eq(payments.gymId, gymA)),
+        ),
+      ),
+    ).toMatch(/violates check constraint/);
   });
 });

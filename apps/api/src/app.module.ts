@@ -2,6 +2,7 @@ import { Module, type OnApplicationShutdown } from '@nestjs/common';
 import { ThrottlerModule } from '@nestjs/throttler';
 import { AuditModule } from './audit/audit.module';
 import { AuthModule } from './auth/auth.module';
+import { ClockModule } from './common/clock';
 import { THROTTLERS } from './auth/throttle';
 import { closeDb } from './db/client';
 import { GymsModule } from './gyms/gyms.module';
@@ -14,6 +15,7 @@ import { HealthController } from './health/health.controller';
 @Module({
   imports: [
     ThrottlerModule.forRoot({ throttlers: THROTTLERS }),
+    ClockModule,
     MailModule,
     AuditModule,
     AuthModule,

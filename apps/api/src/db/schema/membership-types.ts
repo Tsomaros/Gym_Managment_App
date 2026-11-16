@@ -8,6 +8,7 @@ import {
   pgTable,
   text,
   timestamp,
+  unique,
   uuid,
 } from 'drizzle-orm/pg-core';
 import { gyms } from './gyms';
@@ -38,6 +39,8 @@ export const membershipTypes = pgTable(
   },
   (t) => [
     index('membership_types_gym_id_idx').on(t.gymId),
+    // Target of the memberships (type_id, gym_id) foreign key: a type of the same gym only.
+    unique('membership_types_id_gym_id_uq').on(t.id, t.gymId),
     check(
       'membership_types_kind_valid',
       sql`${t.kind} in ('time', 'visits', 'day_pass', 'classes')`,
