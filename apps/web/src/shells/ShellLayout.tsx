@@ -40,6 +40,8 @@ export function ShellLayout({
   nav,
   home,
   pages,
+  actions,
+  banner,
   multipleGyms,
 }: {
   testId: string;
@@ -50,6 +52,10 @@ export function ShellLayout({
   home?: ReactNode;
   /** Content of other sections by nav key; a section without one shows a placeholder. */
   pages?: Partial<Record<string, ReactNode>>;
+  /** Extra controls in the header, e.g. reception's "new member code". */
+  actions?: ReactNode;
+  /** A notice under the header, e.g. "confirm your email". */
+  banner?: ReactNode;
   multipleGyms?: boolean;
 }) {
   const { t } = useTranslation();
@@ -69,6 +75,7 @@ export function ShellLayout({
               {gymName ?? t('app.name')}
             </h1>
           </div>
+          {actions}
           {multipleGyms && (
             <Link
               to="/gyms"
@@ -102,6 +109,7 @@ export function ShellLayout({
           </ul>
         </nav>
       </header>
+      {banner}
       <main className="mx-auto max-w-5xl px-4 py-6">
         <Routes>
           <Route index element={home ?? <Placeholder title={t(`nav.${first}`)} />} />

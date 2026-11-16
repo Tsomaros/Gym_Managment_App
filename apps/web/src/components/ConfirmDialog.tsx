@@ -1,4 +1,5 @@
 import { type KeyboardEvent, useEffect, useId, useRef } from 'react';
+import { Modal } from './modal';
 
 /**
  * A modal question with a cancel and a confirm button (role="alertdialog"). Focus starts on
@@ -58,41 +59,43 @@ export function ConfirmDialog({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-900/50 p-4 sm:items-center">
-      <div
-        role="alertdialog"
-        aria-modal="true"
-        aria-labelledby={titleId}
-        aria-describedby={messageId}
-        onKeyDown={trapTab}
-        className="w-full max-w-sm rounded-xl bg-white p-6 shadow-xl"
-      >
-        <h2 id={titleId} className="text-lg font-semibold text-slate-900">
-          {title}
-        </h2>
-        <p id={messageId} className="mt-2 break-words text-slate-700">
-          {message}
-        </p>
-        <div className="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-          <button
-            ref={cancelRef}
-            type="button"
-            onClick={onCancel}
-            className="min-h-11 rounded-md border border-slate-300 px-4 font-medium text-slate-800 hover:bg-slate-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-900"
-          >
-            {cancelLabel}
-          </button>
-          <button
-            ref={confirmRef}
-            type="button"
-            onClick={() => !busy && onConfirm()}
-            aria-disabled={busy || undefined}
-            className="min-h-11 rounded-md bg-red-700 px-4 font-semibold text-white hover:bg-red-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-800 aria-disabled:opacity-60"
-          >
-            {busy && busyLabel ? busyLabel : confirmLabel}
-          </button>
+    <Modal>
+      <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-900/50 p-4 sm:items-center">
+        <div
+          role="alertdialog"
+          aria-modal="true"
+          aria-labelledby={titleId}
+          aria-describedby={messageId}
+          onKeyDown={trapTab}
+          className="w-full max-w-sm rounded-xl bg-white p-6 shadow-xl"
+        >
+          <h2 id={titleId} className="text-lg font-semibold text-slate-900">
+            {title}
+          </h2>
+          <p id={messageId} className="mt-2 break-words text-slate-700">
+            {message}
+          </p>
+          <div className="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+            <button
+              ref={cancelRef}
+              type="button"
+              onClick={onCancel}
+              className="min-h-11 rounded-md border border-slate-300 px-4 font-medium text-slate-800 hover:bg-slate-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-900"
+            >
+              {cancelLabel}
+            </button>
+            <button
+              ref={confirmRef}
+              type="button"
+              onClick={() => !busy && onConfirm()}
+              aria-disabled={busy || undefined}
+              className="min-h-11 rounded-md bg-red-700 px-4 font-semibold text-white hover:bg-red-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-800 aria-disabled:opacity-60"
+            >
+              {busy && busyLabel ? busyLabel : confirmLabel}
+            </button>
+          </div>
         </div>
       </div>
-    </div>
+    </Modal>
   );
 }

@@ -338,13 +338,13 @@
 - `JoinPage`: one-column form for phones. Field order: code, first name, last name, email, mobile, date of birth (native date input), password, optional emergency contact (collapsed by default), privacy checkbox. Uses `SignupSchema` client-side. On `{ signInRequired: true }`, shows "Έχεις ήδη λογαριασμό — συνδέσου" with a link to `/login`. On `410`, shows a message to ask reception for a new code.
 - `EmailNotVerifiedBanner`: shown in the member shell when `me.emailVerified` is false, with a "Στείλε ξανά" button.
 
-- [ ] **Step 1: Write the failing tests:**
+- [x] **Step 1: Write the failing tests:**
   - Unit: the dialog shows the code returned by a mocked API; the join form shows field errors in Greek for a 7-character password and an empty phone; a `410` response shows the "new code" message; `signInRequired` shows the login link.
   - E2E: owner invites a receptionist → reception signs in → creates a code → in a new browser context, `/join` with that code → member shell with the not-verified banner → open the verification link from Mailpit → banner gone.
-- [ ] **Step 2: Run** `pnpm --filter web test signup && pnpm e2e` → FAIL.
-- [ ] **Step 3: Implement.** Run ui-ux-reviewer on the three new components and the page. Check at 375 px in Greek.
-- [ ] **Step 4: Run** → PASS.
-- [ ] **Step 5: Commit** `feat(web): reception sign-up codes, join page, email confirmation`.
+- [x] **Step 2: Run** `pnpm --filter web test signup && pnpm e2e` → FAIL.
+- [x] **Step 3: Implement.** Run ui-ux-reviewer on the three new components and the page. Check at 375 px in Greek.
+- [x] **Step 4: Run** → PASS.
+- [x] **Step 5: Commit** `feat(web): reception sign-up codes, join page, email confirmation`.
 
 ---
 

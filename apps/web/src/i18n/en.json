@@ -85,7 +85,8 @@
     "required": "Fill in this field.",
     "genericError": "Something went wrong. Try again.",
     "checkFields": "Check the form fields.",
-    "working": "Please wait…"
+    "working": "Please wait…",
+    "close": "Close"
   },
   "types": {
     "new": "New type",
@@ -134,5 +135,51 @@
     "visitsInvalid": "1 to 500 visits.",
     "validityInvalid": "1 to 730 days, or empty.",
     "freezeInvalid": "0 to 365 days."
+  },
+  "codes": {
+    "button": "New member code",
+    "title": "New member code",
+    "instructions": "Give this code to the new member. They type it in the app to sign up.",
+    "expires": "Single use, valid until {{time}}.",
+    "copy": "Copy",
+    "copied": "Copied.",
+    "another": "New code"
+  },
+  "signup": {
+    "title": "Member sign-up",
+    "intro": "Enter the code reception gave you and your details.",
+    "code": "Sign-up code",
+    "codeHint": "8 characters, with or without the dash, e.g. K7P2-QM9X.",
+    "firstName": "First name",
+    "lastName": "Last name",
+    "phone": "Mobile",
+    "dateOfBirth": "Date of birth",
+    "emergency": "Emergency contact (optional)",
+    "emergencyName": "Contact name",
+    "emergencyPhone": "Contact phone",
+    "acceptPrivacy": "I have read and accept the gym's privacy notice.",
+    "submit": "Sign up",
+    "haveAccount": "Already have an account?",
+    "privacyRequired": "You need to accept it to sign up.",
+    "emailInvalid": "Enter a valid email.",
+    "phoneInvalid": "Enter a valid number, e.g. 69 1234 5678.",
+    "dobInvalid": "Enter a valid date of birth.",
+    "codeGone": "The code is invalid or already used. Ask reception for a new code.",
+    "alreadyMember": "You are already a member of this gym. Sign in with your password.",
+    "tooMany": "Too many attempts. Wait a minute and try again.",
+    "existingAccount": "You already have an account — sign in with your password. The gym was added to your account.",
+    "toSignIn": "You already have an account — sign in"
+  },
+  "verify": {
+    "title": "Confirm email",
+    "done": "Your email is confirmed.",
+    "gone": "The link is no longer valid or was already used. You can ask for a new one in the app.",
+    "continue": "Continue to the app"
+  },
+  "banner": {
+    "notVerified": "Confirm your email ({{email}}) using the message we sent you.",
+    "resend": "Send again",
+    "sent": "A new email was sent.",
+    "sending": "Sending…"
   }
 }
