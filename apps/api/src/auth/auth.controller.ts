@@ -5,6 +5,7 @@ import { type AppRequest, JwtGuard } from '../access/jwt.guard';
 import { ZodValidationPipe } from '../common/zod-validation.pipe';
 import { AuthService } from './auth.service';
 import { clearRefreshCookie, readRefreshCookie, setRefreshCookie } from './refresh-cookie';
+import { ThrottleLogin } from './throttle';
 
 @Controller('auth')
 export class AuthController {
@@ -12,6 +13,7 @@ export class AuthController {
 
   @Post('login')
   @HttpCode(200)
+  @ThrottleLogin()
   async login(
     @Body(new ZodValidationPipe(LoginSchema)) body: Login,
     @Res({ passthrough: true }) res: Response,

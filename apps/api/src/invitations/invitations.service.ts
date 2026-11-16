@@ -11,7 +11,7 @@ import type { GymContext } from '../access/gym-context';
 import { hashToken, randomToken } from '../auth/opaque-token';
 import { hashPassword } from '../auth/password';
 import { getEnv } from '../config/env';
-import { db, systemDb } from '../db/client';
+import { systemDb } from '../db/client';
 import { gymRoles, gyms, invitations, users } from '../db/schema';
 import { type Tx, withGym } from '../db/tenant';
 import { MailService } from '../mail/mail.service';
@@ -90,7 +90,7 @@ export class InvitationsService {
     rawToken: string;
   }): Promise<boolean> {
     try {
-      const [existing] = await db
+      const [existing] = await systemDb
         .select({ locale: users.locale })
         .from(users)
         .where(eq(users.email, inv.email));
@@ -152,7 +152,7 @@ export class InvitationsService {
         ),
       );
     if (!inv) throw new GoneException('Invitation is invalid or has expired');
-    const [account] = await db
+    const [account] = await systemDb
       .select({ id: users.id })
       .from(users)
       .where(eq(users.email, inv.email));
@@ -166,14 +166,10 @@ export class InvitationsService {
    */
   async accept({ token, password }: AcceptInvite): Promise<AcceptResult> {
     const tokenHash = hashToken(token);
-    // No gym is known before the token is read, so this one lookup uses systemDb.
-    const [found] = await systemDb
-      .select({ gymId: invitations.gymId })
-      .from(invitations)
-      .where(eq(invitations.tokenHash, tokenHash));
-    if (!found) throw new GoneException('Invitation is invalid or has expired');
-
-    const accepted = await withGym(found.gymId, async (tx): Promise<AcceptResult | undefined> => {
+    // A token path: no gym is known until the token is read, and the account may already exist
+    // in another gym (invisible to gym_app) or be created here (a users write). So the whole
+    // acceptance runs in one systemDb transaction.
+    const accepted = await systemDb.transaction(async (tx): Promise<AcceptResult | undefined> => {
       // Claiming and redeeming in one transaction: a double click can't accept twice.
       const [inv] = await tx
         .update(invitations)

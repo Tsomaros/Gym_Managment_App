@@ -2,8 +2,9 @@ import { randomUUID } from 'node:crypto';
 import { eq, sql } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { closeDb, db, systemDb } from '../../src/db/client';
-import { gyms, users } from '../../src/db/schema';
+import { gymRoles, gyms, users } from '../../src/db/schema';
 import { withGym } from '../../src/db/tenant';
+import { ownerDb } from './owner-db';
 
 /** Drizzle wraps driver errors; the Postgres message lives on `cause`. */
 async function rejectionMessage(promise: Promise<unknown>): Promise<string> {
@@ -43,30 +44,41 @@ describe('gym_app privileges on global and gym tables', () => {
     if (gymId) await systemDb.delete(gyms).where(eq(gyms.id, gymId));
   });
 
-  it('can create an ordinary account (invitation acceptance needs this)', async () => {
-    const [created] = await db
-      .insert(users)
-      .values({ email: `new-${run}@example.com`, fullName: 'Μαρία Νέα' })
-      .returning({ isPlatformAdmin: users.isPlatformAdmin, fullName: users.fullName });
-    expect(created).toEqual({ isPlatformAdmin: false, fullName: 'Μαρία Νέα' });
-  });
-
-  it('can change a name, locale or password hash', async () => {
-    await db
-      .update(users)
-      .set({ fullName: 'Renamed', locale: 'en', passwordHash: 'x' })
-      .where(eq(users.id, userId));
-    const [row] = await systemDb.select().from(users).where(eq(users.id, userId));
-    expect(row).toMatchObject({ fullName: 'Renamed', locale: 'en', passwordHash: 'x' });
-  });
-
-  it('cannot create a platform admin', async () => {
+  it('cannot create accounts (users are written only through systemDb)', async () => {
     const msg = await rejectionMessage(
-      db
-        .insert(users)
-        .values({ email: `rogue-${run}@example.com`, fullName: 'Rogue', isPlatformAdmin: true }),
+      db.insert(users).values({ email: `new-${run}@example.com`, fullName: 'Μαρία Νέα' }),
     );
-    expect(msg).toMatch(/is_platform_admin cannot be set by gym_app/);
+    expect(msg).toMatch(/permission denied for table users/);
+  });
+
+  it('cannot change a name or password hash, even of a user in its own gym', async () => {
+    await systemDb.insert(gymRoles).values({ gymId, userId, role: 'member' });
+    try {
+      // The user is visible under RLS, so a rejection here is the missing UPDATE grant.
+      const visible = await withGym(gymId, (tx) =>
+        tx.select({ id: users.id }).from(users).where(eq(users.id, userId)),
+      );
+      expect(visible).toHaveLength(1);
+      for (const set of [{ fullName: 'Renamed' }, { passwordHash: 'x' }, { locale: 'en' }]) {
+        const msg = await rejectionMessage(
+          withGym(gymId, (tx) => tx.update(users).set(set).where(eq(users.id, userId))),
+        );
+        expect(msg).toMatch(/permission denied for table users/);
+      }
+      const [row] = await systemDb.select().from(users).where(eq(users.id, userId));
+      expect(row).toMatchObject({ fullName: 'Plain User', passwordHash: null, locale: 'el' });
+    } finally {
+      await systemDb.delete(gymRoles).where(eq(gymRoles.userId, userId));
+    }
+  });
+
+  it('holds no column-level write grant on users left over from 0001', async () => {
+    const { rows } = await systemDb.execute<{ col: string; ins: boolean; upd: boolean }>(sql`
+      select c as col,
+             has_column_privilege('gym_app', 'users', c, 'INSERT') as ins,
+             has_column_privilege('gym_app', 'users', c, 'UPDATE') as upd
+      from unnest(array['email', 'password_hash', 'full_name', 'locale']) as c`);
+    expect(rows.filter((r) => r.ins || r.upd)).toEqual([]);
   });
 
   it('cannot promote an account to platform admin', async () => {
@@ -96,6 +108,77 @@ describe('gym_app privileges on global and gym tables', () => {
     expect(msg).toMatch(/permission denied for table gyms/);
     const [row] = await systemDb.select({ name: gyms.name }).from(gyms).where(eq(gyms.id, gymId));
     expect(row?.name).toBe(`Renamed ${run}`);
+  });
+});
+
+describe('gym_system privileges (systemDb)', () => {
+  const run = randomUUID().slice(0, 8);
+  let gymA: string;
+  let gymB: string;
+  let userId: string;
+
+  beforeAll(async () => {
+    const g = await systemDb
+      .insert(gyms)
+      .values([{ name: `Sys A ${run}` }, { name: `Sys B ${run}` }])
+      .returning({ id: gyms.id });
+    gymA = g[0]!.id;
+    gymB = g[1]!.id;
+    const [u] = await systemDb
+      .insert(users)
+      .values({ email: `sys-${run}@example.com`, fullName: 'Sys User' })
+      .returning({ id: users.id });
+    userId = u!.id;
+    await systemDb.insert(gymRoles).values([
+      { gymId: gymA, userId, role: 'member' },
+      { gymId: gymB, userId, role: 'member' },
+    ]);
+  });
+
+  afterAll(async () => {
+    await systemDb.delete(gymRoles).where(eq(gymRoles.userId, userId));
+    await systemDb.delete(users).where(eq(users.id, userId));
+    await systemDb.delete(gyms).where(sql`${gyms.id} in (${gymA}, ${gymB})`);
+  });
+
+  it('connects as gym_system, which bypasses RLS but is not a superuser', async () => {
+    const { rows } = await systemDb.execute<{ role: string; bypass: boolean; superuser: boolean }>(
+      sql`select current_user as role, rolbypassrls as bypass, rolsuper as superuser
+          from pg_roles where rolname = current_user`,
+    );
+    expect(rows).toEqual([{ role: 'gym_system', bypass: true, superuser: false }]);
+  });
+
+  it('reads gym_roles across gyms', async () => {
+    const rows = await systemDb.select().from(gymRoles).where(eq(gymRoles.userId, userId));
+    expect(rows.map((r) => r.gymId).sort()).toEqual([gymA, gymB].sort());
+  });
+
+  it('can insert, update and delete users (every users write goes through it)', async () => {
+    const email = `sysw-${run}@example.com`;
+    const [created] = await systemDb
+      .insert(users)
+      .values({ email, fullName: 'Writer' })
+      .returning({ id: users.id });
+    await systemDb.update(users).set({ fullName: 'Writer 2' }).where(eq(users.id, created!.id));
+    const [row] = await systemDb.select().from(users).where(eq(users.id, created!.id));
+    expect(row?.fullName).toBe('Writer 2');
+    await systemDb.delete(users).where(eq(users.id, created!.id));
+    expect(await systemDb.select().from(users).where(eq(users.id, created!.id))).toEqual([]);
+  });
+
+  it('cannot create tables', async () => {
+    const msg = await rejectionMessage(systemDb.execute(sql`create table zz_sys_probe (id int)`));
+    expect(msg).toMatch(/permission denied for schema public/);
+  });
+
+  it('cannot alter or drop existing tables', async () => {
+    expect(
+      await rejectionMessage(systemDb.execute(sql`alter table users add column zz int`)),
+    ).toMatch(/must be owner of table users/);
+    expect(await rejectionMessage(systemDb.execute(sql`drop table gym_roles`))).toMatch(
+      /must be owner of table gym_roles/,
+    );
   });
 });
 
@@ -147,18 +230,21 @@ describe('row-level security catalog guard', () => {
   });
 
   it('flags a gym table whose policy lets everything through', async () => {
-    await systemDb.execute(sql`create table zz_rls_probe (gym_id uuid not null)`);
+    // DDL needs the owner role; systemDb (gym_system) may not create tables.
+    const owner = ownerDb();
+    await owner.execute(sql`create table zz_rls_probe (gym_id uuid not null)`);
     try {
-      await systemDb.execute(sql`alter table zz_rls_probe enable row level security`);
-      await systemDb.execute(sql`alter table zz_rls_probe force row level security`);
-      await systemDb.execute(
+      await owner.execute(sql`alter table zz_rls_probe enable row level security`);
+      await owner.execute(sql`alter table zz_rls_probe force row level security`);
+      await owner.execute(
         sql`create policy open on zz_rls_probe for all using (true) with check (true)`,
       );
       expect(await rlsProblems()).toEqual([
         'zz_rls_probe.open: USING/WITH CHECK not tied to app.gym_id',
       ]);
     } finally {
-      await systemDb.execute(sql`drop table zz_rls_probe`);
+      await owner.execute(sql`drop table zz_rls_probe`);
+      await owner.$client.end();
     }
   });
 });

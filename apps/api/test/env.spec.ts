@@ -4,6 +4,7 @@ import { loadEnv } from '../src/config/env';
 const valid = {
   DATABASE_URL: 'postgres://gym_app:pw@localhost:5433/gym',
   DATABASE_MIGRATOR_URL: 'postgres://gym_owner:pw@localhost:5433/gym',
+  DATABASE_SYSTEM_URL: 'postgres://gym_system:pw@localhost:5433/gym',
   JWT_SECRET: 'x'.repeat(32),
   WEB_ORIGIN: 'http://localhost:5173',
   SMTP_URL: 'smtp://localhost:1025',
@@ -53,12 +54,15 @@ describe('loadEnv', () => {
     expect(() => loadEnv({ ...valid, DATABASE_URL: blank })).toThrow('DATABASE_URL');
   });
 
-  it.each(['DATABASE_URL', 'DATABASE_MIGRATOR_URL', 'WEB_ORIGIN', 'SMTP_URL'])(
-    'throws when %s is not a URL',
-    (key) => {
-      expect(() => loadEnv({ ...valid, [key]: 'not a url' })).toThrow(key);
-    },
-  );
+  it.each([
+    'DATABASE_URL',
+    'DATABASE_SYSTEM_URL',
+    'DATABASE_MIGRATOR_URL',
+    'WEB_ORIGIN',
+    'SMTP_URL',
+  ])('throws when %s is not a URL', (key) => {
+    expect(() => loadEnv({ ...valid, [key]: 'not a url' })).toThrow(key);
+  });
 
   it('throws when the platform admin email is not an email, even after trimming', () => {
     expect(() => loadEnv({ ...valid, PLATFORM_ADMIN_EMAIL: '  not-an-email ' })).toThrow(

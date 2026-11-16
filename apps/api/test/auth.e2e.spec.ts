@@ -4,13 +4,14 @@ import { MeResponseSchema } from '@gym/shared';
 import { eq, sql } from 'drizzle-orm';
 import jwt from 'jsonwebtoken';
 import request from 'supertest';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { hashPassword } from '../src/auth/password';
 import { getEnv } from '../src/config/env';
 import { systemDb } from '../src/db/client';
 import { gymRoles, gyms, refreshTokens, users } from '../src/db/schema';
 import { createApp } from '../src/main';
 import { seedPlatformAdmin } from '../src/seed';
+import { resetThrottle } from './throttle-reset';
 
 const PASSWORD = 'correct horse battery';
 
@@ -59,6 +60,9 @@ describe('auth', () => {
       { gymId, userId: member!.id, role: 'trainer' },
     ]);
   });
+
+  // This suite signs in as one account more often than the login limit allows a person to.
+  beforeEach(() => resetThrottle(app));
 
   afterAll(async () => {
     const emails = sql`${users.email} like ${`%-${run}@x.gr`}`;

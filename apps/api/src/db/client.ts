@@ -2,7 +2,7 @@ import { drizzle } from 'drizzle-orm/node-postgres';
 import { Pool } from 'pg';
 import * as schema from './schema';
 
-type UrlKey = 'DATABASE_URL' | 'DATABASE_MIGRATOR_URL';
+type UrlKey = 'DATABASE_URL' | 'DATABASE_SYSTEM_URL';
 
 function makePool(key: UrlKey, max?: number): Pool {
   const connectionString = process.env[key];
@@ -17,10 +17,11 @@ function makePool(key: UrlKey, max?: number): Pool {
 export const db = drizzle({ client: makePool('DATABASE_URL'), schema });
 
 /**
- * Owner connection (gym_owner, BYPASSRLS). Only for paths where no gym is known yet:
- * platform-admin gym creation and token lookups.
+ * gym_system connection (BYPASSRLS, DML only, no DDL). Only for paths where no gym is known yet
+ * (platform-admin gym creation, token lookups, sign-in) and for every write to users.
+ * Migrations use DATABASE_MIGRATOR_URL (gym_owner) and never go through this client.
  */
-export const systemDb = drizzle({ client: makePool('DATABASE_MIGRATOR_URL', 5), schema });
+export const systemDb = drizzle({ client: makePool('DATABASE_SYSTEM_URL', 10), schema });
 
 export type Db = typeof db;
 

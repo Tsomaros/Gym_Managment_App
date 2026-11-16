@@ -15,6 +15,13 @@
       "when": 1794767082407,
       "tag": "0001_rls",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1794819409504,
+      "tag": "0002_users_rls",
+      "breakpoints": true
     }
   ]
 }
