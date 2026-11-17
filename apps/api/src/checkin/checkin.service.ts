@@ -6,6 +6,7 @@ import { Clock } from '../common/clock';
 import { checkIns, gymRoles, memberships, users } from '../db/schema';
 import { withGym } from '../db/tenant';
 import { gymToday, lockMember, membershipsOf } from '../memberships/memberships.service';
+import { CheckInEvents } from './checkin-events';
 import { decideCheckIn, relevantMembership } from './decide';
 
 /** A second check-in of the same member within this window repeats the first (spec §6.2). */
@@ -26,6 +27,7 @@ export class CheckInService {
   constructor(
     private readonly audit: AuditService,
     private readonly clock: Clock,
+    private readonly events: CheckInEvents,
   ) {}
 
   /**
@@ -35,7 +37,7 @@ export class CheckInService {
    */
   async checkIn(input: CheckInInput): Promise<CheckInResult> {
     const { gymId, memberId } = input;
-    return withGym(gymId, async (tx) => {
+    const result = await withGym(gymId, async (tx) => {
       await lockMember(tx, gymId, memberId);
       // Read after the lock, so concurrent attempts see each other's rows in order.
       const now = this.clock.now();
@@ -125,6 +127,9 @@ export class CheckInService {
         : ms;
       return this.result(row!, member, fresh, false);
     });
+    // After commit, and not for a repeat: the screens already show the first one.
+    if (!result.duplicate) this.events.publish(gymId, { type: 'check_in', result });
+    return result;
   }
 
   /** The API shape of a stored check-in, with the membership that explains it. */

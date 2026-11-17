@@ -1,4 +1,6 @@
 import { z } from 'zod';
+import { isoDateSchema } from './common.js';
+import type { MemberStatus } from './members.js';
 import type { Membership } from './memberships.js';
 
 /** Why a check-in was refused, in the order they are tried (spec §6.2). */
@@ -54,4 +56,40 @@ export interface KioskCheckInResult {
   valid: boolean;
   firstName: string | null;
   reason: 'invalid_token' | 'not_member' | CheckInReason | null;
+}
+
+/** Someone inside the gym right now (spec §6.2). */
+export interface PresentMember {
+  checkInId: string;
+  memberId: string;
+  firstName: string;
+  lastName: string;
+  photoUrl: string | null;
+  at: string;
+  membershipStatus: MemberStatus;
+}
+
+/** One line of a day's visitors, refused attempts included. */
+export interface VisitorRow {
+  checkInId: string;
+  memberId: string;
+  firstName: string;
+  lastName: string;
+  at: string;
+  method: 'kiosk' | 'manual';
+  valid: boolean;
+  reason: CheckInReason | null;
+  checkedOutAt: string | null;
+}
+
+export const VisitorsQuerySchema = z.object({ date: isoDateSchema.optional() });
+export type VisitorsQuery = z.infer<typeof VisitorsQuerySchema>;
+
+/** Pushed to reception and trainer screens over the live stream. */
+export type LiveEvent =
+  | { type: 'check_in'; result: CheckInResult }
+  | { type: 'check_out'; checkInId: string };
+
+export interface LiveTicketResponse {
+  ticket: string;
 }

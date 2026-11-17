@@ -36,7 +36,7 @@ function gymRoutes(app: INestApplication): { id: string; guarded: boolean }[] {
       // Nest accepts arrays for both; check every combination
       for (const b of [base ?? ''].flat()) {
         for (const s of [sub].flat()) {
-          const path = `/${b}/${s}`.replace(/\/+/g, '/');
+          const path = `/${b}/${s}`.replace(/\/+/g, '/').replace(/(.)\/$/, '$1');
           if (!path.includes(':gymId')) continue;
           const roles = reflector.getAllAndOverride<unknown[] | undefined>(GYM_ROLES_KEY, [
             handler,
@@ -85,9 +85,18 @@ function kioskRoutes(app: INestApplication): { id: string; guarded: boolean }[] 
   return found;
 }
 
+/**
+ * Gym routes that may skip @GymRoles because they authenticate some other way. Each needs a
+ * reason here; the real-app test below fails if one of them stops existing.
+ */
+const PUBLIC_GYM_ROUTES: Record<string, string> = {
+  // EventSource cannot send headers: a single-use 30 s ticket, bound to this gym, is the credential.
+  'LiveController.stream /gyms/:gymId/live': 'single-use stream ticket',
+};
+
 const unguarded = (app: INestApplication): string[] =>
   gymRoutes(app)
-    .filter((r) => !r.guarded)
+    .filter((r) => !r.guarded && !(r.id in PUBLIC_GYM_ROUTES))
     .map((r) => r.id);
 
 @Controller('gyms/:gymId')
@@ -200,6 +209,8 @@ describe('every /gyms/:gymId route carries @GymRoles', () => {
     app = await createApp(RealModule);
     await app.init();
     expect(unguarded(app)).toEqual([]);
+    const all = gymRoutes(app).map((r) => r.id);
+    for (const id of Object.keys(PUBLIC_GYM_ROUTES)) expect(all).toContain(id);
     // not vacuous: the scan must see the app's real gym routes
     expect(gymRoutes(app)).toContainEqual({
       id: 'InvitationsController.invite /gyms/:gymId/invitations',

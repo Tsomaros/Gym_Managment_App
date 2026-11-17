@@ -35,6 +35,8 @@ export default defineConfig({
     strictPort: true,
     // Same origin in dev: the refresh cookie is SameSite=Strict. /api/auth/* reaches the API's
     // /auth/*, and the cookie path is rewritten to match what the browser requested.
+    // The live check-in stream (text/event-stream) passes through unbuffered: Vite's proxy does not
+    // buffer, and the API sends X-Accel-Buffering: no for production proxies.
     proxy: {
       '/api': {
         target: API,
