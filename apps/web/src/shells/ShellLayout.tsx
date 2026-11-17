@@ -1,6 +1,6 @@
 import { type ReactNode, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Link, NavLink, Route, Routes, useNavigate } from 'react-router';
+import { Link, NavLink, Route, Routes, useNavigate, useParams } from 'react-router';
 import { useAuth } from '../auth/AuthProvider';
 import { LanguageSwitch } from '../components/LanguageSwitch';
 
@@ -39,6 +39,9 @@ export function ShellLayout({
   gymName,
   nav,
   home,
+  pages,
+  actions,
+  banner,
   multipleGyms,
 }: {
   testId: string;
@@ -47,10 +50,19 @@ export function ShellLayout({
   nav: string[];
   /** Content of the area's home page; defaults to a placeholder. */
   home?: ReactNode;
+  /** Content of other sections by nav key; a section without one shows a placeholder. */
+  pages?: Partial<Record<string, ReactNode>>;
+  /** Extra controls in the header, e.g. reception's "new member code". */
+  actions?: ReactNode;
+  /** A notice under the header, e.g. "confirm your email". */
+  banner?: ReactNode;
   multipleGyms?: boolean;
 }) {
   const { t } = useTranslation();
   const [first, ...rest] = nav;
+  // Absolute links: relative ones would nest under the current section (/g/x/a/b/...).
+  const { gymId } = useParams();
+  const base = gymId ? `/g/${gymId}` : '/platform';
 
   useEffect(() => {
     document.title = `${gymName ?? title} · ${t('app.name')}`;
@@ -66,6 +78,7 @@ export function ShellLayout({
               {gymName ?? t('app.name')}
             </h1>
           </div>
+          {actions}
           {multipleGyms && (
             <Link
               to="/gyms"
@@ -82,7 +95,7 @@ export function ShellLayout({
             {nav.map((key, i) => (
               <li key={key}>
                 <NavLink
-                  to={i === 0 ? '.' : key}
+                  to={i === 0 ? base : `${base}/${key}`}
                   end={i === 0}
                   className={({ isActive }) =>
                     `inline-flex min-h-11 items-center border-b-2 px-3 text-sm font-medium whitespace-nowrap focus-visible:outline-2 focus-visible:outline-slate-900 ${
@@ -99,11 +112,16 @@ export function ShellLayout({
           </ul>
         </nav>
       </header>
+      {banner}
       <main className="mx-auto max-w-5xl px-4 py-6">
         <Routes>
           <Route index element={home ?? <Placeholder title={t(`nav.${first}`)} />} />
           {rest.map((key) => (
-            <Route key={key} path={key} element={<Placeholder title={t(`nav.${key}`)} />} />
+            <Route
+              key={key}
+              path={`${key}/*`}
+              element={pages?.[key] ?? <Placeholder title={t(`nav.${key}`)} />}
+            />
           ))}
         </Routes>
       </main>

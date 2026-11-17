@@ -39,7 +39,8 @@ test('platform admin creates a gym, the owner accepts the emailed invite and lan
 
   await page.getByLabel('Όνομα γυμναστηρίου').fill(gymName);
   await page.getByLabel('Email ιδιοκτήτη').fill(ownerEmail);
-  await page.getByLabel('Ονοματεπώνυμο ιδιοκτήτη').fill('Νίκος Ιδιοκτήτης');
+  await page.getByLabel('Όνομα ιδιοκτήτη').fill('Νίκος');
+  await page.getByLabel('Επώνυμο ιδιοκτήτη').fill('Ιδιοκτήτης');
   await page.getByRole('button', { name: 'Δημιουργία' }).click();
   await expect(page.getByRole('status')).toContainText(ownerEmail);
 

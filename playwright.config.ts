@@ -5,13 +5,16 @@ import { defineConfig, devices } from '@playwright/test';
 if (existsSync('.env')) process.loadEnvFile('.env');
 const toTestDb = (value: string | undefined): string => {
   if (!value)
-    throw new Error('DATABASE_URL and DATABASE_MIGRATOR_URL must be set (see .env.example)');
+    throw new Error(
+      'DATABASE_URL, DATABASE_SYSTEM_URL and DATABASE_MIGRATOR_URL must be set (see .env keys in PROGRESS.md)',
+    );
   const url = new URL(value);
   url.pathname = '/gym_test';
   return url.toString();
 };
 const apiEnv = {
   DATABASE_URL: toTestDb(process.env.DATABASE_URL),
+  DATABASE_SYSTEM_URL: toTestDb(process.env.DATABASE_SYSTEM_URL),
   DATABASE_MIGRATOR_URL: toTestDb(process.env.DATABASE_MIGRATOR_URL),
   WEB_ORIGIN: 'http://localhost:5173',
   PORT: '3000',

@@ -9,7 +9,7 @@ const envFile = resolve(__dirname, '../../.env');
 if (existsSync(envFile)) process.loadEnvFile(envFile);
 
 const url = process.env.DATABASE_MIGRATOR_URL;
-if (!url) throw new Error('DATABASE_MIGRATOR_URL is not set (copy .env.example to .env)');
+if (!url) throw new Error('DATABASE_MIGRATOR_URL is not set (see the .env keys in PROGRESS.md)');
 
 export default defineConfig({
   dialect: 'postgresql',

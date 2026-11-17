@@ -15,7 +15,9 @@ jobs:
       PGPASSWORD: ci-superuser
       GYM_OWNER_PASSWORD: ci-owner
       GYM_APP_PASSWORD: ci-app
+      GYM_SYSTEM_PASSWORD: ci-system
       DATABASE_URL: postgres://gym_app:ci-app@localhost:5432/gym_test
+      DATABASE_SYSTEM_URL: postgres://gym_system:ci-system@localhost:5432/gym_test
       DATABASE_MIGRATOR_URL: postgres://gym_owner:ci-owner@localhost:5432/gym_test
       JWT_SECRET: ci-only-jwt-secret-at-least-32-characters-long
       WEB_ORIGIN: http://localhost:5173

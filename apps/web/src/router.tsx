@@ -6,7 +6,9 @@ import { highestRole, homePath } from './auth/home';
 import { RequireAuth } from './auth/RequireAuth';
 import { AcceptInvitePage } from './pages/AcceptInvitePage';
 import { GymPickerPage } from './pages/GymPickerPage';
+import { JoinPage } from './pages/JoinPage';
 import { LoginPage } from './pages/LoginPage';
+import { VerifyEmailPage } from './pages/VerifyEmailPage';
 import { PlatformShell } from './shells/PlatformShell';
 import {
   type GymShellProps,
@@ -50,6 +52,8 @@ export function AppRoutes() {
     <Routes>
       <Route path="/login" element={<LoginPage />} />
       <Route path="/invite/:token" element={<AcceptInvitePage />} />
+      <Route path="/join" element={<JoinPage />} />
+      <Route path="/verify-email/:token" element={<VerifyEmailPage />} />
       <Route element={<RequireAuth />}>
         <Route index element={<HomeRedirect />} />
         <Route path="gyms" element={<GymPickerPage />} />

@@ -20,14 +20,14 @@ A gym management app for a new gym opening around May 2027, built so other gyms 
 
 ## Project rules (from the spec)
 
-- **Gym isolation.** Every gym-owned table has `gym_id uuid NOT NULL` and row-level security enabled **and forced**, with the policy `gym_id = current_setting('app.gym_id', true)::uuid`. Every new gym-owned table gets an isolation test with at least two gyms.
-- The API runs as the DB role `gym_app` (not owner, no `BYPASSRLS`). Gym-scoped reads and writes go through `withGym(gymId, fn)`. `systemDb` (owner role) is used only where no gym is known yet: platform-admin gym creation and token lookups.
+- **Gym isolation.** Every gym-owned table has `gym_id uuid NOT NULL` and row-level security enabled **and forced**, with the policy `gym_id = nullif(current_setting('app.gym_id', true), '')::uuid` (the `nullif` is required: a pooled connection keeps `''` after a transaction-local setting). Every new gym-owned table gets an isolation test with at least two gyms.
+- The API runs as the DB role `gym_app` (not owner, no `BYPASSRLS`). Gym-scoped reads and writes go through `withGym(gymId, fn)`. `systemDb` connects as `gym_system` (`BYPASSRLS`, DML only, no DDL) and is used only where no gym is known yet (platform-admin gym creation, token lookups, sign-in) and for **every write to `users`**. `gym_app` can only read `users`, and only people with a role in the current gym. Migrations run as `gym_owner`.
 - Gym-scoped routes live under `/gyms/:gymId/...` and carry a `@GymRoles(...)` guard. The owner satisfies any reception requirement. The platform admin has no implicit access to gym data.
 - Emails are normalised with `trim().toLowerCase()`. Inviting an existing email adds a role; it never creates a second account.
 - Timestamps are `timestamptz` in UTC; anything "per day" uses the gym's `timezone` (default `Europe/Athens`).
 - Every visible string goes through i18next, with Greek (`el`, default) and English (`en`).
 - Personal and health data (measurements, photos) need explicit consent and are served only through signed, expiring links (GDPR).
-- Secrets (`JWT_SECRET`, SMTP, DB passwords) come from `.env`, never git. `.env.example` lists every key.
+- Secrets (`JWT_SECRET`, SMTP, DB passwords) come from `.env`, never git (`.env` and `.env.example` are both git-ignored). The keys are defined in `apps/api/src/config/env.ts` (API) and `docker-compose.yml` (Docker services); the list is in `PROGRESS.md` under Local setup.
 - Tests run offline. API integration tests use the `gym_test` database from Docker.
 
 ## Working from two places

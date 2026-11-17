@@ -4,10 +4,15 @@
 
 \getenv gym_owner_password GYM_OWNER_PASSWORD
 \getenv gym_app_password GYM_APP_PASSWORD
+\getenv gym_system_password GYM_SYSTEM_PASSWORD
 
--- Owns the databases and runs migrations. BYPASSRLS because it is also systemDb:
--- the paths where no gym is known yet (platform-admin gym creation, token lookups, test seeding).
+-- Owns the databases and runs migrations (DDL). The API never connects as gym_owner.
 CREATE ROLE gym_owner LOGIN NOSUPERUSER BYPASSRLS PASSWORD :'gym_owner_password';
+
+-- systemDb: paths where no gym is known yet (platform-admin gym creation, token lookups, sign-in)
+-- and every write to users. Bypasses RLS, owns nothing, so it can't create, alter or drop tables.
+-- Its table privileges are granted by migration 0002_users_rls.
+CREATE ROLE gym_system LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE BYPASSRLS PASSWORD :'gym_system_password';
 
 -- Runtime role of the API. Never owns tables and never bypasses row-level security.
 CREATE ROLE gym_app LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOBYPASSRLS PASSWORD :'gym_app_password';

@@ -74,12 +74,12 @@ describe('access control', () => {
     const u = await systemDb
       .insert(users)
       .values([
-        { email: `owner-${run}@x.gr`, fullName: 'Owner A' },
-        { email: `member-${run}@x.gr`, fullName: 'Member A' },
-        { email: `admin-${run}@x.gr`, fullName: 'Admin', isPlatformAdmin: true },
-        { email: `former-admin-${run}@x.gr`, fullName: 'Former admin' },
-        { email: `reception-${run}@x.gr`, fullName: 'Reception A' },
-        { email: `dual-${run}@x.gr`, fullName: 'Dual' },
+        { email: `owner-${run}@x.gr`, firstName: 'Owner', lastName: 'A' },
+        { email: `member-${run}@x.gr`, firstName: 'Member', lastName: 'A' },
+        { email: `admin-${run}@x.gr`, firstName: 'Admin', lastName: 'Test', isPlatformAdmin: true },
+        { email: `former-admin-${run}@x.gr`, firstName: 'Former', lastName: 'admin' },
+        { email: `reception-${run}@x.gr`, firstName: 'Reception', lastName: 'A' },
+        { email: `dual-${run}@x.gr`, firstName: 'Dual', lastName: 'Test' },
       ])
       .returning({ id: users.id });
     const [owner, member, admin, former, reception, dual] = u.map((r) => r.id) as [

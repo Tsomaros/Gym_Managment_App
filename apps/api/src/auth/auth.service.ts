@@ -1,7 +1,7 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import type { GymRole, Login, MeResponse } from '@gym/shared';
 import { asc, eq } from 'drizzle-orm';
-import { db, systemDb } from '../db/client';
+import { systemDb } from '../db/client';
 import { gymRoles, gyms, users } from '../db/schema';
 import { hashPassword, verifyPassword } from './password';
 import { RefreshStore } from './refresh-store';
@@ -20,7 +20,8 @@ export class AuthService {
   constructor(private readonly refreshStore: RefreshStore) {}
 
   async login({ email, password }: Login): Promise<IssuedTokens> {
-    const [user] = await db
+    // Sign-in happens before any gym is chosen, and users is under RLS for gym_app.
+    const [user] = await systemDb
       .select({
         id: users.id,
         passwordHash: users.passwordHash,
@@ -44,7 +45,7 @@ export class AuthService {
   async refresh(raw: string | undefined): Promise<IssuedTokens> {
     if (!raw) throw new UnauthorizedException();
     const { userId, raw: refreshToken } = await this.refreshStore.rotate(raw);
-    const [user] = await db
+    const [user] = await systemDb
       .select({ isPlatformAdmin: users.isPlatformAdmin })
       .from(users)
       .where(eq(users.id, userId));
@@ -60,11 +61,14 @@ export class AuthService {
   }
 
   async me(userId: string): Promise<MeResponse> {
-    const [user] = await db
+    const [user] = await systemDb
       .select({
         id: users.id,
         email: users.email,
         fullName: users.fullName,
+        firstName: users.firstName,
+        lastName: users.lastName,
+        emailVerifiedAt: users.emailVerifiedAt,
         locale: users.locale,
         isPlatformAdmin: users.isPlatformAdmin,
       })
@@ -87,6 +91,12 @@ export class AuthService {
       byGym.set(gymId, gym);
     }
 
-    return { ...user, locale: user.locale as MeResponse['locale'], gyms: [...byGym.values()] };
+    const { emailVerifiedAt, ...rest } = user;
+    return {
+      ...rest,
+      emailVerified: emailVerifiedAt !== null,
+      locale: user.locale as MeResponse['locale'],
+      gyms: [...byGym.values()],
+    };
   }
 }

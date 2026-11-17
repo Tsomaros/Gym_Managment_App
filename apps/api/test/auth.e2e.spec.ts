@@ -4,13 +4,14 @@ import { MeResponseSchema } from '@gym/shared';
 import { eq, sql } from 'drizzle-orm';
 import jwt from 'jsonwebtoken';
 import request from 'supertest';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { hashPassword } from '../src/auth/password';
 import { getEnv } from '../src/config/env';
 import { systemDb } from '../src/db/client';
 import { gymRoles, gyms, refreshTokens, users } from '../src/db/schema';
 import { createApp } from '../src/main';
 import { seedPlatformAdmin } from '../src/seed';
+import { resetThrottle } from './throttle-reset';
 
 const PASSWORD = 'correct horse battery';
 
@@ -49,7 +50,8 @@ describe('auth', () => {
       .insert(users)
       .values({
         email: memberEmail,
-        fullName: 'Γιώργος Παπαδόπουλος',
+        firstName: 'Γιώργος',
+        lastName: 'Παπαδόπουλος',
         passwordHash: await hashPassword(PASSWORD),
         isPlatformAdmin: false,
       })
@@ -59,6 +61,9 @@ describe('auth', () => {
       { gymId, userId: member!.id, role: 'trainer' },
     ]);
   });
+
+  // This suite signs in as one account more often than the login limit allows a person to.
+  beforeEach(() => resetThrottle(app));
 
   afterAll(async () => {
     const emails = sql`${users.email} like ${`%-${run}@x.gr`}`;
@@ -214,6 +219,12 @@ describe('auth', () => {
       const me = MeResponseSchema.parse(res.body);
       expect(me.isPlatformAdmin).toBe(false);
       expect(me.fullName).toBe('Γιώργος Παπαδόπουλος');
+      // Seeded directly, never confirmed by email.
+      expect(me).toMatchObject({
+        firstName: 'Γιώργος',
+        lastName: 'Παπαδόπουλος',
+        emailVerified: false,
+      });
       expect(me.gyms).toHaveLength(1);
       expect(me.gyms[0]).toMatchObject({ gymId, gymName: `Γυμναστήριο ${run}` });
       expect([...me.gyms[0]!.roles].sort()).toEqual(['member', 'trainer']);

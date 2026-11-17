@@ -8,11 +8,12 @@ import {
 import type { AcceptInvite, GymRole, Invite, InvitePreview, Locale } from '@gym/shared';
 import { and, eq, gt, isNull, sql } from 'drizzle-orm';
 import type { GymContext } from '../access/gym-context';
+import { AuditService } from '../audit/audit.service';
 import { hashToken, randomToken } from '../auth/opaque-token';
 import { hashPassword } from '../auth/password';
 import { getEnv } from '../config/env';
-import { db, systemDb } from '../db/client';
-import { gymRoles, gyms, invitations, users } from '../db/schema';
+import { systemDb } from '../db/client';
+import { gymRoles, gyms, invitations, refreshTokens, users } from '../db/schema';
 import { type Tx, withGym } from '../db/tenant';
 import { MailService } from '../mail/mail.service';
 import { inviteMail } from '../mail/templates/invite';
@@ -22,7 +23,8 @@ export const INVITE_TTL_MS = 72 * 3600 * 1000;
 export interface NewInvitation {
   gymId: string;
   email: string;
-  fullName: string;
+  firstName: string;
+  lastName: string;
   roles: GymRole[];
   invitedBy: string;
 }
@@ -41,7 +43,10 @@ const RECEPTION_MAY_INVITE: readonly GymRole[] = ['member'];
 export class InvitationsService {
   private readonly logger = new Logger(InvitationsService.name);
 
-  constructor(private readonly mail: MailService) {}
+  constructor(
+    private readonly mail: MailService,
+    private readonly audit: AuditService,
+  ) {}
 
   /**
    * Stores an invitation inside `tx` (withGym, or systemDb when the gym is being created).
@@ -56,7 +61,8 @@ export class InvitationsService {
   ): Promise<{ id: string; rawToken: string }> {
     const rawToken = randomToken();
     const fresh = {
-      fullName: inv.fullName,
+      firstName: inv.firstName,
+      lastName: inv.lastName,
       roles: inv.roles,
       tokenHash: hashToken(rawToken),
       expiresAt: new Date(Date.now() + INVITE_TTL_MS),
@@ -75,6 +81,15 @@ export class InvitationsService {
       })
       .returning({ id: invitations.id });
     if (!row) throw new ConflictException('A staff invitation for this email is pending');
+    await this.audit.record(tx, {
+      gymId: inv.gymId,
+      actorId: inv.invitedBy,
+      action: 'invitation.sent',
+      entity: 'invitation',
+      entityId: row.id,
+      // No email: history can't be erased, and the invitation row (entityId) holds it.
+      data: { roles: inv.roles },
+    });
     return { id: row.id, rawToken };
   }
 
@@ -85,12 +100,12 @@ export class InvitationsService {
    */
   async sendInviteMail(inv: {
     email: string;
-    fullName: string;
+    firstName: string;
     gymName: string;
     rawToken: string;
   }): Promise<boolean> {
     try {
-      const [existing] = await db
+      const [existing] = await systemDb
         .select({ locale: users.locale })
         .from(users)
         .where(eq(users.email, inv.email));
@@ -98,7 +113,7 @@ export class InvitationsService {
       await this.mail.send(
         inviteMail(locale, {
           to: inv.email,
-          fullName: inv.fullName,
+          firstName: inv.firstName,
           gymName: inv.gymName,
           link: `${getEnv().WEB_ORIGIN}/invite/${inv.rawToken}`,
         }),
@@ -131,7 +146,7 @@ export class InvitationsService {
     });
     const mailSent = await this.sendInviteMail({
       email: body.email,
-      fullName: body.fullName,
+      firstName: body.firstName,
       gymName,
       rawToken,
     });
@@ -141,7 +156,11 @@ export class InvitationsService {
   /** A pending, unexpired invitation by its raw token; 410 otherwise. Token lookup → systemDb. */
   async preview(token: string): Promise<InvitePreview> {
     const [inv] = await systemDb
-      .select({ gymName: gyms.name, fullName: invitations.fullName, email: invitations.email })
+      .select({
+        gymName: gyms.name,
+        fullName: sql<string>`${invitations.firstName} || ' ' || ${invitations.lastName}`,
+        email: invitations.email,
+      })
       .from(invitations)
       .innerJoin(gyms, eq(gyms.id, invitations.gymId))
       .where(
@@ -152,11 +171,12 @@ export class InvitationsService {
         ),
       );
     if (!inv) throw new GoneException('Invitation is invalid or has expired');
-    const [account] = await db
-      .select({ id: users.id })
+    const [account] = await systemDb
+      .select({ verifiedAt: users.emailVerifiedAt })
       .from(users)
       .where(eq(users.email, inv.email));
-    return { ...inv, accountExists: !!account };
+    // An unconfirmed account counts as new: accepting sets its password (see accept()).
+    return { ...inv, accountExists: !!account?.verifiedAt };
   }
 
   /**
@@ -166,14 +186,10 @@ export class InvitationsService {
    */
   async accept({ token, password }: AcceptInvite): Promise<AcceptResult> {
     const tokenHash = hashToken(token);
-    // No gym is known before the token is read, so this one lookup uses systemDb.
-    const [found] = await systemDb
-      .select({ gymId: invitations.gymId })
-      .from(invitations)
-      .where(eq(invitations.tokenHash, tokenHash));
-    if (!found) throw new GoneException('Invitation is invalid or has expired');
-
-    const accepted = await withGym(found.gymId, async (tx): Promise<AcceptResult | undefined> => {
+    // A token path: no gym is known until the token is read, and the account may already exist
+    // in another gym (invisible to gym_app) or be created here (a users write). So the whole
+    // acceptance runs in one systemDb transaction.
+    const accepted = await systemDb.transaction(async (tx): Promise<AcceptResult | undefined> => {
       // Claiming and redeeming in one transaction: a double click can't accept twice.
       const [inv] = await tx
         .update(invitations)
@@ -186,14 +202,20 @@ export class InvitationsService {
           ),
         )
         .returning({
+          id: invitations.id,
           gymId: invitations.gymId,
           email: invitations.email,
-          fullName: invitations.fullName,
+          firstName: invitations.firstName,
+          lastName: invitations.lastName,
           roles: invitations.roles,
         });
       if (!inv) return undefined;
 
-      const userCols = { id: users.id, isPlatformAdmin: users.isPlatformAdmin };
+      const userCols = {
+        id: users.id,
+        isPlatformAdmin: users.isPlatformAdmin,
+        emailVerifiedAt: users.emailVerifiedAt,
+      };
       let created = false;
       let [user] = await tx.select(userCols).from(users).where(eq(users.email, inv.email));
       if (!user) {
@@ -201,7 +223,10 @@ export class InvitationsService {
           .insert(users)
           .values({
             email: inv.email,
-            fullName: inv.fullName,
+            firstName: inv.firstName,
+            lastName: inv.lastName,
+            // The emailed link proves the address.
+            emailVerifiedAt: sql`now()`,
             passwordHash: await hashPassword(password),
           })
           .onConflictDoNothing({ target: users.email })
@@ -209,12 +234,33 @@ export class InvitationsService {
         created = !!user;
         // Lost a race with another acceptance for the same email: use the account it created.
         user ??= (await tx.select(userCols).from(users).where(eq(users.email, inv.email)))[0];
+      } else if (!user.emailVerifiedAt) {
+        // Nobody ever proved this address, so whoever registered it may not own it. The emailed
+        // link does prove it: its holder sets the password, every earlier session ends, and the
+        // account is theirs.
+        await tx
+          .update(users)
+          .set({ passwordHash: await hashPassword(password), emailVerifiedAt: sql`now()` })
+          .where(eq(users.id, user.id));
+        await tx
+          .update(refreshTokens)
+          .set({ revokedAt: sql`now()` })
+          .where(and(eq(refreshTokens.userId, user.id), isNull(refreshTokens.revokedAt)));
+        created = true;
       }
 
       await tx
         .insert(gymRoles)
         .values(inv.roles.map((role) => ({ gymId: inv.gymId, userId: user!.id, role })))
         .onConflictDoNothing();
+      await this.audit.record(tx, {
+        gymId: inv.gymId,
+        actorId: user!.id,
+        action: 'invitation.accepted',
+        entity: 'invitation',
+        entityId: inv.id,
+        data: { roles: inv.roles, newAccount: created },
+      });
       return { userId: user!.id, isPlatformAdmin: user!.isPlatformAdmin, created };
     });
 

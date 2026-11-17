@@ -15,6 +15,69 @@
       "when": 1794767082407,
       "tag": "0001_rls",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1794819409504,
+      "tag": "0002_users_rls",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1794819831665,
+      "tag": "0003_person_details",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1794820259234,
+      "tag": "0004_signup",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1794820654958,
+      "tag": "0005_audit_log",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1794821057072,
+      "tag": "0006_membership_types",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1794822118676,
+      "tag": "0007_memberships_payments",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1794822279741,
+      "tag": "0008_freezes",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1794822530222,
+      "tag": "0009_unaccent",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1794904921025,
+      "tag": "0010_chain_grants",
+      "breakpoints": true
     }
   ]
 }

@@ -22,7 +22,8 @@ export class GymsService {
       const { rawToken } = await this.invitations.issue(tx, {
         gymId: gym!.id,
         email: body.ownerEmail,
-        fullName: body.ownerFullName,
+        firstName: body.ownerFirstName,
+        lastName: body.ownerLastName,
         roles: ['owner'],
         invitedBy: adminId,
       });
@@ -31,7 +32,7 @@ export class GymsService {
 
     const mailSent = await this.invitations.sendInviteMail({
       email: body.ownerEmail,
-      fullName: body.ownerFullName,
+      firstName: body.ownerFirstName,
       gymName: body.name,
       rawToken,
     });

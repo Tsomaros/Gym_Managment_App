@@ -1,6 +1,8 @@
 # Progress
 
 ## Last finished
+- 2026-11-16: Plan 2a Tasks 1–11 implemented and committed on `phase2a-memberships` (sign-up codes, self sign-up, email confirmation, change history, membership types, selling/payments/void, freezes, members API, web screens). lint, typecheck, 60 shared + 255 API + 89 web tests and 3 e2e pass. Ledger with every ruling: `docs/superpowers/plans/2026-11-16-phase2a-memberships.ledger.md`.
+- 2026-11-16: Plan 2a Task 1 (hardening) on branch `phase2a-memberships`: new DB role `gym_system` (systemDb: BYPASSRLS, DML only, no DDL; `DATABASE_SYSTEM_URL`), RLS on `users` for gym_app (read-only, only people with a role in the current gym), all `users` writes through systemDb, login throttling (5 per 60 s per IP + email → 429). GitHub push (Task 1 Step 6) is held until the end of the plan, to be confirmed.
 - 2026-11-15: Task 8 (web app shell): bilingual PWA (el default, en), sign-in, invite page, gym picker, one area per role, platform "Create gym" form. Playwright e2e (`pnpm e2e`) covers admin → create gym → Mailpit invite → owner in Greek → English. All 8 tasks of phase 0–1 are done and the whole-branch review is closed (25 shared + 28 web + 99 API tests + 1 e2e).
 - 2026-11-15: Task 7 (gym creation by the platform admin, email invitations, account creation on accept). Deviation from the plan, for security: accepting an invite for an **existing** account adds the roles but does not sign in (`{ signInRequired: true }`); the person signs in with their own password. Reception may invite members only. 96 API tests pass. Manual check done: Greek invite email in Mailpit.
 - 2026-11-15: Task 6 (access control). Gym routes use `@GymRoles(...)` (owner covers reception; platform admin has no implicit gym access); platform routes use `@PlatformAdmin()`. A test fails if any `/gyms/:gymId` route lacks `@GymRoles`.
@@ -12,11 +14,16 @@
 - 2026-11-15: Design approved, plan for phases 0–1 written, Claude Code agents/hooks/skills adapted from LLM_Movies_Prediction_Model.
 
 ## In progress
+- 2026-11-17: Plan 2a reviews done: Task 11 reviewers and the final whole-branch review (fresh reviewer). Fixed: an existing account joins a gym only with its own password; an invite takes over an unconfirmed account; renewals move with their predecessor after freezes/voids; start date ≤ 1 year ahead; migrations verified on an empty database. 60 shared + 259 API + 98 web tests and 3 e2e pass. Next: push to GitHub (approved), check CI, then merge into main.
+- Open questions: none blocking. Deferred minors are listed in the plan 2a ledger.
 - 2026-11-16: Spec updated (§6.0): members self-sign-up with a one-time reception code; required first/last name, email, mobile, date of birth. Plan 2a written: `docs/superpowers/plans/2026-11-16-phase2a-memberships.md` (hardening + GitHub push, sign-up, history, membership types, selling/payments/void, freezes, members API, web). Phase 0–1 open questions are handled in its Task 1. Next: execute plan 2a natively in Claude Code on a new branch `phase2a-memberships`.
 - 2026-11-15: phase 0–1 merged into `main` (merge f29a541); lint, typecheck, 152 unit/integration tests and the e2e pass on the merged result. Next: plan Phase 2 (memberships, payments, check-in) after deciding the open questions below. Decisions and rulings: `docs/superpowers/plans/2026-11-15-phase0-1-foundation.ledger.md`.
 
 ## Local setup (Windows PC)
-- Copy `.env.example` to `.env` and set real passwords (the local `.env` already exists, with random values).
+- **Existing local DB volumes need the `gym_system` role before migration 0002**: either `docker compose down -v && docker compose up -d --wait` (wipes dev data), or create it in place: `docker compose exec postgres psql -U postgres -c "CREATE ROLE gym_system LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE BYPASSRLS PASSWORD '<GYM_SYSTEM_PASSWORD>'"`, then `pnpm --filter api db:migrate`. `.env` needs `GYM_SYSTEM_PASSWORD` and `DATABASE_SYSTEM_URL`. Done on this PC 2026-11-16.
+- `.env` (git-ignored, never committed; the local one already exists with random values) needs these keys. No `.env.example` is kept in git (decided 2026-11-17).
+  - Docker (read by `docker-compose.yml`): `POSTGRES_PORT` (5433), `POSTGRES_PASSWORD`, `GYM_OWNER_PASSWORD`, `GYM_APP_PASSWORD`, `GYM_SYSTEM_PASSWORD`, `MINIO_ROOT_USER`, `MINIO_ROOT_PASSWORD`.
+  - API (validated by `apps/api/src/config/env.ts`): `DATABASE_URL` (role gym_app), `DATABASE_SYSTEM_URL` (gym_system), `DATABASE_MIGRATOR_URL` (gym_owner), `JWT_SECRET` (32+ random characters), `WEB_ORIGIN` (http://localhost:5173), `SMTP_URL` (smtp://localhost:1025), `PLATFORM_ADMIN_EMAIL`, `PLATFORM_ADMIN_PASSWORD`, `COOKIE_PATH` (optional, default /auth).
 - `docker compose up -d --wait`. Postgres listens on host port **5433** (5432 belongs to another project). Mailpit: http://localhost:8025, MinIO console: http://localhost:9001.
 - MinIO image is `cgr.dev/chainguard/minio` (MinIO no longer publishes free images on Docker Hub).
 - If you edit `docker/postgres/init.sql`: `docker compose down -v && docker compose up -d --wait`.
@@ -29,8 +36,5 @@
 - Node 24.22.1 locally (CI and `.nvmrc` use Node 22), pnpm 10.34.9, Docker 29.9.2. TypeScript is pinned to ~6.0 because typescript-eslint doesn't support 7 yet.
 
 ## Open questions
-- Before Phase 2 member screens: `users` is readable by every gym (no RLS). Add a users SELECT policy, or a rule + test that gym code reaches users only through gym_roles?
-- Before any deployment: the API holds gym_owner (DDL) credentials for systemDb. Add a `gym_system` role (BYPASSRLS, DML only) and DATABASE_SYSTEM_URL.
-- CLAUDE.md still shows the RLS policy without `nullif(..., '')`; the code and plan use the nullif form (required on pooled connections).
-- Login throttling (brute-force protection) is not in the phase 0–1 plan. Add `@nestjs/throttler` on /auth/login before the pilot?
+- Before deployment: set Express `trust proxy` to the real number of proxy hops, otherwise the login throttle keys on the proxy's IP (one attacker could lock an email out for everyone). Consider throttling invite accept/preview too.
 - Deployment: the web app and API must share a site (refresh cookie is SameSite=Strict). The browser calls /api/*; the production proxy must strip /api, and set COOKIE_PATH=/api/auth.

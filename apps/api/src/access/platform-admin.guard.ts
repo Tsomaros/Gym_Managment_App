@@ -5,7 +5,7 @@ import {
   Injectable,
 } from '@nestjs/common';
 import { eq } from 'drizzle-orm';
-import { db } from '../db/client';
+import { systemDb } from '../db/client';
 import { users } from '../db/schema';
 import type { AppRequest } from './jwt.guard';
 
@@ -21,7 +21,8 @@ export class PlatformAdminGuard implements CanActivate {
     const userId = req.user?.id;
     if (!userId) throw new ForbiddenException();
 
-    const [row] = await db
+    // No gym context on platform routes; users is under RLS for gym_app.
+    const [row] = await systemDb
       .select({ isPlatformAdmin: users.isPlatformAdmin })
       .from(users)
       .where(eq(users.id, userId));
