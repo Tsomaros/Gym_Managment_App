@@ -57,17 +57,17 @@
   - `DELETE /gyms/:gymId/staff/:userId/roles/:role` (`@GymRoles('owner')`, role ∈ owner|reception|trainer) → `204`. In one transaction, lock the gym's owner rows (`FOR UPDATE`) to count owners safely, then apply the removal rules from Global Constraints and write `staff.role_removed`. The shift and cover clean-up hooks are added in Tasks 3 and 5. Leave a marker comment, and a test there extends this suite.
   - `POST /gyms/:gymId/invitations/:id/cancel` (`@GymRoles('owner')`) → `204` + `invitation.cancelled`; the token stops working (`410` on accept).
 
-- [ ] **Step 1: Write the failing tests:**
+- [x] **Step 1: Write the failing tests:**
   - The staff list shows the owner and an accepted trainer with roles; a member-only person isn't listed; the owner sees a pending invite and reception doesn't.
   - Remove the trainer role from a trainer who is also a member → `204`; their gym route as trainer → `403`; their member routes still work; one `staff.role_removed` row.
   - The only owner removing their own owner role → `409`. Two owners removing each other concurrently (`Promise.all`) → exactly one `204` and one `409`.
   - Reception removing a role → `403`. Removing `member` through this route → `400`.
   - Cancelled invite → accept gives `410`.
   - A trainer `GET /check-ins?date=` → `200`; a trainer check-out → `403`.
-- [ ] **Step 2: Run** `pnpm --filter api test staff presence` → FAIL.
-- [ ] **Step 3: Implement.**
-- [ ] **Step 4: Run** `pnpm --filter api test` → PASS.
-- [ ] **Step 5: Commit** `feat: staff list, role removal, invitation cancel`.
+- [x] **Step 2: Run** `pnpm --filter api test staff presence` → FAIL.
+- [x] **Step 3: Implement.**
+- [x] **Step 4: Run** `pnpm --filter api test` → PASS.
+- [x] **Step 5: Commit** `feat: staff list, role removal, invitation cancel`.
 
 ---
 
@@ -91,7 +91,7 @@
 - `isOnDuty(shifts: readonly ExpandedShift[], staffId: string, date: string, time: 'HH:MM'): boolean`. The start is inclusive, the end exclusive.
 - `isoWeekday(date: string): 1..7`.
 
-- [ ] **Step 1: Write the failing tests** (values by hand):
+- [x] **Step 1: Write the failing tests** (values by hand):
   - Series Monday 06:00–14:00 from `2027-05-03`, expanded over `2027-05-01..2027-05-16` → `2027-05-03` and `2027-05-10` only.
   - The same series with `validUntil 2027-05-09` → only `2027-05-03`. A second series Monday 08:00–16:00 from `2027-05-10` → `05-03` at 06:00 and `05-10` at 08:00. *(Review Focus 1)*
   - Override row for `2027-05-10` with 10:00–18:00 → that day shows 10:00–18:00 with its `shiftId`. A cancelled override → the day is gone.
@@ -99,10 +99,10 @@
   - `isOnDuty(…, '13:59')` true, `'14:00'` false, `'06:00'` true. *(Review Focus 2)*
   - `isoWeekday('2027-03-28')` = 7 (Sunday, the DST day); a Sunday series 06:00–14:00 on that date expands to 06:00–14:00. *(Review Focus 2)*
   - `shiftTimeSchema`: `'24:00'` rejects, `'09:07'` rejects, `'09:05'` accepts.
-- [ ] **Step 2: Run** `pnpm --filter api test shifts/expand && pnpm --filter shared test` → FAIL.
-- [ ] **Step 3: Implement** with ISO date-string arithmetic (reuse `addDays` from `memberships/dates.ts`).
-- [ ] **Step 4: Run** → PASS.
-- [ ] **Step 5: Commit** `feat: shift series, overrides and expansion rules`.
+- [x] **Step 2: Run** `pnpm --filter api test shifts/expand && pnpm --filter shared test` → FAIL.
+- [x] **Step 3: Implement** with ISO date-string arithmetic (reuse `addDays` from `memberships/dates.ts`).
+- [x] **Step 4: Run** → PASS.
+- [x] **Step 5: Commit** `feat: shift series, overrides and expansion rules`.
 
 ---
 
@@ -131,7 +131,7 @@
   - Each write records its history action. The settings `PATCH` accepts `receptionCanEditShifts` (owner only).
 - Role removal (Task 1 hook): end the person's series at yesterday (or delete them if they haven't started) and delete their rows dated today or later.
 
-- [ ] **Step 1: Write the failing tests** (Clock pinned, gym `Europe/Athens`):
+- [x] **Step 1: Write the failing tests** (Clock pinned, gym `Europe/Athens`):
   - Owner creates a Monday series 06:00–14:00. On Monday at 13:59 local, `/on-duty` includes the person `until '14:00'`; at 14:00, not. *(Review Focus 2)*
   - "Edit from next week": end at Sunday plus a new series from Monday 08:00 → `/schedule` shows this week at 06:00 and next week at 08:00. *(Review Focus 1)*
   - Cancel one occurrence → gone from the schedule; uncancel (PUT with times) → back with the new times.
@@ -140,10 +140,10 @@
   - A trainer `GET /me/schedule` sees only their own shifts; a trainer `GET /schedule` → `403`.
   - Removing a trainer role (Task 1 route) removes their occurrences from today on but keeps yesterday's. *(Review Focus 5)*
   - Two-gym isolation for both tables; a staff id from gym B → `404`.
-- [ ] **Step 2: Run** `pnpm --filter api test shifts staff` → FAIL.
-- [ ] **Step 3: Implement.** Consult database-expert on the schema and indexes.
-- [ ] **Step 4: Run** `pnpm --filter api test` → PASS.
-- [ ] **Step 5: Commit** `feat: shift scheduling, schedule views, on-duty now`.
+- [x] **Step 2: Run** `pnpm --filter api test shifts staff` → FAIL.
+- [x] **Step 3: Implement.** Consult database-expert on the schema and indexes.
+- [x] **Step 4: Run** `pnpm --filter api test` → PASS.
+- [x] **Step 5: Commit** `feat: shift scheduling, schedule views, on-duty now`.
 
 ---
 
@@ -167,7 +167,7 @@
   - `GET /gyms/:gymId/trainer/clients` (`@GymRoles('trainer')`) → the caller's `TrainerClient[]`, paused ones last.
 - Role removal (Task 1 hook): delete the trainer's links, with one `trainer.unassigned` row per member.
 
-- [ ] **Step 1: Write the failing tests:**
+- [x] **Step 1: Write the failing tests:**
   - Member with a 1-month membership where `includes_trainer = true`: assign trainer T → `200`; `trainerAccess` → `'primary'`; T's client list has the member, not paused; member detail shows T.
   - Member whose only membership lacks the trainer flag → `409`.
   - Pin the Clock past the membership end → the client list shows `paused: true`; `trainerAccess` → `null`. Sell a new trainer membership → `'primary'` again with no new assignment. *(Review Focus 4)*
@@ -175,10 +175,10 @@
   - Assigning a gym B trainer → `404`; a trainer calling `PUT` → `403`; a member calling `/trainer/clients` → `403`.
   - Removing T's trainer role → the member has `trainer: null`. *(Review Focus 5)*
   - Two-gym isolation.
-- [ ] **Step 2: Run** `pnpm --filter api test trainers staff` → FAIL.
-- [ ] **Step 3: Implement.**
-- [ ] **Step 4: Run** `pnpm --filter api test` → PASS.
-- [ ] **Step 5: Commit** `feat: primary trainer assignment with paused links`.
+- [x] **Step 2: Run** `pnpm --filter api test trainers staff` → FAIL.
+- [x] **Step 3: Implement.**
+- [x] **Step 4: Run** `pnpm --filter api test` → PASS.
+- [x] **Step 5: Commit** `feat: primary trainer assignment with paused links`.
 
 ---
 
@@ -199,17 +199,17 @@
 - The trainer client list adds today's covered members with `cover: true` (shared `TrainerClient.cover?: boolean`).
 - The check-in result carries the member's primary trainer, whether that trainer is on duty now, and any cover today, so the desk can offer "assign cover" (Task 8).
 
-- [ ] **Step 1: Write the failing tests** (Clock pinned):
+- [x] **Step 1: Write the failing tests** (Clock pinned):
   - On 2027-05-12 at 10:00, trainer U is on duty: assign cover → `200`; `trainerAccess(U)` → `'cover'` at 23:59 Athens; at 00:00 on the 13th → `null`. *(Review Focus 3)*
   - Trainer not on duty → `409`. The member's own primary trainer → `400`. A second cover the same day replaces the first (one row).
   - U's client list on the 12th includes the member with `cover: true`; on the 13th, not.
   - The check-in result for a member whose primary trainer T is off duty → `trainer.onDuty: false`; after the cover → `cover.firstName` = U's.
   - Removing U's trainer role deletes today's cover. *(Review Focus 5)*
   - Two-gym isolation.
-- [ ] **Step 2: Run** `pnpm --filter api test covers staff` → FAIL.
-- [ ] **Step 3: Implement.**
-- [ ] **Step 4: Run** `pnpm --filter api test` → PASS.
-- [ ] **Step 5: Commit** `feat: same-day cover trainers`.
+- [x] **Step 2: Run** `pnpm --filter api test covers staff` → FAIL.
+- [x] **Step 3: Implement.**
+- [x] **Step 4: Run** `pnpm --filter api test` → PASS.
+- [x] **Step 5: Commit** `feat: same-day cover trainers`.
 
 ---
 
@@ -225,11 +225,11 @@
 - `InviteStaffDialog`: first name, last name, email, role checkboxes (owner / reception / trainer, at least one).
 - `RemoveRoleDialog`: per-role removal with a warning text for trainers ("Οι πελάτες του θα μείνουν χωρίς γυμναστή και οι μελλοντικές βάρδιες θα διαγραφούν"). On `409` for the last owner, show a clear message.
 
-- [ ] **Step 1: Write the failing tests:** the list renders role chips in Greek; the invite form needs at least one role; removing a trainer role shows the warning before calling the API; a `409` shows the last-owner message; reception sees no invite or remove controls.
-- [ ] **Step 2: Run** `pnpm --filter web test staff` → FAIL.
-- [ ] **Step 3: Implement.** Run ui-ux-reviewer.
-- [ ] **Step 4: Run** → PASS.
-- [ ] **Step 5: Commit** `feat(web): staff page`.
+- [x] **Step 1: Write the failing tests:** the list renders role chips in Greek; the invite form needs at least one role; removing a trainer role shows the warning before calling the API; a `409` shows the last-owner message; reception sees no invite or remove controls.
+- [x] **Step 2: Run** `pnpm --filter web test staff` → FAIL.
+- [x] **Step 3: Implement.** Run ui-ux-reviewer.
+- [x] **Step 4: Run** → PASS.
+- [x] **Step 5: Commit** `feat(web): staff page`.
 
 ---
 
@@ -248,16 +248,16 @@
 - `MySchedulePage`: the next 14 days of the caller's shifts as a list, today highlighted.
 - `OnDutyPanel` on the desk: "Σε βάρδια τώρα" with names, roles and the end time, refreshed every minute.
 
-- [ ] **Step 1: Write the failing tests:**
+- [x] **Step 1: Write the failing tests:**
   - The grid places a Monday 06:00–14:00 shift under Monday.
   - Choosing "από αυτή τη μέρα και μετά" calls `end` with the previous day, then `POST` a new series with the new times. "μόνο αυτή τη μέρα" calls the occurrence `PUT`.
   - Past cells have no edit action. Reception without the setting sees no edit actions.
   - `OnDutyPanel` lists the API's people with "έως 14:00" and refetches after 60 s (fake timers).
   - At 375 px, the schedule renders as a day list.
-- [ ] **Step 2: Run** `pnpm --filter web test schedule desk` → FAIL.
-- [ ] **Step 3: Implement.** Run ui-ux-reviewer (grid readable on a desktop at a glance; day list at 375 px).
-- [ ] **Step 4: Run** → PASS.
-- [ ] **Step 5: Commit** `feat(web): schedules, my schedule, on-duty panel`.
+- [x] **Step 2: Run** `pnpm --filter web test schedule desk` → FAIL.
+- [x] **Step 3: Implement.** Run ui-ux-reviewer (grid readable on a desktop at a glance; day list at 375 px).
+- [x] **Step 4: Run** → PASS.
+- [x] **Step 5: Commit** `feat(web): schedules, my schedule, on-duty panel`.
 
 ---
 
@@ -274,16 +274,16 @@
 - `TrainerClientsPage`: cards with photo, name, membership status, a paused badge, and today's covers under a separate heading "Αντικατάσταση σήμερα".
 - `CheckInCard`: "Γυμναστής: Νίκος (εκτός βάρδιας)" when off duty, plus the cover button → `CoverDialog`, which lists only trainers on duty now. After assignment it shows "Αντικαταστάτης σήμερα: Ελένη".
 
-- [ ] **Step 1: Write the failing tests:**
+- [x] **Step 1: Write the failing tests:**
   - The assign dialog shows the `409` message and the sell shortcut.
   - The member detail shows the paused badge when `trainer.paused` is true.
   - The trainer clients page separates today's covers.
   - A check-in card with `trainer.onDuty: false` shows the off-duty text and the cover button; `CoverDialog` lists only on-duty trainers.
   - E2E: the owner invites a trainer and creates their shift for now → reception sells a membership with trainer and assigns trainer A (not on shift) → the member checks in → the desk shows "εκτός βάρδιας" → reception assigns on-duty trainer B as cover → B's clients page lists the member under today's covers.
-- [ ] **Step 2: Run** `pnpm --filter web test && pnpm e2e` → FAIL.
-- [ ] **Step 3: Implement.** Run ui-ux-reviewer on each new or changed component.
-- [ ] **Step 4: Run** `pnpm lint && pnpm typecheck && pnpm -r test && pnpm e2e` → PASS.
-- [ ] **Step 5: Commit** `feat(web): trainer assignment, trainer clients, cover from the desk`.
+- [x] **Step 2: Run** `pnpm --filter web test && pnpm e2e` → FAIL.
+- [x] **Step 3: Implement.** Run ui-ux-reviewer on each new or changed component.
+- [x] **Step 4: Run** `pnpm lint && pnpm typecheck && pnpm -r test && pnpm e2e` → PASS.
+- [x] **Step 5: Commit** `feat(web): trainer assignment, trainer clients, cover from the desk`.
 
 ---
 

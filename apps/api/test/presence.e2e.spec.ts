@@ -287,15 +287,36 @@ describe('who is in, visitors and check-out (gym in Europe/Athens, auto check-ou
     expect(ids(await present())).toContain(m);
   });
 
-  it("lets a trainer see who is inside but not the day's visitors, and a member nothing", async () => {
+  it("lets a trainer see who is inside and today's visitors (not check out), and a member nothing", async () => {
     const m = await makeMember('Οκτώ');
     await checkInAt(m, '2027-05-12', '10:00');
     clock.current = at('2027-05-12', '10:10');
     expect(ids(await present(trainer))).toContain(m);
+    const list = (
+      await request(server())
+        .get(`/gyms/${gymId}/check-ins`)
+        .auth(trainer, { type: 'bearer' })
+        .expect(200)
+    ).body as VisitorRow[];
+    expect(list.map((v) => v.memberId)).toContain(m);
+    // a trainer sees exactly what reception sees for the day (nothing extra, nothing hidden)
+    expect(list).toEqual(await visitors());
+    // a trainer can read a given date too
+    await request(server())
+      .get(`/gyms/${gymId}/check-ins?date=2027-05-12`)
+      .auth(trainer, { type: 'bearer' })
+      .expect(200);
+    // a plain member (the checked-in person) gets nothing, on both lists
+    const memberToken = signAccessToken({ sub: m, adm: false });
     await request(server())
       .get(`/gyms/${gymId}/check-ins`)
-      .auth(trainer, { type: 'bearer' })
+      .auth(memberToken, { type: 'bearer' })
       .expect(403);
+    await request(server())
+      .get(`/gyms/${gymId}/check-ins/present`)
+      .auth(memberToken, { type: 'bearer' })
+      .expect(403);
+    await request(server()).get(`/gyms/${gymId}/check-ins`).expect(401);
     await request(server()).get(`/gyms/${gymId}/check-ins/present`).expect(401);
   });
 

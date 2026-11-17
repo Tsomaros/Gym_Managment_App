@@ -26,7 +26,7 @@ export class PresenceController {
   }
 
   @Get()
-  @GymRoles('reception')
+  @GymRoles('trainer', 'reception')
   visitors(
     @Param('gymId', ParseUUIDPipe) _gymId: string,
     @CurrentGym() gym: GymContext,

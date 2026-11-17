@@ -80,6 +80,8 @@ export function checkInResult(overrides: Partial<CheckInResult> = {}): CheckInRe
     member: { id: MEMBER, firstName: 'Γιώργος', lastName: 'Παπαδόπουλος', photoUrl: null },
     membership: membership(),
     at: '2027-05-02T07:00:00.000Z',
+    trainer: null,
+    cover: null,
     ...overrides,
   };
 }

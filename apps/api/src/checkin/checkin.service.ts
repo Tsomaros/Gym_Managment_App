@@ -3,11 +3,20 @@ import type { CheckInMembership, CheckInReason, CheckInResult, Membership } from
 import { and, desc, eq, isNull, lt, sql } from 'drizzle-orm';
 import { AuditService } from '../audit/audit.service';
 import { Clock } from '../common/clock';
-import { checkIns, gymRoles, memberships, users } from '../db/schema';
-import { withGym } from '../db/tenant';
+import {
+  checkIns,
+  gymRoles,
+  memberTrainers,
+  memberships,
+  trainerCovers,
+  users,
+} from '../db/schema';
+import { type Tx, withGym } from '../db/tenant';
+import { ShiftsService } from '../shifts/shifts.service';
 import { PhotosService } from '../members/photos.service';
 import { gymToday, lockMember, membershipsOf } from '../memberships/memberships.service';
 import { CheckInEvents } from './checkin-events';
+import { hasTrainerMembership } from '../trainers/trainer-access';
 import { decideCheckIn, relevantMembership } from './decide';
 
 /** A second check-in of the same member within this window repeats the first (spec §6.2). */
@@ -37,6 +46,7 @@ export class CheckInService {
     private readonly clock: Clock,
     private readonly events: CheckInEvents,
     private readonly photos: PhotosService,
+    private readonly shifts: ShiftsService,
   ) {}
 
   /**
@@ -61,6 +71,7 @@ export class CheckInService {
       const photoUrl = (await this.photos.urlsFor(tx, [memberId])).get(memberId) ?? null;
       const today = await gymToday(tx, gymId, now);
       const ms = (await membershipsOf(tx, [memberId], today)).get(memberId) ?? [];
+      const trainers = await this.trainersOf(tx, gymId, memberId, today, ms);
 
       const [latest] = await tx
         .select()
@@ -77,7 +88,7 @@ export class CheckInService {
         // while it is still the verdict: a sale or an ended freeze in between must be honoured.
         const again = decideCheckIn(ms);
         if (latest.valid || (!again.valid && again.reason === latest.reason)) {
-          return this.result(latest, member, photoUrl, ms, true);
+          return this.result(latest, member, photoUrl, ms, true, trainers);
         }
       }
 
@@ -135,11 +146,38 @@ export class CheckInService {
       const fresh = consumed
         ? ((await membershipsOf(tx, [memberId], today)).get(memberId) ?? ms)
         : ms;
-      return this.result(row!, member, photoUrl, fresh, false);
+      return this.result(row!, member, photoUrl, fresh, false, trainers);
     });
     // After commit, and not for a repeat: the screens already show the first one.
     if (!result.duplicate) this.events.publish(gymId, { type: 'check_in', result });
     return result;
+  }
+
+  /** The member's primary trainer (and whether they are on duty now) and today's cover. */
+  private async trainersOf(
+    tx: Tx,
+    gymId: string,
+    memberId: string,
+    today: string,
+    ms: readonly Membership[],
+  ): Promise<Pick<CheckInResult, 'trainer' | 'cover'>> {
+    const [primary] = await tx
+      .select({ userId: users.id, firstName: users.firstName })
+      .from(memberTrainers)
+      .innerJoin(users, eq(users.id, memberTrainers.trainerId))
+      .where(eq(memberTrainers.memberId, memberId));
+    const [cover] = await tx
+      .select({ trainerId: users.id, firstName: users.firstName })
+      .from(trainerCovers)
+      .innerJoin(users, eq(users.id, trainerCovers.trainerId))
+      .where(and(eq(trainerCovers.memberId, memberId), eq(trainerCovers.date, today)));
+    // A paused link (no running membership with a trainer) gives the trainer no access: not shown.
+    const linked = primary && hasTrainerMembership(ms) ? primary : undefined;
+    const onDuty = await this.shifts.staffOnDutyNow(tx, gymId, linked ? [linked.userId] : []);
+    return {
+      trainer: linked ? { ...linked, onDuty: onDuty.has(linked.userId) } : null,
+      cover: cover ?? null,
+    };
   }
 
   /** The API shape of a stored check-in, with the membership that explains it. */
@@ -149,6 +187,7 @@ export class CheckInService {
     photoUrl: string | null,
     ms: readonly Membership[],
     duplicate: boolean,
+    trainers: Pick<CheckInResult, 'trainer' | 'cover'>,
   ): CheckInResult {
     const reason = row.reason as CheckInReason | null;
     const membership =
@@ -169,6 +208,7 @@ export class CheckInService {
       },
       membership: membership ? withoutPrice(membership) : null,
       at: row.at.toISOString(),
+      ...trainers,
     };
   }
 }

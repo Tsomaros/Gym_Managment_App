@@ -9,6 +9,9 @@ import { closeDb } from './db/client';
 import { DevicesModule } from './devices/devices.module';
 import { GymsModule } from './gyms/gyms.module';
 import { InvitationsModule } from './invitations/invitations.module';
+import { ShiftsModule } from './shifts/shifts.module';
+import { TrainersModule } from './trainers/trainers.module';
+import { StaffModule } from './staff/staff.module';
 import { StorageModule } from './storage/storage.module';
 import { MailModule } from './mail/mail.module';
 import { MembersModule } from './members/members.module';
@@ -31,6 +34,9 @@ import { HealthController } from './health/health.controller';
     MembersModule,
     CheckInModule,
     DevicesModule,
+    ShiftsModule,
+    StaffModule,
+    TrainersModule,
   ],
   controllers: [HealthController],
 })

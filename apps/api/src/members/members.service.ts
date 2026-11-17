@@ -12,6 +12,7 @@ import { gymRoles, membershipFreezes, users } from '../db/schema';
 import { withGym } from '../db/tenant';
 import { toFreeze } from '../memberships/freezes.service';
 import { gymToday, membershipsOf } from '../memberships/memberships.service';
+import { primaryTrainerOf } from '../trainers/trainer-access';
 import { PaymentsService } from '../memberships/payments.service';
 import { memberStatus } from './member-status';
 import { PhotosService } from './photos.service';
@@ -142,6 +143,7 @@ export class MembersService {
         emergencyContactPhone: row.emergencyContactPhone,
         memberships: ms,
         freezes: freezes.map(toFreeze),
+        trainer: await primaryTrainerOf(tx, gymId, memberId, ms),
       };
     });
     const payments = withPayments ? await this.payments.listForMember(gymId, memberId) : [];

@@ -4,6 +4,7 @@ import {
   GoneException,
   Injectable,
   Logger,
+  NotFoundException,
 } from '@nestjs/common';
 import type { AcceptInvite, GymRole, Invite, InvitePreview, Locale } from '@gym/shared';
 import { and, eq, gt, isNull, sql } from 'drizzle-orm';
@@ -151,6 +152,25 @@ export class InvitationsService {
       rawToken,
     });
     return { invitationId: id, mailSent };
+  }
+
+  /** Deletes a pending invitation of this gym (its token stops working); 404 if none. */
+  async cancel(gymId: string, actorId: string, id: string): Promise<void> {
+    await withGym(gymId, async (tx) => {
+      const [row] = await tx
+        .delete(invitations)
+        .where(and(eq(invitations.id, id), isNull(invitations.acceptedAt)))
+        .returning({ id: invitations.id, roles: invitations.roles });
+      if (!row) throw new NotFoundException();
+      await this.audit.record(tx, {
+        gymId,
+        actorId,
+        action: 'invitation.cancelled',
+        entity: 'invitation',
+        entityId: id,
+        data: { roles: row.roles },
+      });
+    });
   }
 
   /** A pending, unexpired invitation by its raw token; 410 otherwise. Token lookup → systemDb. */

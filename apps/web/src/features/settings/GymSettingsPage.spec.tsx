@@ -9,19 +9,22 @@ import { GymSettingsPage } from './GymSettingsPage';
 describe('GymSettingsPage', () => {
   let fetchMock: ReturnType<typeof vi.fn<typeof fetch>>;
   let patchStatus: number;
+  let settings: Record<string, unknown>;
 
   beforeEach(() => {
     patchStatus = 200;
+    settings = {
+      name: 'Gym',
+      timezone: 'Europe/Athens',
+      autoCheckoutMinutes: 120,
+      receptionCanEditShifts: false,
+    };
     fetchMock = vi.fn<typeof fetch>(async (_input, init) => {
       if (init?.method === 'PATCH') {
-        const { autoCheckoutMinutes } = JSON.parse(String(init.body)) as {
-          autoCheckoutMinutes: number;
-        };
-        return patchStatus === 200
-          ? json(200, { name: 'Gym', timezone: 'Europe/Athens', autoCheckoutMinutes })
-          : json(patchStatus, {});
+        if (patchStatus !== 200) return json(patchStatus, {});
+        settings = { ...settings, ...(JSON.parse(String(init.body)) as object) };
       }
-      return json(200, { name: 'Gym', timezone: 'Europe/Athens', autoCheckoutMinutes: 120 });
+      return json(200, settings);
     });
     vi.stubGlobal('fetch', fetchMock);
   });
@@ -101,5 +104,53 @@ describe('GymSettingsPage', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent('Κάτι πήγε στραβά');
     await userEvent.click(screen.getByRole('button', { name: 'Δοκίμασε ξανά' }));
     expect(await field()).toHaveValue(120);
+  });
+
+  it('saves the reception shift switch at once, on its own', async () => {
+    renderPage();
+    const box = await screen.findByRole('checkbox', {
+      name: 'Η ρεσεψιόν μπορεί να αλλάζει βάρδιες',
+    });
+    expect(box).not.toBeChecked();
+    await userEvent.click(box);
+    await waitFor(() => expect(patches()).toHaveLength(1));
+    expect(JSON.parse(String(patches()[0]![1]?.body))).toEqual({ receptionCanEditShifts: true });
+    await waitFor(() => expect(box).toBeChecked());
+    await userEvent.click(box);
+    await waitFor(() => expect(patches()).toHaveLength(2));
+    expect(JSON.parse(String(patches()[1]![1]?.body))).toEqual({ receptionCanEditShifts: false });
+    await waitFor(() => expect(box).not.toBeChecked());
+  });
+
+  it('keeps the switch as it was and says so when saving it fails', async () => {
+    renderPage();
+    const box = await screen.findByRole('checkbox', {
+      name: 'Η ρεσεψιόν μπορεί να αλλάζει βάρδιες',
+    });
+    patchStatus = 500;
+    await userEvent.click(box);
+    expect(await screen.findByRole('alert')).toHaveTextContent('Κάτι πήγε στραβά');
+    expect(patches()).toHaveLength(1);
+    expect(box).not.toBeChecked();
+  });
+
+  it('confirms the saved switch and blocks a second tap while the first is saving', async () => {
+    let release!: () => void;
+    const gate = new Promise<void>((r) => (release = r));
+    const original = fetchMock.getMockImplementation()!;
+    fetchMock.mockImplementation(async (input, init) => {
+      if (init?.method === 'PATCH') await gate;
+      return original(input, init);
+    });
+    renderPage();
+    const box = await screen.findByRole('checkbox', {
+      name: 'Η ρεσεψιόν μπορεί να αλλάζει βάρδιες',
+    });
+    await userEvent.click(box);
+    await waitFor(() => expect(box).toBeDisabled());
+    release();
+    await waitFor(() => expect(box).toBeEnabled());
+    expect(patches()).toHaveLength(1);
+    expect(await screen.findByRole('status')).toHaveTextContent('Αποθηκεύτηκε');
   });
 });

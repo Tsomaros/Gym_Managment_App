@@ -5,6 +5,8 @@ import { Link, useParams } from 'react-router';
 import { ApiError, apiFetch } from '../../api/client';
 import { formatDate, formatMoney } from '../../lib/format';
 import { CheckInCard } from '../desk/CheckInCard';
+import { AssignTrainerDialog } from '../trainers/AssignTrainerDialog';
+import { CoverDialog } from '../trainers/CoverDialog';
 import { FreezeDialog } from './FreezeDialog';
 import { PhotoCapture } from './PhotoCapture';
 import { SellMembershipDialog } from './SellMembershipDialog';
@@ -22,6 +24,10 @@ export function MemberDetailPage() {
   const [selling, setSelling] = useState(false);
   const [freezing, setFreezing] = useState<Membership | null>(null);
   const [verdict, setVerdict] = useState<CheckInResult | null>(null);
+  const [assigning, setAssigning] = useState(false);
+  // The assignment was refused for lack of a trainer membership: after the sale, offer it again.
+  const [resumeAssign, setResumeAssign] = useState<{ sold: boolean } | null>(null);
+  const [covering, setCovering] = useState(false);
   const [checkInFailed, setCheckInFailed] = useState(false);
 
   const load = useCallback(async () => {
@@ -126,7 +132,11 @@ export function MemberDetailPage() {
         )}
         {verdict && (
           <div className="mt-4">
-            <CheckInCard result={verdict} onSell={() => setSelling(true)} />
+            <CheckInCard
+              result={verdict}
+              onSell={() => setSelling(true)}
+              onCover={() => setCovering(true)}
+            />
           </div>
         )}
         <dl className="mt-4 grid gap-x-6 gap-y-2 text-sm sm:grid-cols-2">
@@ -147,6 +157,40 @@ export function MemberDetailPage() {
             }
           />
         </dl>
+      </section>
+
+      <section
+        aria-labelledby="trainer-title"
+        className="flex flex-wrap items-center gap-3 rounded-xl border border-slate-200 bg-white p-4"
+      >
+        <h3 id="trainer-title" className="text-lg font-semibold text-slate-900">
+          {t('trainers.section')}
+        </h3>
+        <p className="mr-auto min-w-0 break-words text-slate-900">
+          {member.trainer ? (
+            <>
+              {member.trainer.firstName} {member.trainer.lastName}
+              {member.trainer.paused && (
+                <span className="ml-2 rounded-full bg-amber-100 px-2.5 py-0.5 text-sm font-semibold text-amber-950 ring-1 ring-amber-700">
+                  <span aria-hidden="true">⏸ </span>
+                  {t('trainers.paused')}
+                </span>
+              )}
+            </>
+          ) : (
+            <span className="text-slate-700">{t('trainers.none')}</span>
+          )}
+        </p>
+        <button
+          type="button"
+          onClick={() => setAssigning(true)}
+          className="min-h-11 rounded-md border border-slate-300 px-4 text-sm font-medium text-slate-800 hover:bg-slate-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-900"
+        >
+          {member.trainer ? t('trainers.change') : t('trainers.assignBtn')}
+        </button>
+        {member.trainer?.paused && (
+          <p className="w-full text-sm text-slate-700">{t('trainers.pausedHint')}</p>
+        )}
       </section>
 
       <section aria-labelledby="memberships-title" className="flex flex-col gap-3">
@@ -216,13 +260,53 @@ export function MemberDetailPage() {
         </section>
       )}
 
+      {assigning && (
+        <AssignTrainerDialog
+          gymId={gymId}
+          memberId={memberId}
+          memberName={fullName}
+          current={member.trainer}
+          onClose={() => setAssigning(false)}
+          onDone={() => {
+            setAssigning(false);
+            setVerdict(null); // its trainer line is out of date now
+            void load();
+          }}
+          onSell={() => {
+            setAssigning(false);
+            setResumeAssign({ sold: false });
+            setSelling(true);
+          }}
+        />
+      )}
+      {covering && verdict && (
+        <CoverDialog
+          gymId={gymId}
+          memberId={memberId}
+          memberName={fullName}
+          primaryTrainerId={verdict.trainer?.userId ?? null}
+          onClose={() => setCovering(false)}
+          returnFocusTo={() => document.querySelector<HTMLElement>('[data-testid="cover-line"]')}
+          onDone={(cover) => {
+            setVerdict({ ...verdict, cover });
+            setCovering(false);
+          }}
+        />
+      )}
       {selling && (
         <SellMembershipDialog
           gymId={gymId}
           memberId={memberId}
           memberName={fullName}
-          onClose={() => setSelling(false)}
-          onSold={() => void load()}
+          onClose={() => {
+            setSelling(false);
+            if (resumeAssign?.sold) setAssigning(true);
+            setResumeAssign(null);
+          }}
+          onSold={() => {
+            setResumeAssign((r) => r && { sold: true });
+            void load();
+          }}
         />
       )}
       {freezing && (

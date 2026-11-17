@@ -9,6 +9,7 @@ const settingsColumns = {
   name: gyms.name,
   timezone: gyms.timezone,
   autoCheckoutMinutes: gyms.autoCheckoutMinutes,
+  receptionCanEditShifts: gyms.receptionCanEditShifts,
 };
 
 @Injectable()
@@ -26,24 +27,42 @@ export class GymSettingsService {
   async update(gymId: string, actorId: string, body: UpdateGymSettings): Promise<GymSettings> {
     return withGym(gymId, async (tx) => {
       const [before] = await tx
-        .select({ minutes: gyms.autoCheckoutMinutes })
+        .select(settingsColumns)
         .from(gyms)
         .where(eq(gyms.id, gymId))
         .for('update');
       if (!before) throw new NotFoundException();
       const [g] = await tx
         .update(gyms)
-        .set({ autoCheckoutMinutes: body.autoCheckoutMinutes })
+        .set({
+          ...(body.autoCheckoutMinutes !== undefined && {
+            autoCheckoutMinutes: body.autoCheckoutMinutes,
+          }),
+          ...(body.receptionCanEditShifts !== undefined && {
+            receptionCanEditShifts: body.receptionCanEditShifts,
+          }),
+        })
         .where(eq(gyms.id, gymId))
         .returning(settingsColumns);
-      await this.audit.record(tx, {
-        gymId,
-        actorId,
-        action: 'gym.settings_updated',
-        entity: 'gym',
-        entityId: gymId,
-        data: { from: before.minutes, to: body.autoCheckoutMinutes },
-      });
+      const record = (data: Record<string, unknown>) =>
+        this.audit.record(tx, {
+          gymId,
+          actorId,
+          action: 'gym.settings_updated',
+          entity: 'gym',
+          entityId: gymId,
+          data,
+        });
+      if (body.autoCheckoutMinutes !== undefined) {
+        await record({ from: before.autoCheckoutMinutes, to: body.autoCheckoutMinutes });
+      }
+      if (body.receptionCanEditShifts !== undefined) {
+        await record({
+          setting: 'receptionCanEditShifts',
+          from: before.receptionCanEditShifts,
+          to: body.receptionCanEditShifts,
+        });
+      }
       return g!;
     });
   }

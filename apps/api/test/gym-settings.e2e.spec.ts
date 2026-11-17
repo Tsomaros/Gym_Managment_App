@@ -125,6 +125,7 @@ describe('gym settings and member check-in token', () => {
       name: `Settings ${run}`,
       timezone: 'Europe/Athens',
       autoCheckoutMinutes: 120,
+      receptionCanEditShifts: false,
     });
     await request(server())
       .patch(`/gyms/${gymId}/settings`)
