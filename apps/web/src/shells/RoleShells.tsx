@@ -3,12 +3,15 @@ import { useTranslation } from 'react-i18next';
 import { useParams } from 'react-router';
 import { useAuth } from '../auth/AuthProvider';
 import { EmailNotVerifiedBanner } from '../components/EmailNotVerifiedBanner';
+import { DeskPage } from '../features/desk/DeskPage';
 import { HistoryPage } from '../features/audit/HistoryPage';
 import { MemberCheckInPage } from '../features/checkin/MemberCheckInPage';
 import { DevicesPage } from '../features/devices/DevicesPage';
 import { MembersSection } from '../features/members/MembersSection';
 import { MyMembershipPage } from '../features/my-membership/MyMembershipPage';
 import { PaymentsPage } from '../features/payments/PaymentsPage';
+import { RenewalsPage } from '../features/renewals/RenewalsPage';
+import { GymSettingsPage } from '../features/settings/GymSettingsPage';
 import { NewMemberCodeDialog } from '../features/signup/NewMemberCodeDialog';
 import { MembershipTypesPage } from '../features/membership-types/MembershipTypesPage';
 import { ShellLayout } from './ShellLayout';
@@ -51,14 +54,19 @@ export function OwnerShell(props: GymShellProps) {
         'history',
         'staff',
         'checkIn',
+        'renewals',
         'devices',
+        'settings',
       ]}
       pages={{
         members: <MembersSection />,
         membershipTypes: <MembershipTypesPage />,
         payments: <PaymentsPage />,
         history: <HistoryPage />,
+        checkIn: <DeskPage />,
+        renewals: <RenewalsPage />,
         devices: <DevicesPage />,
+        settings: <GymSettingsPage />,
       }}
       actions={<NewMemberCodeButton />}
       {...props}
@@ -72,8 +80,9 @@ export function ReceptionShell(props: GymShellProps) {
     <ShellLayout
       testId="shell-reception"
       title={t('shell.reception')}
-      nav={['checkIn', 'members', 'schedule']}
-      pages={{ members: <MembersSection /> }}
+      nav={['checkIn', 'members', 'renewals', 'schedule']}
+      home={<DeskPage />}
+      pages={{ members: <MembersSection />, renewals: <RenewalsPage /> }}
       actions={<NewMemberCodeButton />}
       {...props}
     />

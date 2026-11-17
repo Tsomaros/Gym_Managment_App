@@ -1,10 +1,12 @@
-import type { MemberDetail, Membership } from '@gym/shared';
+import type { CheckInResult, MemberDetail, Membership } from '@gym/shared';
 import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useParams } from 'react-router';
 import { ApiError, apiFetch } from '../../api/client';
 import { formatDate, formatMoney } from '../../lib/format';
+import { CheckInCard } from '../desk/CheckInCard';
 import { FreezeDialog } from './FreezeDialog';
+import { PhotoCapture } from './PhotoCapture';
 import { SellMembershipDialog } from './SellMembershipDialog';
 import { StatusBadge } from './StatusBadge';
 
@@ -19,6 +21,8 @@ export function MemberDetailPage() {
   const [state, setState] = useState<'loading' | 'ready' | 'missing' | 'error'>('loading');
   const [selling, setSelling] = useState(false);
   const [freezing, setFreezing] = useState<Membership | null>(null);
+  const [verdict, setVerdict] = useState<CheckInResult | null>(null);
+  const [checkInFailed, setCheckInFailed] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -60,6 +64,18 @@ export function MemberDetailPage() {
   }
 
   const fullName = `${member.firstName} ${member.lastName}`;
+  async function checkInNow() {
+    setCheckInFailed(false);
+    try {
+      setVerdict(
+        await apiFetch<CheckInResult>(`/gyms/${gymId}/members/${memberId}/check-ins`, {
+          method: 'POST',
+        }),
+      );
+    } catch {
+      setCheckInFailed(true);
+    }
+  }
   const period = (m: Membership) =>
     m.effectiveEndsOn
       ? `${formatDate(m.startsOn, lang)} – ${formatDate(m.effectiveEndsOn, lang)}`
@@ -72,12 +88,47 @@ export function MemberDetailPage() {
         aria-labelledby="member-name"
         className="rounded-xl border border-slate-200 bg-white p-6"
       >
-        <div className="flex flex-wrap items-center gap-3">
-          <h2 id="member-name" className="mr-auto text-xl font-semibold break-words text-slate-900">
-            {fullName}
-          </h2>
-          <StatusBadge status={member.status} size="large" />
+        <div className="flex flex-wrap items-start gap-4">
+          <PhotoCapture
+            gymId={gymId}
+            memberId={memberId}
+            name={fullName}
+            firstName={member.firstName}
+            lastName={member.lastName}
+            photoUrl={member.photoUrl}
+            onChanged={() => void load()}
+          />
+          <div className="flex min-w-0 flex-1 flex-col gap-3">
+            <div className="flex flex-wrap items-center gap-3">
+              <h2
+                id="member-name"
+                className="mr-auto text-xl font-semibold break-words text-slate-900"
+              >
+                {fullName}
+              </h2>
+              <StatusBadge status={member.status} size="large" />
+            </div>
+            <div>
+              <button
+                type="button"
+                onClick={() => void checkInNow()}
+                className="min-h-11 rounded-md border border-slate-300 px-4 font-semibold text-slate-900 hover:bg-slate-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-900"
+              >
+                {t('desk.checkInButton')}
+              </button>
+            </div>
+          </div>
         </div>
+        {checkInFailed && (
+          <p role="alert" className="mt-3 text-red-700">
+            {t('common.genericError')}
+          </p>
+        )}
+        {verdict && (
+          <div className="mt-4">
+            <CheckInCard result={verdict} onSell={() => setSelling(true)} />
+          </div>
+        )}
         <dl className="mt-4 grid gap-x-6 gap-y-2 text-sm sm:grid-cols-2">
           <Item label={t('signup.phone')} value={member.phone} />
           <Item

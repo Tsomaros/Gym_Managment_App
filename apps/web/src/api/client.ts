@@ -64,7 +64,8 @@ export function refreshSession(): Promise<boolean> {
 async function send(path: string, init: RequestInit): Promise<Response> {
   const headers = new Headers(init.headers);
   if (accessToken) headers.set('authorization', `Bearer ${accessToken}`);
-  if (init.body !== undefined && !headers.has('content-type')) {
+  // A FormData body (a photo) needs the browser's own multipart content type, with its boundary.
+  if (init.body !== undefined && !(init.body instanceof FormData) && !headers.has('content-type')) {
     headers.set('content-type', 'application/json');
   }
   return fetch(`/api${path}`, { ...init, headers, credentials: 'include' });

@@ -231,7 +231,7 @@ describe('live check-in stream', () => {
     expect(got?.event).toBe('check_in');
     expect(got?.data).toMatchObject({
       type: 'check_in',
-      result: { checkInId: result.checkInId, valid: true, member: { firstName: 'giorgos' } },
+      result: { checkInId: result.checkInId, method: 'manual', valid: true, member: { firstName: 'giorgos' } },
     });
   });
 

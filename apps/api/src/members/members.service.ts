@@ -75,7 +75,8 @@ export class MembersService {
         .orderBy(desc(gymRoles.createdAt), asc(users.id));
       // Status depends on today's date, so it is computed here, not in SQL. Without a status filter
       // only the page is loaded; with one, every match is evaluated first (fine for a gym's size).
-      const rows = q.status ? await query : await query.limit(MAX_RESULTS);
+      // The end date is computed (freezes), so a sort by it also loads every match first.
+      const rows = q.status || q.sort ? await query : await query.limit(MAX_RESULTS);
 
       const today = await gymToday(tx, gymId, this.clock.now());
       const byMember = await membershipsOf(
@@ -90,7 +91,22 @@ export class MembersService {
       const summaries = rows.map((r) =>
         this.summary(r, byMember.get(r.userId) ?? [], photoUrls.get(r.userId) ?? null),
       );
-      return summaries.filter((s) => !q.status || s.status === q.status).slice(0, MAX_RESULTS);
+      const wanted = summaries.filter((s) => !q.status || s.status === q.status);
+      if (q.sort === 'ending') {
+        // Stable: members with the same end keep the newest-sign-up-first order.
+        wanted.sort((a, b) =>
+          a.currentEndsOn === b.currentEndsOn
+            ? 0
+            : a.currentEndsOn === null
+              ? 1
+              : b.currentEndsOn === null
+                ? -1
+                : a.currentEndsOn < b.currentEndsOn
+                  ? -1
+                  : 1,
+        );
+      }
+      return wanted.slice(0, MAX_RESULTS);
     });
   }
 

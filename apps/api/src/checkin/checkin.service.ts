@@ -153,6 +153,7 @@ export class CheckInService {
       valid: row.valid,
       reason,
       duplicate,
+      method: row.method,
       member: {
         id: member.id,
         firstName: member.firstName,

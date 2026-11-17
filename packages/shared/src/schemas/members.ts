@@ -45,5 +45,7 @@ export interface MyMemberships {
 export const MembersQuerySchema = z.object({
   q: z.string().trim().max(100).optional(),
   status: z.enum(MEMBER_STATUSES).optional(),
+  /** 'ending': the soonest end first, members without an end last (the renewals list). */
+  sort: z.enum(['ending']).optional(),
 });
 export type MembersQuery = z.infer<typeof MembersQuerySchema>;

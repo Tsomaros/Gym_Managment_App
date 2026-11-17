@@ -186,3 +186,23 @@ describe('kioskFetch', () => {
     off();
   });
 });
+
+describe('apiFetch with a file upload', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    setAccessToken(null);
+  });
+
+  it('leaves the content type to the browser for FormData (it adds the multipart boundary)', async () => {
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(new Response(null, { status: 200 }));
+    vi.stubGlobal('fetch', fetchMock);
+    setAccessToken('t');
+    const body = new FormData();
+    body.set('photo', new Blob(['x'], { type: 'image/jpeg' }), 'photo.jpg');
+    await apiFetch('/gyms/g/members/m/photo', { method: 'PUT', body });
+    const headers = new Headers(fetchMock.mock.calls[0]![1]?.headers);
+    expect(headers.has('content-type')).toBe(false);
+    expect(headers.get('authorization')).toBe('Bearer t');
+    expect(fetchMock.mock.calls[0]![1]?.body).toBe(body);
+  });
+});

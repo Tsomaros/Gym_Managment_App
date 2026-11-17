@@ -4,7 +4,15 @@ import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import '../../i18n';
-import { GYM, json, MEMBER, membership, monthlyType, payment } from '../../test/fixtures';
+import {
+  checkInResult,
+  GYM,
+  json,
+  MEMBER,
+  membership,
+  monthlyType,
+  payment,
+} from '../../test/fixtures';
 import { MemberDetailPage } from './MemberDetailPage';
 
 const detail = (over: Partial<MemberDetail> = {}): MemberDetail => ({
@@ -111,5 +119,48 @@ describe('MemberDetailPage', () => {
     // The member is still shown; the failed refresh doesn't replace the page with an error.
     expect(screen.getByRole('heading', { name: 'Γιώργος Παπαδόπουλος' })).toBeInTheDocument();
     expect(screen.getByText('Η πώληση έγινε')).toBeInTheDocument();
+  });
+
+  it('shows the photo when there is one, with a way to change it', async () => {
+    setup(detail({ photoUrl: 'https://f.test/g.jpg' }));
+    expect(
+      await screen.findByRole('img', { name: 'Φωτογραφία: Γιώργος Παπαδόπουλος' }),
+    ).toHaveAttribute('src', 'https://f.test/g.jpg');
+    expect(screen.getByLabelText('Αλλαγή φωτογραφίας')).toBeInTheDocument();
+  });
+
+  it('offers to add a photo when there is none', async () => {
+    setup(detail());
+    await screen.findByRole('heading', { name: 'Γιώργος Παπαδόπουλος' });
+    expect(screen.getByLabelText('Προσθήκη φωτογραφίας')).toBeInTheDocument();
+  });
+
+  it('checks the member in by hand and shows the verdict right there', async () => {
+    fetchMock = vi.fn<typeof fetch>(async (input, init) => {
+      const url = String(input);
+      if (url.endsWith('/check-ins') && init?.method === 'POST') {
+        return json(
+          201,
+          checkInResult({ valid: false, reason: 'no_membership', membership: null }),
+        );
+      }
+      return String(input).includes('membership-types')
+        ? json(200, [monthlyType])
+        : json(200, detail());
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    render(
+      <MemoryRouter initialEntries={[`/g/${GYM}/members/${MEMBER}`]}>
+        <Routes>
+          <Route path="/g/:gymId/members/:memberId" element={<MemberDetailPage />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+    await userEvent.click(await screen.findByRole('button', { name: 'Είσοδος' }));
+    const card = await screen.findByTestId('check-in-card');
+    expect(card).toHaveAttribute('data-verdict', 'refused');
+    expect(within(card).getByText('Δεν έχει συνδρομή')).toBeInTheDocument();
+    const post = fetchMock.mock.calls.find(([, i]) => i?.method === 'POST')!;
+    expect(String(post[0])).toBe(`/api/gyms/${GYM}/members/${MEMBER}/check-ins`);
   });
 });

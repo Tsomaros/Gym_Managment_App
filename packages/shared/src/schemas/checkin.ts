@@ -45,6 +45,7 @@ export interface CheckInResult {
   reason: CheckInReason | null;
   /** True when this repeats a check-in from the last 2 minutes: nothing new was recorded. */
   duplicate: boolean;
+  method: 'kiosk' | 'manual';
   member: { id: string; firstName: string; lastName: string; photoUrl: string | null };
   /** The membership used, or for a refusal the one that explains it. */
   membership: Membership | null;

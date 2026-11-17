@@ -11,6 +11,16 @@ export function formatMoney(cents: number, locale: string): string {
     .replace(/[\u00a0\u202f]/g, ' '); // Intl puts a (narrow) no-break space before "€"
 }
 
+/** The clock time of an instant in a time zone, 24-hour: "11:30". The gym's zone, not the browser's. */
+export function formatTime(iso: string, timeZone: string, locale: string): string {
+  return new Intl.DateTimeFormat(tag(locale), {
+    timeZone,
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23',
+  }).format(new Date(iso));
+}
+
 /** A calendar date (YYYY-MM-DD) in the UI language: "28/2/2027" (el). Never shifted by time zone. */
 export function formatDate(iso: string, locale: string): string {
   const [y, m, d] = iso.split('-').map(Number) as [number, number, number];

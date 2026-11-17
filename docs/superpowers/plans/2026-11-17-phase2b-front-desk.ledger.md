@@ -1,0 +1,32 @@
+# SDD ledger — plan: docs/superpowers/plans/2026-11-17-phase2b-front-desk.md
+Pre-flight: T1→T3 (token verify), T2→T3 (DeviceGuard, devices table), T3→T4 (CheckInService event publish), T3/T4→T5 (photoUrl), T1-5→T6-8 (shared schemas); all follow plan interfaces
+Task 1: complete (commits bb1a91c..8caa5ff, tests: pnpm --filter api test →    Duration  8.74s (import 56%, tests 41%, transform 3%))
+Task 2: complete (commits 8caa5ff..b51615b, tests: pnpm --filter api test →              learn more: https://vitest.dev/guide/improving-performance#test-isolation)
+Task 3: complete (commits b51615b..3267e49, tests: pnpm --filter api test →              learn more: https://vitest.dev/guide/improving-performance#test-isolation)
+Task 3: Ruling: reason on a refused repeat — a refused latest check-in short-circuits (duplicate) only while the verdict is unchanged; a checked-out row never short-circuits — reviewer found a sale right after a refusal was ignored for 2 min — cost if wrong: an extra refused row per changed verdict.
+Task 3: Ruling: check_ins indexes ascending (not DESC) and extra CHECKs (kiosk needs device; visit_consumed needs valid+membership) — DB review: DESC NULLS LAST index would not serve ORDER BY at DESC — cost: none; 0013 regenerated, gym_test row for old 0013 was removed by hand.
+Task 3: Ruling: devices gets UNIQUE(id, gym_id) in migration 0013 so check_ins can have a same-gym composite FK — cost: none.
+Task 4: Ruling: present boundary is inclusive (at >= now - minutes) so a check-in exactly 120 min old is present and 121 is not — plan text said 'at > now - minutes' but its own test expects 12:00 present for 10:00 — cost: 1 minute difference.
+Task 4: Ruling: GET /gyms/:gymId/live has no @GymRoles (ticket is the credential), listed in route-guards PUBLIC_GYM_ROUTES with a reason; the guard test fails if the entry goes stale — cost: none.
+Task 4: complete (commits 3267e49..867ff26, tests: pnpm --filter api test →              learn more: https://vitest.dev/guide/improving-performance#test-isolation)
+Task 5: Ruling: concurrent first uploads serialised with lockMember (reviewer: second insert would hit the PK and 500) — the new two-parallel-PUT test passes even without the lock (race did not reproduce locally), so it is a regression guard, not proof — cost: none.
+Task 5: Ruling: photos test skips with a stated reason when S3_ENDPOINT is unreachable; CI has no MinIO so photo tests are skipped there — cost: photo regressions are only caught locally until a MinIO service is added to CI.
+Task 5: minor (deferred): member_photos.member_id is ON DELETE NO ACTION and has no same-gym FK to gym_roles; the GDPR erasure routine must also delete the MinIO objects under gyms/<gym>/members/<id>/ — decide with the erasure feature.
+Task 5: complete (commits 867ff26..ae0048b, tests: pnpm --filter api test →              learn more: https://vitest.dev/guide/improving-performance#test-isolation)
+Task 6: Ruling: a failed refresh keeps the current code until its own expiry (it is valid 45 s, refreshed every 30 s) and only sets error; the offline panel appears once no valid code remains — plan said 'offline or error: message instead of a stale code', a code that has not expired is not stale; UI reviewer flagged blanking a working code at the door — cost: member may show a code up to 15 s after the refresh failed.
+Task 6: Ruling: member home is now the check-in screen; 'my membership' moved to its own nav section — plan: 'member shell nav (checkIn first)' — cost: none.
+Task 6: minor (deferred): offline panel text is shown for every failure kind (403/500 too); expiry compares with the device clock (skewed phone clock). Prettier was run over files changed on this branch (formatting only).
+Task 6: complete (commits ae0048b..600eaa3, tests: pnpm --filter web test →              at least ~842ms faster with isolate: false — reuses workers across files instead of one per file)
+Task 7: Ruling: kioskFetch sends credentials 'omit' and times out after 5 s (rejects with a non-ApiError, so the tablet does not unpair on a slow network) — reviewer found cookies and hung requests — cost: a 5 s+ slow answer shows 'connection problem'.
+Task 7: Ruling: the same-token ignore window restarts when the result clears (so a code still held up is not scanned again) — cost: the same member re-scanning deliberately within 3 s of a result must wait.
+Task 7: Ruling: scanner uses jsQR (pure JS) because iPad Safari has no BarcodeDetector — decoding itself is not testable in jsdom and is covered by the manual device check in Task 8 step 5.
+Task 7: minor (deferred): DevicesPage formats times in the browser time zone, not the gym's (the web app does not expose the gym timezone yet); epoch guard against late answers after unpair has no test (not observable).
+Task 7: complete (commits 600eaa3..8610c6d, tests: pnpm --filter web test →              learn more: https://vitest.dev/guide/improving-performance#test-environments)
+Task 8: Ruling: desk lists reload after each stream RECONNECT (not on the first connect) — events during a gap are lost; the startup window between load and first connect is left (tiny) — cost: one extra fetch per reconnect.
+Task 8: Ruling: the inside/today switch is two toggle buttons (aria-pressed), not ARIA tabs — half a tab pattern is worse than none — cost: none.
+Task 8: Ruling: photo links are 5 min; Avatar falls back to initials when an image is refused instead of the desk re-fetching on a timer — cost: avatars of loaded rows may turn to initials after 5 min until the next reload.
+Task 8: Ruling: PhotoCapture keeps capture="user" as the plan says (Android phones then offer only the camera) — cost: staff on Android cannot pick from the gallery.
+Task 8: Ruling: CheckInResult gained `method` (kiosk|manual) so the desk can add a live check-in to the day list without refetching — cost: none.
+Task 8: Ruling: reception home is the desk (nav checkIn first); owner gets it as the "checkIn" section; trainers have no desk UI yet (API ready) — cost: none.
+Task 8: minor (deferred): a refused card is replaced on the big card by the next check-in (it stays in the previous list); check-in results are not announced to screen readers; DevicesPage still formats times in the browser time zone.
+Task 8: Step 5 (manual check on real devices) NOT done by the agent — needs the user (kiosk on tablet/Android phone via /kiosk through the tunnel, member on iPhone).

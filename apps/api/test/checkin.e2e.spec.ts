@@ -348,6 +348,7 @@ describe('check-in (gym in Europe/Athens)', () => {
         valid: true,
         reason: null,
         duplicate: false,
+        method: 'manual',
         member: { id: m.id, firstName: 'Γιώργος', lastName: 'Μέλος', photoUrl: null },
         membership: { id: m.membership!.id },
       });

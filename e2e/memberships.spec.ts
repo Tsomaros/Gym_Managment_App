@@ -132,6 +132,8 @@ test('owner sets a type, reception sells and freezes, the member sees it, the ow
     await browser.newContext({ viewport: { width: 375, height: 812 } })
   ).newPage();
   await signIn(phone, memberEmail, password);
+  // The member's home is the check-in code; the full membership card is one tap away.
+  await phone.getByRole('link', { name: 'Η συνδρομή μου' }).click();
   await expect(phone.getByText(/^\d+ ημέρες$/)).toBeVisible();
 
   // Reception freezes it from today for three days.
