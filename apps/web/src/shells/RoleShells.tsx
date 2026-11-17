@@ -7,6 +7,7 @@ import { DeskPage } from '../features/desk/DeskPage';
 import { HistoryPage } from '../features/audit/HistoryPage';
 import { MemberCheckInPage } from '../features/checkin/MemberCheckInPage';
 import { DevicesPage } from '../features/devices/DevicesPage';
+import { ExercisesPage } from '../features/exercises/ExercisesPage';
 import { MembersSection } from '../features/members/MembersSection';
 import { MyMembershipPage } from '../features/my-membership/MyMembershipPage';
 import { PaymentsPage } from '../features/payments/PaymentsPage';
@@ -57,6 +58,7 @@ export function OwnerShell(props: GymShellProps) {
         'payments',
         'history',
         'staff',
+        'exercises',
         'schedule',
         'checkIn',
         'renewals',
@@ -69,6 +71,7 @@ export function OwnerShell(props: GymShellProps) {
         payments: <PaymentsPage />,
         history: <HistoryPage />,
         staff: <StaffPage canManage />,
+        exercises: <ExercisesPage />,
         schedule: <SchedulePage isOwner />,
         checkIn: <DeskPage />,
         renewals: <RenewalsPage />,
@@ -112,9 +115,9 @@ export function TrainerShell(props: GymShellProps) {
     <ShellLayout
       testId="shell-trainer"
       title={t('shell.trainer')}
-      nav={['schedule', 'members', 'plans']}
+      nav={['schedule', 'members', 'plans', 'exercises']}
       home={<MySchedulePage />}
-      pages={{ members: <TrainerClientsPage /> }}
+      pages={{ members: <TrainerClientsPage />, exercises: <ExercisesPage /> }}
       {...props}
     />
   );

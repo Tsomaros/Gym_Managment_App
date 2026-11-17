@@ -169,16 +169,16 @@
   - Validation per Global Constraints: `415` if it isn't a PDF, `413` over 10 MB.
   - `pdfUrl` is a fresh presigned link on every `GET` (read access).
 
-- [ ] **Step 1: Write the failing tests:**
+- [x] **Step 1: Write the failing tests:**
   - T saves M's plan as a template → another trainer V sees it in the list; V's `PUT` on it → `403`.
   - From the template, T creates a plan for member N → new ids throughout. Editing the template afterwards leaves N's plan unchanged; deleting the template leaves N's plan in place. *(Review Focus 4)*
   - Upload a small PDF and activate → M's active plan has `kind 'pdf'` and a `pdfUrl` that returns the same bytes. A PNG renamed `.pdf` → `415`; 10.1 MB → `413`.
   - Replacing the PDF removes the old object. A cover trainer can `GET` the `pdfUrl` but gets `403` on upload.
   - Template history rows are written.
-- [ ] **Step 2: Run** `pnpm --filter api test templates pdf-plans` → FAIL.
-- [ ] **Step 3: Implement.**
-- [ ] **Step 4: Run** `pnpm --filter api test` → PASS.
-- [ ] **Step 5: Commit** `feat: plan templates and PDF plans`.
+- [x] **Step 2: Run** `pnpm --filter api test templates pdf-plans` → FAIL.
+- [x] **Step 3: Implement.**
+- [x] **Step 4: Run** `pnpm --filter api test` → PASS.
+- [x] **Step 5: Commit** `feat: plan templates and PDF plans`.
 
 ---
 

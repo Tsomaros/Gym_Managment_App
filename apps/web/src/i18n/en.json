@@ -56,7 +56,8 @@
     "memberCheckIn": "Check in",
     "devices": "Devices",
     "renewals": "Renewals",
-    "settings": "Settings"
+    "settings": "Settings",
+    "exercises": "Exercises"
   },
   "shell": {
     "owner": "Owner area",
@@ -514,5 +515,49 @@
     "clients": "My clients",
     "noClients": "You have no clients yet.",
     "coversToday": "Covering today"
+  },
+  "exercises": {
+    "title": "Exercise library",
+    "new": "New exercise",
+    "search": "Search",
+    "searchExercise": "Search exercises",
+    "empty": "No exercises yet. Add the first one.",
+    "noMatch": "No exercise matches.",
+    "edit": "Edit",
+    "editNamed": "Edit “{{name}}”",
+    "editTitle": "Edit exercise",
+    "archive": "Archive",
+    "archiveNamed": "Archive “{{name}}”",
+    "archiveTitle": "Archive this exercise?",
+    "archiveMessage": "“{{name}}” will no longer be offered for new plans. It stays in the plans that already have it.",
+    "nameEl": "Name (Greek)",
+    "nameEn": "Name (English)",
+    "nameEnHint": "Optional. Without it, English shows the Greek name.",
+    "muscleGroup": "Muscle group",
+    "measure": "Track by",
+    "duplicate": "An exercise with this name already exists.",
+    "pickTitle": "Choose an exercise",
+    "filterGroups": "Muscle groups",
+    "groups": {
+      "chest": "Chest",
+      "back": "Back",
+      "shoulders": "Shoulders",
+      "biceps": "Biceps",
+      "triceps": "Triceps",
+      "legs": "Legs",
+      "glutes": "Glutes",
+      "core": "Core",
+      "cardio": "Cardio",
+      "full_body": "Full body"
+    },
+    "measures": {
+      "weight_reps": "Weight and reps",
+      "reps": "Reps",
+      "duration": "Duration"
+    },
+    "results_one": "{{count}} exercise",
+    "results_other": "{{count}} exercises",
+    "archived": "“{{name}}” was archived.",
+    "saved": "“{{name}}” was saved."
   }
 }
