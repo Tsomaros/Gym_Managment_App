@@ -7,14 +7,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { AppModule } from '../src/app.module';
 import { signAccessToken } from '../src/auth/tokens';
 import { systemDb } from '../src/db/client';
-import {
-  auditLog,
-  devicePairingCodes,
-  devices,
-  gymRoles,
-  gyms,
-  users,
-} from '../src/db/schema';
+import { auditLog, devicePairingCodes, devices, gymRoles, gyms, users } from '../src/db/schema';
 import { configureApp } from '../src/main';
 import { resetThrottle } from './throttle-reset';
 
@@ -217,10 +210,7 @@ describe('kiosk devices', () => {
     expect(mine.lastSeenAt).not.toBeNull();
     expect(JSON.stringify(list)).not.toContain(paired.deviceToken);
 
-    const history = await systemDb
-      .select()
-      .from(auditLog)
-      .where(eq(auditLog.entityId, mine.id));
+    const history = await systemDb.select().from(auditLog).where(eq(auditLog.entityId, mine.id));
     expect(history.map((h) => h.action)).toContain('device.paired');
   });
 

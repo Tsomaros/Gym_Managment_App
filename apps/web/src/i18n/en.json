@@ -52,7 +52,8 @@
     "label": "Sections",
     "membershipTypes": "Membership types",
     "payments": "Payments",
-    "history": "History"
+    "history": "History",
+    "memberCheckIn": "Check in"
   },
   "shell": {
     "owner": "Owner area",
@@ -296,5 +297,15 @@
       "cash": "cash",
       "card": "card"
     }
+  },
+  "checkin": {
+    "title": "Gym entry",
+    "hint": "Show this code to the tablet at the entrance.",
+    "qrLabel": "Entry code for {{name}}",
+    "refresh": "Valid for {{count}} s",
+    "loading": "Loading your code…",
+    "offline": "No connection — reception can check you in by name.",
+    "retry": "Try again",
+    "qrLabelAnonymous": "Entry code"
   }
 }

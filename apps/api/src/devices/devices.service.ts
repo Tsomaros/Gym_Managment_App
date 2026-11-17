@@ -127,7 +127,10 @@ export class DevicesService {
         .for('update');
       if (!device) throw new NotFoundException();
       if (device.revokedAt) return;
-      await tx.update(devices).set({ revokedAt: sql`now()` }).where(eq(devices.id, deviceId));
+      await tx
+        .update(devices)
+        .set({ revokedAt: sql`now()` })
+        .where(eq(devices.id, deviceId));
       await this.audit.record(tx, {
         gymId,
         actorId: ownerId,

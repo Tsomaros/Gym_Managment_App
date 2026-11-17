@@ -21,5 +21,8 @@ export const devices = pgTable(
     lastSeenAt: timestamp('last_seen_at', { withTimezone: true }),
     revokedAt: timestamp('revoked_at', { withTimezone: true }),
   },
-  (t) => [index('devices_gym_id_idx').on(t.gymId), unique('devices_id_gym_id_uq').on(t.id, t.gymId)],
+  (t) => [
+    index('devices_gym_id_idx').on(t.gymId),
+    unique('devices_id_gym_id_uq').on(t.id, t.gymId),
+  ],
 );

@@ -77,7 +77,10 @@ function kioskRoutes(app: INestApplication): { id: string; guarded: boolean }[] 
             ...((Reflect.getMetadata(GUARDS_METADATA, controller) as unknown[] | undefined) ?? []),
             ...((Reflect.getMetadata(GUARDS_METADATA, handler) as unknown[] | undefined) ?? []),
           ];
-          found.push({ id: `${controller.name}.${name} ${path}`, guarded: guards.includes(DeviceGuard) });
+          found.push({
+            id: `${controller.name}.${name} ${path}`,
+            guarded: guards.includes(DeviceGuard),
+          });
         }
       }
     }

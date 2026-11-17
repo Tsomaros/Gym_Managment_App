@@ -96,7 +96,11 @@ describe('decideCheckIn', () => {
       [ms({ kind: 'classes', visitsTotal: 8, remaining: { days: null, visits: 8 } })],
       'classes_only',
     ],
-    ['a used-up pack', [pack({ status: 'used_up', remaining: { days: null, visits: 0 } })], 'used_up'],
+    [
+      'a used-up pack',
+      [pack({ status: 'used_up', remaining: { days: null, visits: 0 } })],
+      'used_up',
+    ],
     [
       'a used-up pack next to an expired one',
       [pack({ status: 'used_up' }), ms({ status: 'expired' })],

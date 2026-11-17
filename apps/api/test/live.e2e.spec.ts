@@ -113,19 +113,23 @@ describe('live check-in stream', () => {
   const server = () => app.getHttpServer();
 
   const ticket = async (gym: string, token: string): Promise<string> =>
-    ((
-      await request(server())
-        .post(`/gyms/${gym}/live/tickets`)
-        .auth(token, { type: 'bearer' })
-        .expect(201)
-    ).body as { ticket: string }).ticket;
+    (
+      (
+        await request(server())
+          .post(`/gyms/${gym}/live/tickets`)
+          .auth(token, { type: 'bearer' })
+          .expect(201)
+      ).body as { ticket: string }
+    ).ticket;
   const stream = async (gym: string, t: string): Promise<Stream> => {
     const s = await openStream(port, `/gyms/${gym}/live?ticket=${encodeURIComponent(t)}`);
     open.push(s);
     return s;
   };
   const manual = (gym: string, token: string, member: string) =>
-    request(server()).post(`/gyms/${gym}/members/${member}/check-ins`).auth(token, { type: 'bearer' });
+    request(server())
+      .post(`/gyms/${gym}/members/${member}/check-ins`)
+      .auth(token, { type: 'bearer' });
 
   async function member(gym: string, owner: string, name: string): Promise<string> {
     const [u] = await systemDb
@@ -213,7 +217,7 @@ describe('live check-in stream', () => {
     await app?.close();
   });
 
-  it('streams a manual check-in to a reception stream within a second, with the member\'s name', async () => {
+  it("streams a manual check-in to a reception stream within a second, with the member's name", async () => {
     const s = await stream(gymA, await ticket(gymA, recA));
     expect(s.status).toBe(200);
     expect(s.headers['content-type']).toMatch(/text\/event-stream/);
@@ -310,9 +314,11 @@ describe('live check-in stream', () => {
     clock.advance(10 * 60_000);
     // Writing to a closed response never throws (publish swallows it), so look at the
     // registered listeners themselves instead of waiting for an error.
-    const registry = (app.get(CheckInEvents) as unknown as {
-      listeners: Map<string, Set<unknown>>;
-    }).listeners;
+    const registry = (
+      app.get(CheckInEvents) as unknown as {
+        listeners: Map<string, Set<unknown>>;
+      }
+    ).listeners;
     const count = () => registry.get(gymA)?.size ?? 0;
     await new Promise((r) => setTimeout(r, 150)); // let streams closed by earlier tests unsubscribe
     const before = count();
@@ -320,7 +326,8 @@ describe('live check-in stream', () => {
     const staying = await stream(gymA, await ticket(gymA, recA));
     expect(count()).toBe(before + 2);
     closing.close();
-    for (let i = 0; i < 40 && count() > before + 1; i++) await new Promise((r) => setTimeout(r, 25));
+    for (let i = 0; i < 40 && count() > before + 1; i++)
+      await new Promise((r) => setTimeout(r, 25));
     expect(count()).toBe(before + 1);
 
     // the other stream keeps working after the close

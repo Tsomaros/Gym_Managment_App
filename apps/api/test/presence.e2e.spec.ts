@@ -1,12 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import type { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
-import type {
-  CheckInResult,
-  MembershipType,
-  PresentMember,
-  VisitorRow,
-} from '@gym/shared';
+import type { CheckInResult, MembershipType, PresentMember, VisitorRow } from '@gym/shared';
 import { eq, sql } from 'drizzle-orm';
 import request from 'supertest';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
@@ -292,7 +287,7 @@ describe('who is in, visitors and check-out (gym in Europe/Athens, auto check-ou
     expect(ids(await present())).toContain(m);
   });
 
-  it('lets a trainer see who is inside but not the day\'s visitors, and a member nothing', async () => {
+  it("lets a trainer see who is inside but not the day's visitors, and a member nothing", async () => {
     const m = await makeMember('Οκτώ');
     await checkInAt(m, '2027-05-12', '10:00');
     clock.current = at('2027-05-12', '10:10');
@@ -301,9 +296,7 @@ describe('who is in, visitors and check-out (gym in Europe/Athens, auto check-ou
       .get(`/gyms/${gymId}/check-ins`)
       .auth(trainer, { type: 'bearer' })
       .expect(403);
-    await request(server())
-      .get(`/gyms/${gymId}/check-ins/present`)
-      .expect(401);
+    await request(server()).get(`/gyms/${gymId}/check-ins/present`).expect(401);
   });
 
   it('defaults the visitor list to today in gym time, not UTC (00:30 Athens is still yesterday in UTC)', async () => {
@@ -314,7 +307,7 @@ describe('who is in, visitors and check-out (gym in Europe/Athens, auto check-ou
     expect((await visitors('2027-05-13')).map((v) => v.memberId)).not.toContain(m);
   });
 
-  it('never shows or checks out another gym\'s visitors', async () => {
+  it("never shows or checks out another gym's visitors", async () => {
     const [other] = await systemDb
       .insert(gyms)
       .values({ name: `Presence other ${run}`, timezone: 'Europe/Athens' })

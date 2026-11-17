@@ -1,9 +1,5 @@
 import { Body, Controller, Get, Param, ParseUUIDPipe, Patch, Req } from '@nestjs/common';
-import {
-  type GymSettings,
-  type UpdateGymSettings,
-  UpdateGymSettingsSchema,
-} from '@gym/shared';
+import { type GymSettings, type UpdateGymSettings, UpdateGymSettingsSchema } from '@gym/shared';
 import { CurrentGym, type GymContext } from '../access/gym-context';
 import type { AppRequest } from '../access/jwt.guard';
 import { GymRoles } from '../access/roles.decorator';

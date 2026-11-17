@@ -11,7 +11,10 @@ export const LIVE_TICKET_TTL_MS = 30_000;
  */
 @Injectable()
 export class LiveTickets {
-  private readonly tickets = new Map<string, { gymId: string; userId: string; expiresAt: number }>();
+  private readonly tickets = new Map<
+    string,
+    { gymId: string; userId: string; expiresAt: number }
+  >();
 
   constructor(private readonly clock: Clock) {}
 

@@ -108,9 +108,7 @@ describe('gym settings and member check-in token', () => {
       .auth(tokens.trainer, { type: 'bearer' })
       .send({ autoCheckoutMinutes: 45 })
       .expect(403);
-    await request(server())
-      .get(`/gyms/${gymId}/settings`)
-      .expect(401);
+    await request(server()).get(`/gyms/${gymId}/settings`).expect(401);
     const [other] = await systemDb
       .select({ m: gyms.autoCheckoutMinutes })
       .from(gyms)

@@ -1,4 +1,9 @@
-import { Injectable, Logger, NotFoundException, UnsupportedMediaTypeException } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  NotFoundException,
+  UnsupportedMediaTypeException,
+} from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
 import { and, eq, inArray } from 'drizzle-orm';
 import { AuditService } from '../audit/audit.service';
@@ -20,7 +25,11 @@ export function sniffImage(b: Buffer): ImageType | null {
   ) {
     return 'image/png';
   }
-  if (b.length >= 12 && b.toString('latin1', 0, 4) === 'RIFF' && b.toString('latin1', 8, 12) === 'WEBP') {
+  if (
+    b.length >= 12 &&
+    b.toString('latin1', 0, 4) === 'RIFF' &&
+    b.toString('latin1', 8, 12) === 'WEBP'
+  ) {
     return 'image/webp';
   }
   return null;

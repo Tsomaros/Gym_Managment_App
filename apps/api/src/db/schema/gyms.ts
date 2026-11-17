@@ -12,10 +12,5 @@ export const gyms = pgTable(
     autoCheckoutMinutes: integer('auto_checkout_minutes').notNull().default(120),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
-  (t) => [
-    check(
-      'gyms_auto_checkout_valid',
-      sql`${t.autoCheckoutMinutes} between 30 and 600`,
-    ),
-  ],
+  (t) => [check('gyms_auto_checkout_valid', sql`${t.autoCheckoutMinutes} between 30 and 600`)],
 );

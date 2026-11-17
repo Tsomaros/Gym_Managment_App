@@ -39,7 +39,9 @@ describe('loadEnv', () => {
 
   it('throws when CHECKIN_SECRET is shorter than 32 characters (31 fails, 32 passes)', () => {
     expect(() => loadEnv({ ...valid, CHECKIN_SECRET: 'x'.repeat(31) })).toThrow('CHECKIN_SECRET');
-    expect(loadEnv({ ...valid, CHECKIN_SECRET: 'x'.repeat(32) }).CHECKIN_SECRET).toBe('x'.repeat(32));
+    expect(loadEnv({ ...valid, CHECKIN_SECRET: 'x'.repeat(32) }).CHECKIN_SECRET).toBe(
+      'x'.repeat(32),
+    );
   });
 
   it('rejects a non-URL S3_ENDPOINT, an empty S3 key and a 2-character bucket name (3 passes)', () => {

@@ -248,9 +248,12 @@ describe('check-in (gym in Europe/Athens)', () => {
     expect(await rowsOf(m.id)).toHaveLength(2);
   });
 
-  it('rejects a 46 s old token, a tampered token and another gym\'s member, and records nothing', async () => {
+  it("rejects a 46 s old token, a tampered token and another gym's member, and records nothing", async () => {
     const m = await makeMember(gymA, packType);
-    const old = signCheckInToken({ memberId: m.id, gymId: gymA }, new Date(clock.current.getTime() - 46_000));
+    const old = signCheckInToken(
+      { memberId: m.id, gymId: gymA },
+      new Date(clock.current.getTime() - 46_000),
+    );
     expect((await kiosk(old.token).expect(200)).body).toEqual({
       valid: false,
       firstName: null,
@@ -289,7 +292,11 @@ describe('check-in (gym in Europe/Athens)', () => {
     const res = await kiosk(tokenFor(m.id)).expect(200);
     expect((res.body as KioskCheckInResult).valid).toBe(true);
     const [row] = await rowsOf(m.id);
-    expect(row).toMatchObject({ valid: true, visitConsumed: false, membershipId: m.membership!.id });
+    expect(row).toMatchObject({
+      valid: true,
+      visitConsumed: false,
+      membershipId: m.membership!.id,
+    });
   });
 
   it('records an expired membership as an invalid check-in with its reason', async () => {
@@ -453,7 +460,10 @@ describe('check-in (gym in Europe/Athens)', () => {
     const res = await kiosk(tokenFor(m.id, gymA), deviceB).expect(200);
     expect((res.body as KioskCheckInResult).reason).toBe('invalid_token');
     await kiosk(tokenFor(m.id), { id: 'x', token: 'unknown' }).expect(401);
-    await request(server()).post('/kiosk/check-in').send({ token: tokenFor(m.id) }).expect(401);
+    await request(server())
+      .post('/kiosk/check-in')
+      .send({ token: tokenFor(m.id) })
+      .expect(401);
     expect(await rowsOf(m.id)).toHaveLength(0);
   });
 

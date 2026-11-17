@@ -4,6 +4,7 @@ import { useParams } from 'react-router';
 import { useAuth } from '../auth/AuthProvider';
 import { EmailNotVerifiedBanner } from '../components/EmailNotVerifiedBanner';
 import { HistoryPage } from '../features/audit/HistoryPage';
+import { MemberCheckInPage } from '../features/checkin/MemberCheckInPage';
 import { MembersSection } from '../features/members/MembersSection';
 import { MyMembershipPage } from '../features/my-membership/MyMembershipPage';
 import { PaymentsPage } from '../features/payments/PaymentsPage';
@@ -87,8 +88,9 @@ export function MemberShell(props: GymShellProps) {
     <ShellLayout
       testId="shell-member"
       title={t('shell.member')}
-      nav={['myMembership', 'myWorkouts']}
-      home={<MyMembershipPage />}
+      nav={['memberCheckIn', 'myMembership', 'myWorkouts']}
+      home={<MemberCheckInPage />}
+      pages={{ myMembership: <MyMembershipPage /> }}
       banner={me && !me.emailVerified ? <EmailNotVerifiedBanner email={me.email} /> : undefined}
       {...props}
     />

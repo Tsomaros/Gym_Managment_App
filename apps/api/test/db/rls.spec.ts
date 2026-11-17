@@ -808,7 +808,9 @@ describe('row-level security and privileges: devices and device_pairing_codes', 
     );
     expect(other).toEqual([]);
     const msg = await rejectionMessage(
-      withGym(gymA, (tx) => tx.update(devices).set({ name: 'renamed' }).where(eq(devices.id, deviceA))),
+      withGym(gymA, (tx) =>
+        tx.update(devices).set({ name: 'renamed' }).where(eq(devices.id, deviceA)),
+      ),
     );
     expect(msg).toMatch(/permission denied/);
   });
@@ -890,7 +892,9 @@ describe('row-level security and privileges: check_ins', () => {
   it('withGym(A) cannot record a check-in for gym B', async () => {
     const msg = await rejectionMessage(
       withGym(gymA, (tx) =>
-        tx.insert(checkIns).values({ gymId: gymB, memberId: memberB, method: 'manual', valid: true }),
+        tx
+          .insert(checkIns)
+          .values({ gymId: gymB, memberId: memberB, method: 'manual', valid: true }),
       ),
     );
     expect(msg).toMatch(RLS_VIOLATION);
@@ -913,7 +917,9 @@ describe('row-level security and privileges: check_ins', () => {
     const bad = (valid: boolean, reason: string | null) =>
       rejectionMessage(
         withGym(gymA, (tx) =>
-          tx.insert(checkIns).values({ gymId: gymA, memberId: memberA, method: 'manual', valid, reason }),
+          tx
+            .insert(checkIns)
+            .values({ gymId: gymA, memberId: memberA, method: 'manual', valid, reason }),
         ),
       );
     expect(await bad(true, 'expired')).toMatch(/check_ins_reason_matches_valid/);
@@ -924,7 +930,9 @@ describe('row-level security and privileges: check_ins', () => {
     const insert = (v: Partial<typeof checkIns.$inferInsert>) =>
       rejectionMessage(
         withGym(gymA, (tx) =>
-          tx.insert(checkIns).values({ gymId: gymA, memberId: memberA, method: 'manual', valid: true, ...v }),
+          tx
+            .insert(checkIns)
+            .values({ gymId: gymA, memberId: memberA, method: 'manual', valid: true, ...v }),
         ),
       );
     expect(await insert({ method: 'kiosk' })).toMatch(/check_ins_kiosk_has_device/);
@@ -945,11 +953,15 @@ describe('row-level security and privileges: check_ins', () => {
     expect(out).toHaveLength(1);
     expect(
       await rejectionMessage(
-        withGym(gymA, (tx) => tx.update(checkIns).set({ valid: false, reason: 'expired' }).where(eq(checkIns.id, rowA))),
+        withGym(gymA, (tx) =>
+          tx.update(checkIns).set({ valid: false, reason: 'expired' }).where(eq(checkIns.id, rowA)),
+        ),
       ),
     ).toMatch(/permission denied/);
     expect(
-      await rejectionMessage(withGym(gymA, (tx) => tx.delete(checkIns).where(eq(checkIns.id, rowA)))),
+      await rejectionMessage(
+        withGym(gymA, (tx) => tx.delete(checkIns).where(eq(checkIns.id, rowA))),
+      ),
     ).toMatch(/permission denied/);
   });
 });
@@ -1038,7 +1050,10 @@ describe('row-level security and privileges: member_photos', () => {
     expect(replaced).toEqual([{ key: 'new-key' }]);
     const msg = await rejectionMessage(
       withGym(gymA, (tx) =>
-        tx.update(memberPhotos).set({ memberId: memberB }).where(eq(memberPhotos.memberId, memberA)),
+        tx
+          .update(memberPhotos)
+          .set({ memberId: memberB })
+          .where(eq(memberPhotos.memberId, memberA)),
       ),
     );
     expect(msg).toMatch(/permission denied/);

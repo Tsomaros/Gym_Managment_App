@@ -56,7 +56,11 @@ export function relevantMembership(
     case 'frozen':
       return live.find((m) => m.status === 'frozen') ?? null;
     case 'upcoming_only':
-      return live.filter((m) => m.status === 'upcoming').sort((a, b) => a.startsOn.localeCompare(b.startsOn))[0] ?? null;
+      return (
+        live
+          .filter((m) => m.status === 'upcoming')
+          .sort((a, b) => a.startsOn.localeCompare(b.startsOn))[0] ?? null
+      );
     case 'classes_only':
       return live.find((m) => m.status === 'active' && m.kind === 'classes') ?? null;
     case 'used_up':

@@ -87,8 +87,7 @@ export type VisitorsQuery = z.infer<typeof VisitorsQuerySchema>;
 
 /** Pushed to reception and trainer screens over the live stream. */
 export type LiveEvent =
-  | { type: 'check_in'; result: CheckInResult }
-  | { type: 'check_out'; checkInId: string };
+  { type: 'check_in'; result: CheckInResult } | { type: 'check_out'; checkInId: string };
 
 export interface LiveTicketResponse {
   ticket: string;

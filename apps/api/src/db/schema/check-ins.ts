@@ -54,7 +54,10 @@ export const checkIns = pgTable(
     }),
     check('check_ins_method_valid', sql`${t.method} in ('kiosk', 'manual')`),
     check('check_ins_reason_matches_valid', sql`${t.valid} = (${t.reason} is null)`),
-    check('check_ins_visit_consumed_valid', sql`not ${t.visitConsumed} or (${t.valid} and ${t.membershipId} is not null)`),
+    check(
+      'check_ins_visit_consumed_valid',
+      sql`not ${t.visitConsumed} or (${t.valid} and ${t.membershipId} is not null)`,
+    ),
     check('check_ins_kiosk_has_device', sql`${t.method} <> 'kiosk' or ${t.deviceId} is not null`),
     // Ascending on purpose: a backward scan serves ORDER BY at DESC (the DESC NULLS LAST
     // that drizzle would emit for .desc() does not match Postgres's DESC NULLS FIRST).
