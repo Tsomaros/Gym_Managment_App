@@ -1,8 +1,8 @@
 import type { Payment } from '@gym/shared';
-import { type FormEvent, useCallback, useEffect, useId, useState } from 'react';
+import { type FormEvent, useCallback, useEffect, useId, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useParams } from 'react-router';
-import { apiFetch } from '../../api/client';
+import { ApiError, apiFetch } from '../../api/client';
 import { Dialog } from '../../components/Dialog';
 import { Field, FormError } from '../../components/Field';
 import { formatMoney } from '../../lib/format';
@@ -21,9 +21,14 @@ export function PaymentsPage() {
   const [failed, setFailed] = useState(false);
   const [voiding, setVoiding] = useState<Payment | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const noticeRef = useRef<HTMLParagraphElement>(null);
+  const justVoided = useRef(false);
 
   const load = useCallback(async () => {
-    if (!from || !to || to < from) return;
+    if (!from || !to || to < from) {
+      setPayments(null); // don't leave rows of another range under the error
+      return;
+    }
     setFailed(false);
     try {
       setPayments(await apiFetch<Payment[]>(`/gyms/${gymId}/payments?from=${from}&to=${to}`));
@@ -66,7 +71,12 @@ export function PaymentsPage() {
         />
       </div>
 
-      <p role="status" className="min-h-5 text-sm text-green-800">
+      <p
+        ref={noticeRef}
+        role="status"
+        tabIndex={-1}
+        className="min-h-5 text-sm text-green-800 focus:outline-none"
+      >
         {notice && `✓ ${notice}`}
       </p>
       {failed && (
@@ -131,6 +141,7 @@ export function PaymentsPage() {
                   type="button"
                   onClick={() => {
                     setNotice(null);
+                    justVoided.current = false;
                     setVoiding(p);
                   }}
                   aria-label={t('payments.voidNamed', {
@@ -152,7 +163,10 @@ export function PaymentsPage() {
           gymId={gymId!}
           payment={voiding}
           onClose={() => setVoiding(null)}
+          // After a void its button disappears; focus the outcome (the notice) instead.
+          returnFocusTo={() => (justVoided.current ? noticeRef.current : null)}
           onVoided={() => {
+            justVoided.current = true;
             setNotice(t('payments.voidedNotice'));
             setVoiding(null);
             void load();
@@ -168,11 +182,13 @@ function VoidDialog({
   payment,
   onClose,
   onVoided,
+  returnFocusTo,
 }: {
   gymId: string;
   payment: Payment;
   onClose: () => void;
   onVoided: () => void;
+  returnFocusTo: () => HTMLElement | null;
 }) {
   const { t, i18n } = useTranslation();
   const reasonId = useId();
@@ -192,14 +208,25 @@ function VoidDialog({
         body: JSON.stringify({ reason: reason.trim() }),
       });
       onVoided();
-    } catch {
-      setError(t('common.genericError'));
+    } catch (err) {
+      setError(
+        t(
+          err instanceof ApiError && err.status === 409
+            ? 'payments.alreadyVoided'
+            : 'common.genericError',
+        ),
+      );
       setBusy(false);
     }
   }
 
   return (
-    <Dialog title={t('payments.voidTitle')} closeLabel={t('common.close')} onClose={onClose}>
+    <Dialog
+      title={t('payments.voidTitle')}
+      closeLabel={t('common.close')}
+      onClose={onClose}
+      returnFocusTo={returnFocusTo}
+    >
       <form onSubmit={submit} className="flex flex-col gap-4">
         <p className="text-slate-700">
           {t('payments.voidExplain', {

@@ -1,5 +1,5 @@
 import type { MemberDetail } from '@gym/shared';
-import { render, screen, within } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -56,6 +56,16 @@ describe('MemberDetailPage', () => {
     expect(within(m).getByRole('button', { name: /Πάγωμα/ })).toBeInTheDocument();
   });
 
+  it.each([
+    ['a visit pack', { kind: 'visits' as const, maxFreezeDays: 14 }],
+    ['a type that allows no freezing', { maxFreezeDays: 0 }],
+    ['an expired membership', { status: 'expired' as const }],
+  ])('offers no freeze for %s', async (_name, over) => {
+    setup(detail({ memberships: [membership(over)] }));
+    const m = (await screen.findByText('Μηνιαία')).closest('li')!;
+    expect(within(m).queryByRole('button', { name: /Πάγωμα/ })).toBeNull();
+  });
+
   it('hides the payments section when the API sends none (reception)', async () => {
     setup(detail());
     await screen.findByRole('heading', { name: 'Γιώργος Παπαδόπουλος' });
@@ -72,5 +82,33 @@ describe('MemberDetailPage', () => {
     setup(detail());
     await userEvent.click(await screen.findByRole('button', { name: 'Νέα συνδρομή' }));
     expect(await screen.findByRole('dialog', { name: /Νέα συνδρομή/ })).toBeInTheDocument();
+  });
+
+  it('keeps the page and the sale confirmation when the refresh after a sale fails', async () => {
+    let memberCalls = 0;
+    fetchMock = vi.fn<typeof fetch>(async (input, init) => {
+      const url = String(input);
+      if (url.includes('membership-types')) return json(200, [monthlyType]);
+      if (init?.method === 'POST') return json(201, membership({ id: 'new' }));
+      memberCalls++;
+      return memberCalls === 1 ? json(200, detail()) : json(500, {});
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    render(
+      <MemoryRouter initialEntries={[`/g/${GYM}/members/${MEMBER}`]}>
+        <Routes>
+          <Route path="/g/:gymId/members/:memberId" element={<MemberDetailPage />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+    await userEvent.click(await screen.findByRole('button', { name: 'Νέα συνδρομή' }));
+    await userEvent.click(await screen.findByRole('radio', { name: /Μηνιαία/ }));
+    await userEvent.click(screen.getByRole('button', { name: 'Πώληση' }));
+
+    expect(await screen.findByText('Η πώληση έγινε')).toBeInTheDocument();
+    await waitFor(() => expect(memberCalls).toBe(2));
+    // The member is still shown; the failed refresh doesn't replace the page with an error.
+    expect(screen.getByRole('heading', { name: 'Γιώργος Παπαδόπουλος' })).toBeInTheDocument();
+    expect(screen.getByText('Η πώληση έγινε')).toBeInTheDocument();
   });
 });

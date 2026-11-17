@@ -85,9 +85,12 @@ export function MembersPage() {
         </p>
       )}
       {!members && !failed && <p className="text-slate-600">{t('app.loading')}</p>}
+      <p role="status" className="text-sm text-slate-600">
+        {members && members.length > 0 ? t('members.count', { count: members.length }) : ''}
+      </p>
       {members?.length === 0 && <p className="text-slate-600">{t('members.empty')}</p>}
       {members && members.length > 0 && (
-        <ul className="flex flex-col gap-2" aria-live="polite">
+        <ul className="flex flex-col gap-2">
           {members.map((m) => (
             <li key={m.userId}>
               <Link

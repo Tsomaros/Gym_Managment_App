@@ -205,7 +205,9 @@
     "notFound": "No such member in this gym.",
     "memberships": "Memberships",
     "noMemberships": "No membership bought yet.",
-    "visitsUsed": "{{used}} of {{total}} visits"
+    "visitsUsed": "{{used}} of {{total}} visits",
+    "count_one": "{{count}} member",
+    "count_other": "{{count}} members"
   },
   "sell": {
     "open": "New membership",
@@ -269,7 +271,8 @@
     "reason": "Reason",
     "reasonHint": "At least 3 characters. Kept in the history.",
     "voided": "Voided by {{by}} — “{{reason}}”",
-    "voidedNotice": "The payment was voided."
+    "voidedNotice": "The payment was voided.",
+    "alreadyVoided": "This payment was already voided."
   },
   "history": {
     "someone": "Someone",

@@ -54,6 +54,9 @@ describe('PaymentsPage', () => {
     expect(url).toMatch(/\/api\/gyms\/.+\/payments\?from=\d{4}-\d{2}-\d{2}&to=\d{4}-\d{2}-\d{2}$/);
     const from = new URL(url, 'http://x').searchParams.get('from');
     expect(new URL(url, 'http://x').searchParams.get('to')).toBe(from);
+    const now = new Date();
+    const pad = (n: number) => String(n).padStart(2, '0');
+    expect(from).toBe(`${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`);
   });
 
   it('needs a reason before the void button works, then voids with it', async () => {
@@ -83,5 +86,31 @@ describe('PaymentsPage', () => {
     const voided = (await screen.findByText(/Λάθος/)).closest('li')!;
     expect(within(voided).getByText(/Ακυρώθηκε/)).toBeInTheDocument();
     expect(within(voided).queryByRole('button', { name: /Ακύρωση πληρωμής/ })).toBeNull();
+  });
+
+  it('moves focus to the notice after voiding (the void button is gone)', async () => {
+    renderPage();
+    const row = (await screen.findAllByText('Γιώργος Παπαδόπουλος'))[0]!.closest('li')!;
+    await userEvent.click(within(row).getByRole('button', { name: /Ακύρωση πληρωμής/ }));
+    const dialog = screen.getByRole('dialog');
+    await userEvent.type(within(dialog).getByLabelText('Αιτία'), 'Λάθος ποσό');
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Ακύρωση πληρωμής' }));
+    const notice = await screen.findByText(/Η πληρωμή ακυρώθηκε/);
+    await waitFor(() => expect(notice.closest('[role="status"]')).toHaveFocus());
+  });
+
+  it('says so when the payment was already voided elsewhere (409)', async () => {
+    fetchMock.mockImplementation(async (_input, init) =>
+      init?.method === 'POST' ? json(409, { message: 'Payment already voided' }) : json(200, list),
+    );
+    renderPage();
+    const row = (await screen.findAllByText('Γιώργος Παπαδόπουλος'))[0]!.closest('li')!;
+    await userEvent.click(within(row).getByRole('button', { name: /Ακύρωση πληρωμής/ }));
+    const dialog = screen.getByRole('dialog');
+    await userEvent.type(within(dialog).getByLabelText('Αιτία'), 'Λάθος ποσό');
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Ακύρωση πληρωμής' }));
+    expect(await within(dialog).findByRole('alert')).toHaveTextContent(
+      'Αυτή η πληρωμή έχει ήδη ακυρωθεί.',
+    );
   });
 });

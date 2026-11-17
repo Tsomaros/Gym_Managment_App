@@ -78,4 +78,21 @@ describe('HistoryPage', () => {
     expect(String(fetchMock.mock.calls[1]![0])).toContain('before=2');
     expect(screen.queryByRole('button', { name: 'Περισσότερα' })).toBeNull();
   });
+
+  it('keeps "load more" in place (and focused) while the next page loads', async () => {
+    let release: () => void = () => {};
+    fetchMock.mockImplementation(async (input) => {
+      if (!String(input).includes('before=')) {
+        return json(200, { entries: [entry({ id: '3' })], nextBefore: '3' });
+      }
+      await new Promise<void>((r) => (release = r));
+      return json(200, { entries: [entry({ id: '2' })], nextBefore: null });
+    });
+    renderPage();
+    const more = await screen.findByRole('button', { name: 'Περισσότερα' });
+    await userEvent.click(more);
+    expect(screen.getByRole('button', { name: /Περισσότερα|Φόρτωση/ })).toHaveFocus();
+    release();
+    await waitFor(() => expect(screen.getAllByRole('listitem')).toHaveLength(2));
+  });
 });

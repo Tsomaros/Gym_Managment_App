@@ -90,4 +90,11 @@ describe('SellMembershipDialog', () => {
     expect(sales()).toHaveLength(0);
     expect(screen.getByRole('alert')).toHaveTextContent('Διάλεξε τύπο συνδρομής.');
   });
+
+  it('moves focus to the confirmation title after the sale', async () => {
+    open();
+    await userEvent.click(await screen.findByRole('radio', { name: /Μηνιαία/ }));
+    await userEvent.click(screen.getByRole('button', { name: 'Πώληση' }));
+    expect(await screen.findByRole('heading', { name: 'Η πώληση έγινε' })).toHaveFocus();
+  });
 });

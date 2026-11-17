@@ -25,7 +25,11 @@ export function MemberDetailPage() {
       setMember(await apiFetch<MemberDetail>(`/gyms/${gymId}/members/${memberId}`));
       setState('ready');
     } catch (err) {
-      setState(err instanceof ApiError && err.status === 404 ? 'missing' : 'error');
+      // A failed refresh (after a sale or freeze) keeps the page and any open confirmation;
+      // only a first load that fails shows the error.
+      setState((s) =>
+        s === 'ready' ? s : err instanceof ApiError && err.status === 404 ? 'missing' : 'error',
+      );
     }
   }, [gymId, memberId]);
 
@@ -72,7 +76,7 @@ export function MemberDetailPage() {
           <h2 id="member-name" className="mr-auto text-xl font-semibold break-words text-slate-900">
             {fullName}
           </h2>
-          <StatusBadge status={member.status} />
+          <StatusBadge status={member.status} size="large" />
         </div>
         <dl className="mt-4 grid gap-x-6 gap-y-2 text-sm sm:grid-cols-2">
           <Item label={t('signup.phone')} value={member.phone} />

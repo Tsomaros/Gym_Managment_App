@@ -57,9 +57,11 @@ export function MyMembershipCard({ memberships }: { memberships: Membership[] })
         <StatusBadge status={current.status} />
       </div>
       {big && (
-        <p className="mt-4 text-5xl font-bold text-slate-900 tabular-nums">
-          <span>{big}</span>
-          <span className="sr-only"> {t('my.left')}</span>
+        <p className="mt-4 text-slate-900">
+          <span className="block text-4xl font-bold break-words tabular-nums sm:text-5xl">
+            {big}
+          </span>
+          <span className="block text-sm text-slate-600">{t('my.left')}</span>
         </p>
       )}
       {current.effectiveEndsOn && (

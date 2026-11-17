@@ -9,17 +9,22 @@ export function Dialog({
   title,
   closeLabel,
   onClose,
+  returnFocusTo,
   children,
 }: {
   title: string;
   closeLabel: string;
   onClose: () => void;
+  /** Where focus goes on close, when the opener may be gone (default: the opener). */
+  returnFocusTo?: () => HTMLElement | null;
   children: ReactNode;
 }) {
   const titleId = useId();
   const ref = useRef<HTMLDivElement>(null);
   const onCloseRef = useRef(onClose);
   onCloseRef.current = onClose;
+  const returnRef = useRef(returnFocusTo);
+  returnRef.current = returnFocusTo;
 
   useEffect(() => {
     const opener = document.activeElement as HTMLElement | null;
@@ -28,7 +33,7 @@ export function Dialog({
     document.addEventListener('keydown', onKey);
     return () => {
       document.removeEventListener('keydown', onKey);
-      opener?.focus();
+      (returnRef.current?.() ?? opener)?.focus();
     };
   }, []);
 
@@ -36,7 +41,7 @@ export function Dialog({
     if (e.key !== 'Tab') return;
     const focusable = [
       ...(ref.current?.querySelectorAll<HTMLElement>(
-        'button:not([disabled]), input:not([disabled]), select, textarea, a[href]',
+        'button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), a[href], [tabindex]:not([tabindex="-1"])',
       ) ?? []),
     ];
     const first = focusable[0];

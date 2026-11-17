@@ -202,7 +202,9 @@
     "notFound": "Δεν υπάρχει τέτοιο μέλος σε αυτό το γυμναστήριο.",
     "memberships": "Συνδρομές",
     "noMemberships": "Δεν έχει αγοράσει ακόμα συνδρομή.",
-    "visitsUsed": "{{used}} από {{total}} επισκέψεις"
+    "visitsUsed": "{{used}} από {{total}} επισκέψεις",
+    "count_one": "{{count}} μέλος",
+    "count_other": "{{count}} μέλη"
   },
   "sell": {
     "open": "Νέα συνδρομή",
@@ -266,7 +268,8 @@
     "reason": "Αιτία",
     "reasonHint": "Τουλάχιστον 3 χαρακτήρες. Μένει στο ιστορικό.",
     "voided": "Ακυρώθηκε από {{by}} — «{{reason}}»",
-    "voidedNotice": "Η πληρωμή ακυρώθηκε."
+    "voidedNotice": "Η πληρωμή ακυρώθηκε.",
+    "alreadyVoided": "Αυτή η πληρωμή έχει ήδη ακυρωθεί."
   },
   "history": {
     "someone": "Κάποιος",

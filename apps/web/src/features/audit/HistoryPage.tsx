@@ -19,7 +19,7 @@ export function HistoryPage() {
       setState('loading');
       try {
         const page = await apiFetch<AuditPage>(
-          `/gyms/${gymId}/audit?limit=50${before ? `&before=${before}` : ''}`,
+          `/gyms/${gymId}/audit?limit=50${before ? `&before=${encodeURIComponent(before)}` : ''}`,
         );
         setEntries((prev) => (before ? [...prev, ...page.entries] : page.entries));
         setNextBefore(page.nextBefore);
@@ -77,7 +77,9 @@ export function HistoryPage() {
           ))}
         </ol>
       )}
-      {state === 'loading' && <p className="text-slate-600">{t('app.loading')}</p>}
+      {state === 'loading' && entries.length === 0 && (
+        <p className="text-slate-600">{t('app.loading')}</p>
+      )}
       {state === 'error' && (
         <div role="alert" className="flex items-center gap-3 text-red-700">
           {t('common.genericError')}
@@ -90,13 +92,14 @@ export function HistoryPage() {
           </button>
         </div>
       )}
-      {state === 'ready' && nextBefore && (
+      {state !== 'error' && nextBefore && (
         <button
           type="button"
-          onClick={() => void load(nextBefore)}
+          aria-disabled={state === 'loading' || undefined}
+          onClick={() => state !== 'loading' && void load(nextBefore)}
           className="min-h-11 self-start rounded-md border border-slate-300 px-4 font-medium text-slate-800 hover:bg-slate-50 focus-visible:outline-2 focus-visible:outline-slate-900"
         >
-          {t('history.more')}
+          {state === 'loading' ? t('app.loading') : t('history.more')}
         </button>
       )}
     </section>

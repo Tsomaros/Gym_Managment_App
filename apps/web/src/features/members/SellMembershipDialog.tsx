@@ -100,7 +100,12 @@ export function SellMembershipDialog({
 
   if (sold) {
     return (
-      <Dialog title={t('sell.doneTitle')} closeLabel={t('common.close')} onClose={onClose}>
+      <Dialog
+        key="done"
+        title={t('sell.doneTitle')}
+        closeLabel={t('common.close')}
+        onClose={onClose}
+      >
         <p role="status" className="text-slate-800">
           <span aria-hidden="true">✓ </span>
           {t('sell.done', { name: sold.name, member: memberName })}
@@ -119,6 +124,7 @@ export function SellMembershipDialog({
 
   return (
     <Dialog
+      key="form"
       title={t('sell.title', { member: memberName })}
       closeLabel={t('common.close')}
       onClose={onClose}

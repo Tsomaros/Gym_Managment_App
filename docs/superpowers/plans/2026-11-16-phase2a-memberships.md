@@ -374,7 +374,7 @@
   - Payments page: totals per method; void needs a reason before the button enables.
   - E2E: owner creates a type → reception sells it to a signed-up member → the member sees days remaining → reception freezes it → the member sees the frozen state → owner voids the payment → the member sees no active membership → the history shows sale, freeze, void.
 - [x] **Step 2: Run** `pnpm --filter web test && pnpm e2e` → FAIL.
-- [ ] **Step 3: Implement.** Run ui-ux-reviewer on each new component (reception screens readable at a glance; member card at 375 px).
+- [x] **Step 3: Implement.** Run ui-ux-reviewer on each new component (reception screens readable at a glance; member card at 375 px).
 - [x] **Step 4: Run** `pnpm lint && pnpm typecheck && pnpm -r test && pnpm e2e` → PASS.
 - [x] **Step 5: Commit** `feat(web): members, selling, freezes, my membership, payments, history`.
 
