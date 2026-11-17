@@ -131,3 +131,22 @@ export interface PlanSummary {
   archivedAt: string | null;
   authorName: string | null;
 }
+
+export const SaveAsTemplateSchema = z.object({ title });
+export type SaveAsTemplate = z.infer<typeof SaveAsTemplateSchema>;
+
+export const FromTemplateSchema = z.object({
+  templateId: z.uuid(),
+  activate: z.boolean().optional(),
+});
+export type FromTemplate = z.infer<typeof FromTemplateSchema>;
+
+/** The text fields sent next to the PDF file (multipart, so every value is a string). */
+export const PdfPlanFieldsSchema = z.object({
+  title,
+  activate: z
+    .enum(['true', 'false'])
+    .optional()
+    .transform((v) => v === 'true'),
+});
+export type PdfPlanFields = z.infer<typeof PdfPlanFieldsSchema>;

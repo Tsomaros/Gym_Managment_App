@@ -132,7 +132,7 @@
   - `GET /gyms/:gymId/me/plans` and `GET /gyms/:gymId/me/plans/active` (`@GymRoles('member')`) → the caller's own.
   - History rows on each write.
 
-- [ ] **Step 1: Write the failing tests** (seed: trainer T primary for member M, with a trainer membership; trainer U; reception R):
+- [x] **Step 1: Write the failing tests** (seed: trainer T primary for member M, with a trainer membership; trainer U; reception R):
   - T creates and activates a 2-day plan → `201`; M's `/me/plans/active` returns it in Greek with exercise names; the English names appear in `nameEn`.
   - Edit: rename day 1, change exercise A's reps, remove exercise B, add C → A and the day keep their ids, B is gone, C has a new id. *(Review Focus 3)*
   - T activates plan 2 → plan 1 is `archived`, plan 2 is `active`; two concurrent activations → one active. *(Review Focus 2)*
@@ -141,10 +141,10 @@
   - R `GET` → `403`. M `PUT` → `403`. A gym B member's id → `404`.
   - Saving with an archived exercise newly added → `400`; an archived exercise already in the plan stays and saves fine; another gym's exercise id → `400`; another plan's day id → `400`. *(Review Focus 5)*
   - History has `plan.created`, `plan.activated`, `plan.updated`, `plan.archived`, without exercise details.
-- [ ] **Step 2: Run** `pnpm --filter api test plans` → FAIL.
-- [ ] **Step 3: Implement.**
-- [ ] **Step 4: Run** `pnpm --filter api test` → PASS.
-- [ ] **Step 5: Commit** `feat: interactive workout plans with trainer access rules`.
+- [x] **Step 2: Run** `pnpm --filter api test plans` → FAIL.
+- [x] **Step 3: Implement.**
+- [x] **Step 4: Run** `pnpm --filter api test` → PASS.
+- [x] **Step 5: Commit** `feat: interactive workout plans with trainer access rules`.
 
 ---
 

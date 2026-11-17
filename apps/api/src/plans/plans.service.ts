@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import type {
   CreatePlan,
+  FromTemplate,
   GymRole,
   Plan,
   PlanDay,
@@ -24,7 +25,9 @@ import { exercises, planDays, planExercises, plans, users } from '../db/schema';
 import { type Tx, withGym } from '../db/tenant';
 import { gymToday } from '../memberships/memberships.service';
 import { type PlanAccess, planAccess } from './plan-access';
+import { copyPlanTree } from './copy-plan';
 import { savePlanTree } from './save-plan';
+import { StorageService } from '../storage/storage.service';
 
 export interface Caller {
   userId: string;
@@ -35,6 +38,11 @@ type PlanRow = typeof plans.$inferSelect;
 
 /** The member sees only plans that were ever activated: drafts, even archived ones, stay with the trainer. */
 const hiddenFromMember = (r: PlanRow) => r.activatedAt === null;
+
+export const countsOfPlan = (p: Plan) => ({
+  days: p.days.length,
+  exercises: p.days.reduce((n, d) => n + d.exercises.length, 0),
+});
 
 const counts = (input: PlanInput) => ({
   days: input.days.length,
@@ -53,6 +61,7 @@ export class PlansService {
   constructor(
     private readonly audit: AuditService,
     private readonly clock: Clock,
+    private readonly storage: StorageService,
   ) {}
 
   /** A member's plans: active first, then drafts (staff only), then archived, newest first. */
@@ -152,6 +161,84 @@ export class PlansService {
     });
   }
 
+  /** A deep copy of a plan the caller can read (also as a cover) into a new template of their own. */
+  saveAsTemplate(gymId: string, caller: Caller, planId: string, title: string): Promise<Plan> {
+    return withGym(gymId, async (tx) => {
+      // Locked, so a concurrent edit of the source cannot tear the copy.
+      const { row } = await this.open(tx, gymId, caller, planId, 'read', true);
+      if (row.kind !== 'interactive') throw new ConflictException('Only interactive plans');
+      const [template] = await tx
+        .insert(plans)
+        .values({
+          gymId,
+          memberId: null,
+          authorId: caller.userId,
+          isTemplate: true,
+          kind: 'interactive',
+          title,
+          notes: row.notes,
+          status: 'draft',
+        })
+        .returning();
+      await copyPlanTree(tx, gymId, row.id, template!.id);
+      const full = await this.load(tx, template!);
+      await this.audit.record(tx, {
+        gymId,
+        actorId: caller.userId,
+        action: 'template.created',
+        entity: 'plan',
+        entityId: template!.id,
+        data: { title, ...countsOfPlan(full) },
+      });
+      return full;
+    });
+  }
+
+  /** A client's plan from a template (deep copy, new ids, no link back); needs write access. */
+  createFromTemplate(
+    gymId: string,
+    caller: Caller,
+    memberId: string,
+    input: FromTemplate,
+  ): Promise<Plan> {
+    return withGym(gymId, async (tx) => {
+      const access = await this.accessTo(tx, gymId, caller, memberId);
+      if (!access) throw new NotFoundException();
+      if (access !== 'write') throw new ForbiddenException();
+      const [template] = await tx
+        .select()
+        .from(plans)
+        .where(and(eq(plans.id, input.templateId), eq(plans.isTemplate, true)))
+        .for('share'); // an edit or delete of the template waits for the copy, and the other way round
+      if (!template) throw new NotFoundException('No such template');
+      const [row] = await tx
+        .insert(plans)
+        .values({
+          gymId,
+          memberId,
+          authorId: caller.userId,
+          isTemplate: false,
+          kind: 'interactive',
+          title: template.title,
+          notes: template.notes,
+          status: 'draft',
+        })
+        .returning();
+      await copyPlanTree(tx, gymId, template.id, row!.id);
+      const copied = await this.load(tx, row!);
+      await this.audit.record(tx, {
+        gymId,
+        actorId: caller.userId,
+        action: 'plan.created',
+        entity: 'plan',
+        entityId: row!.id,
+        data: { ...summaryData(row!), ...countsOfPlan(copied) },
+      });
+      const current = input.activate ? await this.activateIn(tx, gymId, caller, row!) : row!;
+      return current === row ? copied : this.load(tx, current);
+    });
+  }
+
   activate(gymId: string, caller: Caller, planId: string): Promise<Plan> {
     return withGym(gymId, async (tx) => {
       const first = await this.open(tx, gymId, caller, planId, 'write');
@@ -187,7 +274,7 @@ export class PlansService {
    * Makes `row` the member's one active plan: the previous one is archived first, in the same
    * transaction. The caller holds the member's plan lock (create takes it here).
    */
-  private async activateIn(tx: Tx, gymId: string, caller: Caller, row: PlanRow): Promise<PlanRow> {
+  async activateIn(tx: Tx, gymId: string, caller: Caller, row: PlanRow): Promise<PlanRow> {
     await lockMemberPlans(tx, row.memberId!);
     if (row.status === 'active') return row;
     const now = new Date();
@@ -222,12 +309,7 @@ export class PlansService {
     return activated!;
   }
 
-  private async accessTo(
-    tx: Tx,
-    gymId: string,
-    caller: Caller,
-    memberId: string,
-  ): Promise<PlanAccess> {
+  async accessTo(tx: Tx, gymId: string, caller: Caller, memberId: string): Promise<PlanAccess> {
     const today = await gymToday(tx, gymId, this.clock.now());
     return planAccess(tx, gymId, caller, memberId, today);
   }
@@ -236,7 +318,7 @@ export class PlansService {
    * Finds a member's plan the caller may use. Not found, a template, or no read access: 404.
    * A draft is invisible to the member. Read access but `need` is write: 403.
    */
-  private async open(
+  async open(
     tx: Tx,
     gymId: string,
     caller: Caller,
@@ -256,7 +338,7 @@ export class PlansService {
   }
 
   /** The full plan: days, exercises with their library details, and the author. */
-  private async load(tx: Tx, row: PlanRow): Promise<Plan> {
+  async load(tx: Tx, row: PlanRow): Promise<Plan> {
     const dayRows = await tx
       .select()
       .from(planDays)
@@ -317,7 +399,10 @@ export class PlansService {
       title: row.title,
       notes: row.notes,
       status: row.status as PlanStatus,
-      pdfUrl: null,
+      pdfUrl:
+        row.kind === 'pdf' && row.pdfObjectKey
+          ? await this.storage.signedGetUrl(row.pdfObjectKey)
+          : null,
       activatedAt: row.activatedAt?.toISOString() ?? null,
       days,
     };
