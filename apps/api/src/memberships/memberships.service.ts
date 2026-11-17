@@ -5,7 +5,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import type { Membership, SellMembership } from '@gym/shared';
-import { and, eq, gt, gte, isNull, max, sql } from 'drizzle-orm';
+import { and, desc, eq, gt, gte, inArray, isNull, max, sql } from 'drizzle-orm';
 import { AuditService } from '../audit/audit.service';
 import { Clock } from '../common/clock';
 import {
@@ -56,6 +56,42 @@ export function toMembership(
     remaining: remaining(m, freezes, today),
     createdAt: r.createdAt.toISOString(),
   };
+}
+
+/** Every membership of these members, evaluated for `today`, newest first per member. */
+export async function membershipsOf(
+  tx: Tx,
+  memberIds: string[],
+  today: string,
+): Promise<Map<string, Membership[]>> {
+  const result = new Map<string, Membership[]>();
+  if (!memberIds.length) return result;
+  const rows = await tx
+    .select()
+    .from(memberships)
+    .where(inArray(memberships.memberId, memberIds))
+    .orderBy(desc(memberships.createdAt));
+  const freezes = rows.length
+    ? await tx
+        .select()
+        .from(membershipFreezes)
+        .where(
+          inArray(
+            membershipFreezes.membershipId,
+            rows.map((r) => r.id),
+          ),
+        )
+    : [];
+  const freezesOf = new Map<string, typeof freezes>();
+  for (const f of freezes)
+    freezesOf.set(f.membershipId, [...(freezesOf.get(f.membershipId) ?? []), f]);
+  for (const r of rows) {
+    const own = freezesOf.get(r.id) ?? [];
+    const list = result.get(r.memberId) ?? [];
+    list.push(toMembership(r, own, today));
+    result.set(r.memberId, list);
+  }
+  return result;
 }
 
 /**

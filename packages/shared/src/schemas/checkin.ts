@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import type { Membership } from './memberships.js';
 
 /** Why a check-in was refused, in the order they are tried (spec §6.2). */
 export const CHECK_IN_REASONS = [
@@ -29,4 +30,28 @@ export interface GymSettings {
 export interface CheckInTokenResponse {
   token: string;
   expiresAt: string;
+}
+
+export const KioskCheckInSchema = z.object({ token: z.string().max(1000) });
+export type KioskCheckIn = z.infer<typeof KioskCheckInSchema>;
+
+/** What reception sees for one check-in attempt, valid or not. */
+export interface CheckInResult {
+  /** Null only when nothing was recorded. */
+  checkInId: string | null;
+  valid: boolean;
+  reason: CheckInReason | null;
+  /** True when this repeats a check-in from the last 2 minutes: nothing new was recorded. */
+  duplicate: boolean;
+  member: { id: string; firstName: string; lastName: string; photoUrl: string | null };
+  /** The membership used, or for a refusal the one that explains it. */
+  membership: Membership | null;
+  at: string;
+}
+
+/** What the tablet gets: a first name and pass/fail, nothing else about the member. */
+export interface KioskCheckInResult {
+  valid: boolean;
+  firstName: string | null;
+  reason: 'invalid_token' | 'not_member' | CheckInReason | null;
 }

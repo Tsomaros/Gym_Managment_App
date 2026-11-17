@@ -1,4 +1,4 @@
-import { index, pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core';
+import { index, pgTable, text, timestamp, unique, uuid } from 'drizzle-orm/pg-core';
 import { gyms } from './gyms';
 import { users } from './users';
 
@@ -21,5 +21,5 @@ export const devices = pgTable(
     lastSeenAt: timestamp('last_seen_at', { withTimezone: true }),
     revokedAt: timestamp('revoked_at', { withTimezone: true }),
   },
-  (t) => [index('devices_gym_id_idx').on(t.gymId)],
+  (t) => [index('devices_gym_id_idx').on(t.gymId), unique('devices_id_gym_id_uq').on(t.id, t.gymId)],
 );

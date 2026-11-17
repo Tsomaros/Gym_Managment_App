@@ -12,3 +12,4 @@ export * from './payments';
 export * from './membership-freezes';
 export * from './devices';
 export * from './device-pairing-codes';
+export * from './check-ins';

@@ -8,10 +8,10 @@ import type {
 } from '@gym/shared';
 import { and, asc, desc, eq, inArray, type SQL, sql } from 'drizzle-orm';
 import { Clock } from '../common/clock';
-import { gymRoles, membershipFreezes, memberships, users } from '../db/schema';
-import { type Tx, withGym } from '../db/tenant';
+import { gymRoles, membershipFreezes, users } from '../db/schema';
+import { withGym } from '../db/tenant';
 import { toFreeze } from '../memberships/freezes.service';
-import { gymToday, toMembership } from '../memberships/memberships.service';
+import { gymToday, membershipsOf } from '../memberships/memberships.service';
 import { PaymentsService } from '../memberships/payments.service';
 import { memberStatus } from './member-status';
 
@@ -76,7 +76,7 @@ export class MembersService {
       const rows = q.status ? await query : await query.limit(MAX_RESULTS);
 
       const today = await gymToday(tx, gymId, this.clock.now());
-      const byMember = await this.membershipsOf(
+      const byMember = await membershipsOf(
         tx,
         rows.map((r) => r.userId),
         today,
@@ -97,7 +97,7 @@ export class MembersService {
       if (!row) throw new NotFoundException({ message: 'Not a member of this gym' });
 
       const today = await gymToday(tx, gymId, this.clock.now());
-      const ms = (await this.membershipsOf(tx, [memberId], today)).get(memberId) ?? [];
+      const ms = (await membershipsOf(tx, [memberId], today)).get(memberId) ?? [];
       const freezes = ms.length
         ? await tx
             .select()
@@ -127,7 +127,7 @@ export class MembersService {
   async mine(gymId: string, userId: string): Promise<MyMemberships> {
     return withGym(gymId, async (tx) => {
       const today = await gymToday(tx, gymId, this.clock.now());
-      const ms = (await this.membershipsOf(tx, [userId], today)).get(userId) ?? [];
+      const ms = (await membershipsOf(tx, [userId], today)).get(userId) ?? [];
       return { memberships: ms.filter((m) => m.status !== 'voided') };
     });
   }
@@ -143,41 +143,5 @@ export class MembersService {
       joinedAt: r.joinedAt.toISOString(),
       ...memberStatus(ms),
     };
-  }
-
-  /** Every membership of these members, evaluated for `today`, newest first per member. */
-  private async membershipsOf(
-    tx: Tx,
-    memberIds: string[],
-    today: string,
-  ): Promise<Map<string, Membership[]>> {
-    const result = new Map<string, Membership[]>();
-    if (!memberIds.length) return result;
-    const rows = await tx
-      .select()
-      .from(memberships)
-      .where(inArray(memberships.memberId, memberIds))
-      .orderBy(desc(memberships.createdAt));
-    const freezes = rows.length
-      ? await tx
-          .select()
-          .from(membershipFreezes)
-          .where(
-            inArray(
-              membershipFreezes.membershipId,
-              rows.map((r) => r.id),
-            ),
-          )
-      : [];
-    const freezesOf = new Map<string, typeof freezes>();
-    for (const f of freezes)
-      freezesOf.set(f.membershipId, [...(freezesOf.get(f.membershipId) ?? []), f]);
-    for (const r of rows) {
-      const own = freezesOf.get(r.id) ?? [];
-      const list = result.get(r.memberId) ?? [];
-      list.push(toMembership(r, own, today));
-      result.set(r.memberId, list);
-    }
-    return result;
   }
 }

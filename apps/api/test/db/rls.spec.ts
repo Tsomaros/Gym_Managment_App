@@ -4,6 +4,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { closeDb, db, systemDb } from '../../src/db/client';
 import {
   auditLog,
+  checkIns,
   devicePairingCodes,
   devices,
   gymRoles,
@@ -833,5 +834,121 @@ describe('row-level security and privileges: devices and device_pairing_codes', 
       ),
     );
     expect(msg).toMatch(/permission denied/);
+  });
+});
+
+describe('row-level security and privileges: check_ins', () => {
+  const run = randomUUID().slice(0, 8);
+  let gymA: string;
+  let gymB: string;
+  let memberA: string;
+  let memberB: string;
+  let rowA: string;
+
+  beforeAll(async () => {
+    const g = await systemDb
+      .insert(gyms)
+      .values([{ name: `Check A ${run}` }, { name: `Check B ${run}` }])
+      .returning({ id: gyms.id });
+    gymA = g[0]!.id;
+    gymB = g[1]!.id;
+    const u = await systemDb
+      .insert(users)
+      .values([
+        { email: `ca-${run}@x.gr`, firstName: 'A', lastName: 'A' },
+        { email: `cb-${run}@x.gr`, firstName: 'B', lastName: 'B' },
+      ])
+      .returning({ id: users.id });
+    memberA = u[0]!.id;
+    memberB = u[1]!.id;
+    const rows = await systemDb
+      .insert(checkIns)
+      .values([
+        { gymId: gymA, memberId: memberA, method: 'manual', valid: true },
+        { gymId: gymB, memberId: memberB, method: 'manual', valid: true },
+      ])
+      .returning({ id: checkIns.id });
+    rowA = rows[0]!.id;
+  });
+
+  afterAll(async () => {
+    const gymIds = [gymA, gymB].filter(Boolean);
+    if (gymIds.length) {
+      await systemDb.delete(checkIns).where(inArray(checkIns.gymId, gymIds));
+      await systemDb.delete(gyms).where(inArray(gyms.id, gymIds));
+    }
+    await systemDb.delete(users).where(inArray(users.id, [memberA, memberB].filter(Boolean)));
+  });
+
+  it('withGym(A) sees only gym A check-ins; without a gym nothing is visible', async () => {
+    const rows = await withGym(gymA, (tx) => tx.select().from(checkIns));
+    expect(rows.map((r) => r.gymId)).toEqual([gymA]);
+    expect(await db.select().from(checkIns)).toEqual([]);
+  });
+
+  it('withGym(A) cannot record a check-in for gym B', async () => {
+    const msg = await rejectionMessage(
+      withGym(gymA, (tx) =>
+        tx.insert(checkIns).values({ gymId: gymB, memberId: memberB, method: 'manual', valid: true }),
+      ),
+    );
+    expect(msg).toMatch(RLS_VIOLATION);
+  });
+
+  it('withGym(A) cannot check out a gym B visitor', async () => {
+    const out = await withGym(gymA, (tx) =>
+      tx
+        .update(checkIns)
+        .set({ checkedOutAt: new Date() })
+        .where(eq(checkIns.memberId, memberB))
+        .returning({ id: checkIns.id }),
+    );
+    expect(out).toEqual([]);
+    const [rowB] = await systemDb.select().from(checkIns).where(eq(checkIns.memberId, memberB));
+    expect(rowB!.checkedOutAt).toBeNull();
+  });
+
+  it('a valid check-in must have no reason and an invalid one must have one', async () => {
+    const bad = (valid: boolean, reason: string | null) =>
+      rejectionMessage(
+        withGym(gymA, (tx) =>
+          tx.insert(checkIns).values({ gymId: gymA, memberId: memberA, method: 'manual', valid, reason }),
+        ),
+      );
+    expect(await bad(true, 'expired')).toMatch(/check_ins_reason_matches_valid/);
+    expect(await bad(false, null)).toMatch(/check_ins_reason_matches_valid/);
+  });
+
+  it('a kiosk check-in needs a device, and a consumed visit needs a valid check-in with a membership', async () => {
+    const insert = (v: Partial<typeof checkIns.$inferInsert>) =>
+      rejectionMessage(
+        withGym(gymA, (tx) =>
+          tx.insert(checkIns).values({ gymId: gymA, memberId: memberA, method: 'manual', valid: true, ...v }),
+        ),
+      );
+    expect(await insert({ method: 'kiosk' })).toMatch(/check_ins_kiosk_has_device/);
+    expect(await insert({ visitConsumed: true })).toMatch(/check_ins_visit_consumed_valid/);
+    expect(await insert({ visitConsumed: true, valid: false, reason: 'used_up' })).toMatch(
+      /check_ins_visit_consumed_valid/,
+    );
+  });
+
+  it('gym_app can check a visitor out but cannot change anything else or delete', async () => {
+    const out = await withGym(gymA, (tx) =>
+      tx
+        .update(checkIns)
+        .set({ checkedOutAt: new Date() })
+        .where(eq(checkIns.id, rowA))
+        .returning({ id: checkIns.id }),
+    );
+    expect(out).toHaveLength(1);
+    expect(
+      await rejectionMessage(
+        withGym(gymA, (tx) => tx.update(checkIns).set({ valid: false, reason: 'expired' }).where(eq(checkIns.id, rowA))),
+      ),
+    ).toMatch(/permission denied/);
+    expect(
+      await rejectionMessage(withGym(gymA, (tx) => tx.delete(checkIns).where(eq(checkIns.id, rowA)))),
+    ).toMatch(/permission denied/);
   });
 });
