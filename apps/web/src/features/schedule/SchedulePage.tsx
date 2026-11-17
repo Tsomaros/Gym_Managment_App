@@ -162,7 +162,6 @@ export function SchedulePage({
           staff={data.staff}
           target={target}
           onClose={() => setTarget(null)}
-          onChanged={load}
           returnFocusTo={() => noticeRef.current}
           onSaved={() => {
             setTarget(null);

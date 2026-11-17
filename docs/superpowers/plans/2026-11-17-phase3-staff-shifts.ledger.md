@@ -26,8 +26,17 @@ Task 7: Ruling: POST /shift-series/:id/end with lastDate before validFrom delete
 Task 7: Ruling: MySchedulePage takes "today" from the device calendar (trainers cannot read the gym settings, which hold the time zone) — cost: a trainer whose device is in another time zone sees the window shifted by a day near midnight.
 Task 7: Ruling: reception's schedule section shows the week schedule, their own shifts and a read-only staff list; the owner's schedule is the week schedule only — cost: none.
 Task 7: complete (tests: pnpm --filter web test → 361 passed incl. Task 8)
-Task 7: minor (deferred): "from this day on" re-creates an ended series open-ended when restoring after a partial failure (the series' validUntil is not in the schedule response); ShiftDialog defaults to 06:00–14:00.
+Task 7: minor (deferred): ShiftDialog defaults to 06:00–14:00.
 Task 8: Ruling: the check-in card's cover button also appears on a member's own check-in verdict (member detail page), not only on the desk — same component — cost: none.
 Task 8: Ruling: after "needs a personal-training membership → sell", the assignment dialog reopens once the sale is done (and not when the sale is abandoned) — UX review — cost: none.
 Task 8: Ruling: e2e signs in and waits for the redirect before navigating (the first run raced the login) — cost: none.
 Task 8: complete (tests: pnpm --filter web test → 361 passed; pnpm e2e → 5 passed; lint, typecheck clean)
+Final: fixed "change from this day on" reopened an ended weekly shift and dropped later one-day changes — new POST /shift-series/:id/split (one transaction, keeps validUntil, moves later overrides, all-or-nothing on overlap); 4 split tests in shifts.e2e RED→GREEN, web dialog now sends one request, suite 454/360/60 + e2e 5.
+Final: fixed shift writes take the per-staff lock (create series/shift, split) and setOccurrence locks the series row; a trainer cannot be their own primary trainer (400) — trainers.e2e test, suite green.
+Final: minor (deferred): a paused primary trainer cannot be named cover for that member (400 'already primary'; the UI hides a paused trainer so it is not reachable today).
+Final: minor (deferred): past-day errors are 400 for createSeries/endSeries/split but 409 for createShift/setOccurrence/one-off edits (plan text).
+Final: minor (deferred): onDuty 'until' takes the first matching shift (back-to-back 06–10, 10–14 shows 'until 10:00' just before 10:00); shiftTimeSchema stops at 23:55 so a shift cannot run to midnight.
+Final: minor (deferred): trainers can read check-in visitors of any date (?date=), spec §5 says today's visitors; the plan's test allows ?date=.
+Final: minor (deferred): the trainer client list returns photo links for paused clients.
+Final: Ruling: the live check-in stream carries trainer and cover first names to trainers — reviewer assessed acceptable (first names and ids only, stream re-checks the role every 15 minutes) — cost: a trainer can see whose client a visitor is.
+Final review: fresh whole-branch reviewer (opus); no Critical findings, 1 Important fixed (above).

@@ -134,29 +134,36 @@ describe('ShiftDialog', () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
-  it('"from this day on" does not start the new series when ending the old one failed', async () => {
+  it('"from this day on" is one request, and a refusal (an overlap, say) leaves the dialog open with an error', async () => {
     fetchMock.mockImplementationOnce(async () => json(409, {}));
     const user = userEvent.setup();
     renderDialog({ kind: 'edit', shift: weekly });
     await user.click(screen.getByRole('radio', { name: /και μετά/ }));
     await user.click(screen.getByRole('button', { name: 'Αποθήκευση' }));
     expect(await screen.findByRole('alert')).toBeInTheDocument();
-    // only the end request was sent; a new series now would overlap the old one
     expect(calls()).toEqual([
-      { method: 'POST', url: `/shift-series/${SERIES}/end`, body: { lastDate: '2027-05-09' } },
+      {
+        method: 'POST',
+        url: `/shift-series/${SERIES}/split`,
+        body: { from: '2027-05-10', startsAt: '06:00', endsAt: '14:00' },
+      },
     ]);
     expect(onSaved).not.toHaveBeenCalled();
+    expect(onClose).not.toHaveBeenCalled();
+    // trying again is a plain retry: the server changed nothing
+    await user.click(screen.getByRole('button', { name: 'Αποθήκευση' }));
+    await waitFor(() => expect(onSaved).toHaveBeenCalledTimes(1));
+    expect(calls()).toHaveLength(2);
   });
 
-  it('"from this day on" ends the old series the day before across a month boundary', async () => {
+  it('"from this day on" sends the clicked day, also on the first day of a month', async () => {
     const user = userEvent.setup();
-    renderDialog({ kind: 'edit', shift: { ...weekly, date: '2027-06-01' } }); // a Tuesday
+    renderDialog({ kind: 'edit', shift: { ...weekly, date: '2027-06-01' } });
     await user.click(screen.getByRole('radio', { name: /και μετά/ }));
     await user.click(screen.getByRole('button', { name: 'Αποθήκευση' }));
     await waitFor(() => expect(onSaved).toHaveBeenCalled());
     expect(calls().map((c) => c.body)).toEqual([
-      { lastDate: '2027-05-31' },
-      expect.objectContaining({ weekday: 2, validFrom: '2027-06-01' }),
+      { from: '2027-06-01', startsAt: '06:00', endsAt: '14:00' },
     ]);
   });
 
@@ -184,17 +191,10 @@ describe('ShiftDialog', () => {
     await user.click(screen.getByRole('button', { name: 'Αποθήκευση' }));
     await waitFor(() => expect(onSaved).toHaveBeenCalled());
     expect(calls()).toEqual([
-      { method: 'POST', url: `/shift-series/${SERIES}/end`, body: { lastDate: '2027-05-09' } },
       {
         method: 'POST',
-        url: '/shift-series',
-        body: {
-          staffId: NIKOS.userId,
-          weekday: 1,
-          startsAt: '08:00',
-          endsAt: '16:00',
-          validFrom: '2027-05-10',
-        },
+        url: `/shift-series/${SERIES}/split`,
+        body: { from: '2027-05-10', startsAt: '08:00', endsAt: '16:00' },
       },
     ]);
   });
@@ -256,43 +256,6 @@ describe('ShiftDialog', () => {
     expect(await screen.findByRole('alert')).toBeInTheDocument();
     expect(onSaved).not.toHaveBeenCalled();
     expect(onClose).not.toHaveBeenCalled();
-  });
-
-  it('when the new series cannot be created, restores the old times, reloads and says what happened', async () => {
-    const onChanged = vi.fn<() => void>();
-    let seriesPosts = 0;
-    fetchMock.mockImplementation(async (input, init) => {
-      const url = String(input);
-      if (url.endsWith('/shift-series') && init?.method === 'POST') {
-        seriesPosts += 1;
-        return seriesPosts === 1 ? json(409, {}) : json(200, { id: 'x' });
-      }
-      return init?.method === 'POST' ? new Response(null, { status: 204 }) : json(200, {});
-    });
-    const user = userEvent.setup();
-    render(
-      <ShiftDialog
-        gymId={GYM}
-        staff={[NIKOS]}
-        target={{ kind: 'edit', shift: weekly }}
-        onClose={onClose}
-        onSaved={onSaved}
-        onChanged={onChanged}
-      />,
-    );
-    await user.click(screen.getByRole('radio', { name: /και μετά/ }));
-    await setTimes(user, '08:00', '16:00');
-    await user.click(screen.getByRole('button', { name: 'Αποθήκευση' }));
-    expect(await screen.findByRole('alert')).toHaveTextContent('Η αλλαγή δεν ολοκληρώθηκε');
-    expect(onSaved).not.toHaveBeenCalled();
-    expect(onChanged).toHaveBeenCalledTimes(1);
-    const series = calls().filter((c) => c.url === '/shift-series');
-    expect(series).toHaveLength(2);
-    expect(series[1]!.body).toMatchObject({
-      startsAt: '06:00',
-      endsAt: '14:00',
-      validFrom: '2027-05-10',
-    });
   });
 
   it('ties a field error to its field and moves focus there', async () => {

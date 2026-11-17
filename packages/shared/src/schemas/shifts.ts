@@ -81,6 +81,12 @@ export const CreateShiftSeriesSchema = z
   });
 export type CreateShiftSeries = z.infer<typeof CreateShiftSeriesSchema>;
 
+/** Change a weekly shift from a day on: the old one ends the day before, a new one starts. */
+export const SplitShiftSeriesSchema = z
+  .object({ from: isoDateSchema, startsAt: shiftTimeSchema, endsAt: shiftTimeSchema })
+  .refine((s) => s.endsAt > s.startsAt, { message: 'Must end after it starts', path: ['endsAt'] });
+export type SplitShiftSeries = z.infer<typeof SplitShiftSeriesSchema>;
+
 export const EndShiftSeriesSchema = z.object({ lastDate: isoDateSchema });
 export type EndShiftSeries = z.infer<typeof EndShiftSeriesSchema>;
 

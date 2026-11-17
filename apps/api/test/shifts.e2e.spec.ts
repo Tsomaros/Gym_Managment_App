@@ -469,7 +469,8 @@ describe('shifts: series, overrides, schedules, on duty now (gym in Europe/Athen
     await person('tedit', ['trainer']);
     clock.current = at('2027-05-03', '10:00'); // Monday
     const starting = (
-      (await newSeries('owner', { staffId: id.tedit, validFrom: '2027-05-03' }).expect(201)).body as {
+      (await newSeries('owner', { staffId: id.tedit, validFrom: '2027-05-03' }).expect(201))
+        .body as {
         id: string;
       }
     ).id;
@@ -510,5 +511,126 @@ describe('shifts: series, overrides, schedules, on duty now (gym in Europe/Athen
       .where(and(eq(auditLog.entityId, starting), eq(auditLog.action, 'shift_series.ended')));
     expect(history).toHaveLength(1);
     expect(history[0]!.data).toMatchObject({ deleted: true });
+  });
+
+  describe('split: change a weekly shift from a day on, in one step', () => {
+    const split = (who: string, seriesId: string, body: Record<string, unknown>) =>
+      req('post', `/shift-series/${seriesId}/split`, who).send(body);
+    const mondays = async (who: string, from: string, to: string) =>
+      brief(await mine(who, from, to));
+
+    it('keeps the end date of the old series and the one-day changes after the split day', async () => {
+      await person('tsplit', ['trainer']);
+      clock.current = at('2027-05-03', '10:00'); // Monday
+      const seriesId = (
+        (await newSeries('owner', { staffId: id.tsplit, validUntil: '2027-05-31' }).expect(201))
+          .body as { id: string }
+      ).id;
+      // a cancelled Monday (24 May) and a moved Monday (17 May), both after the split day
+      await req('put', `/shift-series/${seriesId}/occurrences/2027-05-24`, 'owner')
+        .send({ cancelled: true })
+        .expect(200);
+      await req('put', `/shift-series/${seriesId}/occurrences/2027-05-17`, 'owner')
+        .send({ startsAt: '10:00', endsAt: '12:00' })
+        .expect(200);
+
+      await split('owner', seriesId, {
+        from: '2027-05-10',
+        startsAt: '07:00',
+        endsAt: '15:00',
+      }).expect(201);
+
+      expect(await mondays('tsplit', '2027-05-01', '2027-06-30')).toEqual([
+        '2027-05-03 06:00-14:00', // before the split: untouched
+        '2027-05-10 07:00-15:00', // the split day: new times
+        '2027-05-17 10:00-12:00', // a one-day change after it is kept
+        // 2027-05-24 stays cancelled
+        '2027-05-31 07:00-15:00',
+        // nothing in June: the old end date (31 May) still applies
+      ]);
+      const rows = await systemDb
+        .select()
+        .from(auditLog)
+        .where(and(eq(auditLog.gymId, gymId), eq(auditLog.action, 'shift_series.created')));
+      expect(rows.some((r) => (r.data as { splitFrom?: string }).splitFrom === '2027-05-10')).toBe(
+        true,
+      );
+    });
+
+    it('replaces a series on its first day instead of leaving an empty one', async () => {
+      await person('tsplit2', ['trainer']);
+      clock.current = at('2027-05-03', '10:00');
+      const seriesId = (
+        (await newSeries('owner', { staffId: id.tsplit2 }).expect(201)).body as { id: string }
+      ).id;
+      await split('owner', seriesId, {
+        from: '2027-05-03',
+        startsAt: '08:00',
+        endsAt: '16:00',
+      }).expect(201);
+      expect(await mondays('tsplit2', '2027-05-01', '2027-05-16')).toEqual([
+        '2027-05-03 08:00-16:00',
+        '2027-05-10 08:00-16:00',
+      ]);
+      expect(await systemDb.select().from(shiftSeries).where(eq(shiftSeries.id, seriesId))).toEqual(
+        [],
+      );
+    });
+
+    it('is all or nothing: an overlap with another weekly shift changes nothing', async () => {
+      await person('tsplit3', ['trainer']);
+      clock.current = at('2027-05-03', '10:00');
+      await newSeries('owner', { staffId: id.tsplit3, startsAt: '06:00', endsAt: '10:00' }).expect(
+        201,
+      );
+      const evening = (
+        (
+          await newSeries('owner', {
+            staffId: id.tsplit3,
+            startsAt: '17:00',
+            endsAt: '21:00',
+          }).expect(201)
+        ).body as { id: string }
+      ).id;
+      await split('owner', evening, {
+        from: '2027-05-10',
+        startsAt: '09:00',
+        endsAt: '12:00',
+      }).expect(409);
+      const after = await mondays('tsplit3', '2027-05-01', '2027-05-16');
+      expect(after).toEqual([
+        '2027-05-03 06:00-10:00',
+        '2027-05-03 17:00-21:00',
+        '2027-05-10 06:00-10:00',
+        '2027-05-10 17:00-21:00',
+      ]);
+    });
+
+    it('refuses a past day, the wrong weekday, bad times, an unknown series and reception without the switch', async () => {
+      await person('tsplit4', ['trainer']);
+      clock.current = at('2027-05-10', '10:00'); // Monday
+      const seriesId = (
+        (await newSeries('owner', { staffId: id.tsplit4, validFrom: '2027-05-10' }).expect(201))
+          .body as { id: string }
+      ).id;
+      const ok = { startsAt: '07:00', endsAt: '15:00' };
+      await split('owner', seriesId, { from: '2027-05-03', ...ok }).expect(400); // past
+      await split('owner', seriesId, { from: '2027-05-18', ...ok }).expect(400); // a Tuesday
+      await split('owner', seriesId, {
+        from: '2027-05-17',
+        startsAt: '15:00',
+        endsAt: '07:00',
+      }).expect(400);
+      await split('owner', '5d5d5d5d-5555-4555-8555-555555555555', {
+        from: '2027-05-17',
+        ...ok,
+      }).expect(404);
+      await split('rec', seriesId, { from: '2027-05-17', ...ok }).expect(403);
+      // a day after the series ended is not part of it
+      await req('post', `/shift-series/${seriesId}/end`, 'owner')
+        .send({ lastDate: '2027-05-16' })
+        .expect(204);
+      await split('owner', seriesId, { from: '2027-05-24', ...ok }).expect(400);
+    });
   });
 });

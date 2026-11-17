@@ -28,6 +28,8 @@ import {
   type ScheduleQuery,
   ScheduleQuerySchema,
   type ScheduleResponse,
+  type SplitShiftSeries,
+  SplitShiftSeriesSchema,
   type UpdateShift,
   UpdateShiftSchema,
 } from '@gym/shared';
@@ -83,6 +85,19 @@ export class ShiftsController {
     @Body(new ZodValidationPipe(CreateShiftSeriesSchema)) body: CreateShiftSeries,
   ): Promise<{ id: string }> {
     return this.shifts.createSeries(gym.id, req.user!.id, body);
+  }
+
+  @Post('shift-series/:id/split')
+  @UseGuards(CanEditShiftsGuard)
+  @GymRoles('reception')
+  splitSeries(
+    @Param('gymId', ParseUUIDPipe) _gymId: string,
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentGym() gym: GymContext,
+    @Req() req: AppRequest,
+    @Body(new ZodValidationPipe(SplitShiftSeriesSchema)) body: SplitShiftSeries,
+  ): Promise<{ id: string }> {
+    return this.shifts.splitSeries(gym.id, req.user!.id, id, body);
   }
 
   @Post('shift-series/:id/end')

@@ -30,7 +30,6 @@ export function ShiftDialog({
   target,
   onClose,
   onSaved,
-  onChanged,
   returnFocusTo,
 }: {
   gymId: string;
@@ -38,8 +37,6 @@ export function ShiftDialog({
   target: ShiftTarget;
   onClose: () => void;
   onSaved: () => void;
-  /** The schedule changed although the action as a whole failed: reload it, stay open. */
-  onChanged?: () => void;
   /** Where focus goes when the dialog closes (the opener may be gone after a reload). */
   returnFocusTo?: () => HTMLElement | null;
 }) {
@@ -55,7 +52,7 @@ export function ShiftDialog({
   const [scope, setScope] = useState<'day' | 'from'>('day');
   const [confirming, setConfirming] = useState<Confirming | null>(null);
   const [error, setError] = useState<{ field: 'person' | 'time'; text: string } | null>(null);
-  const [failure, setFailure] = useState<'none' | 'failed' | 'partial'>('none');
+  const [failure, setFailure] = useState<'none' | 'failed'>('none');
   const [busy, setBusy] = useState(false);
   const personRef = useRef<HTMLSelectElement>(null);
   const toRef = useRef<HTMLInputElement>(null);
@@ -74,16 +71,15 @@ export function ShiftDialog({
 
   /** Runs the requests of one action; on failure shows the error and stays open. */
   async function run(requests: () => Promise<unknown>) {
-    if (busy || failure === 'partial') return;
+    if (busy) return;
     setBusy(true);
     setFailure('none');
     setConfirming(null);
     try {
       await requests();
       onSaved();
-    } catch (err) {
-      setFailure(err instanceof PartialError ? 'partial' : 'failed');
-      if (err instanceof PartialError) onChanged?.();
+    } catch {
+      setFailure('failed');
     } finally {
       setBusy(false);
     }
@@ -129,28 +125,7 @@ export function ShiftDialog({
         }),
       );
     }
-    void run(async () => {
-      await post(`/shift-series/${seriesId}/end`, { lastDate: addDays(date, -1) });
-      const weekday = isoWeekday(date);
-      try {
-        await post('/shift-series', {
-          staffId: editing.staffId,
-          weekday,
-          ...times,
-          validFrom: date,
-        });
-      } catch {
-        // The old series is already ended: put the old times back (open-ended), then tell the user.
-        await post('/shift-series', {
-          staffId: editing.staffId,
-          weekday,
-          startsAt: editing.startsAt,
-          endsAt: editing.endsAt,
-          validFrom: date,
-        }).catch(() => undefined);
-        throw new PartialError();
-      }
-    });
+    void run(() => post(`/shift-series/${seriesId}/split`, { from: date, ...times }));
   }
 
   function confirmed() {
@@ -299,11 +274,6 @@ export function ShiftDialog({
             {t('common.genericError')}
           </p>
         )}
-        {failure === 'partial' && (
-          <p role="alert" className="text-red-700">
-            {t('schedule.partialFailed')}
-          </p>
-        )}
 
         {confirming && (
           <div
@@ -353,6 +323,3 @@ export function ShiftDialog({
     </Dialog>
   );
 }
-
-/** The old weekly shift was ended but the new one could not be created. */
-class PartialError extends Error {}

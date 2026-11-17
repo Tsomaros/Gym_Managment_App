@@ -15,6 +15,7 @@ import type {
   ScheduleStaff,
   ShiftRow,
   ShiftSeries,
+  SplitShiftSeries,
   UpdateShift,
   Weekday,
 } from '@gym/shared';
@@ -24,6 +25,7 @@ import { Clock } from '../common/clock';
 import { gymRoles, gyms, shiftSeries, shifts, users } from '../db/schema';
 import { type Tx, withGym } from '../db/tenant';
 import { addDays, todayIn } from '../memberships/dates';
+import { lockTrainer } from '../trainers/trainer-access';
 import { expandShifts, isOnDuty, isoWeekday } from './expand';
 
 const STAFF_ROLES = ['owner', 'reception', 'trainer'] as const;
@@ -125,6 +127,33 @@ async function staffOf(tx: Tx, only?: string[]): Promise<ScheduleStaff[]> {
   return [...byId.values()];
 }
 
+/** Weekly series of one person may share a weekday (split shifts) but not overlap in time. */
+async function assertNoOverlap(
+  tx: Tx,
+  staffId: string,
+  weekday: number,
+  startsAt: string,
+  endsAt: string,
+  validFrom: string,
+  validUntil: string | null,
+): Promise<void> {
+  const clash = await tx
+    .select({ id: shiftSeries.id })
+    .from(shiftSeries)
+    .where(
+      and(
+        eq(shiftSeries.staffId, staffId),
+        eq(shiftSeries.weekday, weekday),
+        lt(shiftSeries.startsAt, endsAt),
+        gt(shiftSeries.endsAt, startsAt),
+        validUntil ? lte(shiftSeries.validFrom, validUntil) : undefined,
+        or(isNull(shiftSeries.validUntil), gte(shiftSeries.validUntil, validFrom)),
+      ),
+    )
+    .limit(1);
+  if (clash.length) throw new ConflictException('Overlaps another weekly shift');
+}
+
 @Injectable()
 export class ShiftsService {
   constructor(
@@ -186,24 +215,18 @@ export class ShiftsService {
       const { today } = await gymNow(tx, gymId, this.clock.now());
       if (body.validFrom < today)
         throw new BadRequestException('A series cannot start in the past');
+      await lockTrainer(tx, body.staffId); // also serialises with removing their role
       await this.requireStaff(tx, body.staffId);
       const until = body.validUntil ?? null;
-      // Series of one person may share a weekday (split shifts) but not overlap in time.
-      const clash = await tx
-        .select({ id: shiftSeries.id })
-        .from(shiftSeries)
-        .where(
-          and(
-            eq(shiftSeries.staffId, body.staffId),
-            eq(shiftSeries.weekday, body.weekday),
-            lt(shiftSeries.startsAt, body.endsAt),
-            gt(shiftSeries.endsAt, body.startsAt),
-            until ? lte(shiftSeries.validFrom, until) : undefined,
-            or(isNull(shiftSeries.validUntil), gte(shiftSeries.validUntil, body.validFrom)),
-          ),
-        )
-        .limit(1);
-      if (clash.length) throw new ConflictException('Overlaps another weekly shift');
+      await assertNoOverlap(
+        tx,
+        body.staffId,
+        body.weekday,
+        body.startsAt,
+        body.endsAt,
+        body.validFrom,
+        until,
+      );
       const [row] = await tx
         .insert(shiftSeries)
         .values({
@@ -274,10 +297,121 @@ export class ShiftsService {
     });
   }
 
+  /**
+   * Changes a weekly shift from `from` on, in one transaction: the series ends the day before (or is
+   * replaced when `from` is its first day) and a new one starts with the same end date. One-day
+   * changes after `from` move to the new series; one on `from` itself gives way to the new times.
+   * Any failure (an overlap with another weekly shift, say) changes nothing.
+   */
+  async splitSeries(
+    gymId: string,
+    actorId: string,
+    id: string,
+    body: SplitShiftSeries,
+  ): Promise<{ id: string }> {
+    return withGym(gymId, async (tx) => {
+      const [s] = await tx.select().from(shiftSeries).where(eq(shiftSeries.id, id)).for('update');
+      if (!s) throw new NotFoundException();
+      await lockTrainer(tx, s.staffId);
+      const { today } = await gymNow(tx, gymId, this.clock.now());
+      if (body.from < today) throw new BadRequestException('Past days cannot change');
+      if (
+        isoWeekday(body.from) !== s.weekday ||
+        body.from < s.validFrom ||
+        (s.validUntil !== null && body.from > s.validUntil)
+      ) {
+        throw new BadRequestException('The series does not run on that date');
+      }
+
+      const later = await tx
+        .select()
+        .from(shifts)
+        .where(and(eq(shifts.seriesId, id), gt(shifts.date, body.from)));
+      await tx.delete(shifts).where(and(eq(shifts.seriesId, id), gte(shifts.date, body.from)));
+      const replaced = body.from === s.validFrom;
+      if (replaced) {
+        await tx.delete(shiftSeries).where(eq(shiftSeries.id, id));
+      } else {
+        await tx
+          .update(shiftSeries)
+          .set({ validUntil: addDays(body.from, -1) })
+          .where(eq(shiftSeries.id, id));
+      }
+      await assertNoOverlap(
+        tx,
+        s.staffId,
+        s.weekday,
+        body.startsAt,
+        body.endsAt,
+        body.from,
+        s.validUntil,
+      );
+      const [row] = await tx
+        .insert(shiftSeries)
+        .values({
+          gymId,
+          staffId: s.staffId,
+          weekday: s.weekday,
+          startsAt: body.startsAt,
+          endsAt: body.endsAt,
+          validFrom: body.from,
+          validUntil: s.validUntil,
+          createdBy: actorId,
+        })
+        .returning({ id: shiftSeries.id });
+      if (later.length) {
+        await tx.insert(shifts).values(
+          later.map((o) => ({
+            gymId,
+            staffId: o.staffId,
+            date: o.date,
+            startsAt: o.startsAt,
+            endsAt: o.endsAt,
+            seriesId: row!.id,
+            cancelled: o.cancelled,
+            note: o.note,
+            createdBy: o.createdBy,
+          })),
+        );
+      }
+      await this.audit.record(tx, {
+        gymId,
+        actorId,
+        action: 'shift_series.ended',
+        entity: 'shift_series',
+        entityId: id,
+        data: {
+          staffId: s.staffId,
+          lastDate: addDays(body.from, -1),
+          splitFrom: body.from,
+          deleted: replaced,
+        },
+      });
+      await this.audit.record(tx, {
+        gymId,
+        actorId,
+        action: 'shift_series.created',
+        entity: 'shift_series',
+        entityId: row!.id,
+        data: {
+          staffId: s.staffId,
+          weekday: s.weekday,
+          startsAt: body.startsAt,
+          endsAt: body.endsAt,
+          validFrom: body.from,
+          validUntil: s.validUntil,
+          splitFrom: body.from,
+        },
+      });
+      return { id: row!.id };
+    });
+  }
+
   /** One-off shift. */
   async createShift(gymId: string, actorId: string, body: CreateShift): Promise<{ id: string }> {
     return withGym(gymId, async (tx) => {
       const { today } = await gymNow(tx, gymId, this.clock.now());
+      await lockTrainer(tx, body.staffId);
       await this.requireStaff(tx, body.staffId);
       if (body.date < today) throw new ConflictException('Past days cannot change');
       const [row] = await tx
@@ -372,7 +506,12 @@ export class ShiftsService {
     body: Occurrence,
   ): Promise<{ id: string }> {
     return withGym(gymId, async (tx) => {
-      const [s] = await tx.select().from(shiftSeries).where(eq(shiftSeries.id, seriesId));
+      // Locked: ending or splitting the series at the same time must not leave a stray override.
+      const [s] = await tx
+        .select()
+        .from(shiftSeries)
+        .where(eq(shiftSeries.id, seriesId))
+        .for('update');
       if (!s) throw new NotFoundException();
       const { today } = await gymNow(tx, gymId, this.clock.now());
       if (date < today) throw new ConflictException('Past days cannot change');

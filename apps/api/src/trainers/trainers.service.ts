@@ -1,4 +1,9 @@
-import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import type { MemberTrainer, TrainerClient } from '@gym/shared';
 import { and, eq } from 'drizzle-orm';
 import { AuditService } from '../audit/audit.service';
@@ -38,6 +43,9 @@ export class TrainersService {
         .from(gymRoles)
         .where(and(eq(gymRoles.userId, memberId), eq(gymRoles.role, 'member')));
       if (!isMember) throw new NotFoundException('Not a member of this gym');
+      if (trainerId === memberId) {
+        throw new BadRequestException('A trainer cannot train themselves');
+      }
 
       const today = await gymToday(tx, gymId, this.clock.now());
       const ms = (await membershipsOf(tx, [memberId], today)).get(memberId) ?? [];

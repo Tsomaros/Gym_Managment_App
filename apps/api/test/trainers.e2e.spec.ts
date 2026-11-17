@@ -345,4 +345,13 @@ describe('primary trainer assignment (gym in Europe/Athens)', () => {
     expect(finished).toBe(true);
     expect((await detail('mLock')).trainer).toMatchObject({ userId: id.tLock });
   });
+
+  it('refuses a trainer who is also a member as their own primary trainer', async () => {
+    await person('tself', ['trainer', 'member']);
+    clock.current = at('2027-05-01', '09:00');
+    await sell('tself', withTrainer);
+    const res = await assign('tself', 'tself').expect(400);
+    expect((res.body as { message: string }).message).toBe('A trainer cannot train themselves');
+    expect((await detail('tself')).trainer).toBeNull();
+  });
 });
