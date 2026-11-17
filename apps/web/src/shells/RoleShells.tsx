@@ -10,6 +10,7 @@ import { DevicesPage } from '../features/devices/DevicesPage';
 import { ExercisesPage } from '../features/exercises/ExercisesPage';
 import { MembersSection } from '../features/members/MembersSection';
 import { MyMembershipPage } from '../features/my-membership/MyMembershipPage';
+import { MyPlanPage } from '../features/my-plan/MyPlanPage';
 import { PaymentsPage } from '../features/payments/PaymentsPage';
 import { StaffPage } from '../features/staff/StaffPage';
 import { MySchedulePage } from '../features/schedule/MySchedulePage';
@@ -137,7 +138,7 @@ export function MemberShell(props: GymShellProps) {
       title={t('shell.member')}
       nav={['memberCheckIn', 'myMembership', 'myWorkouts']}
       home={<MemberCheckInPage />}
-      pages={{ myMembership: <MyMembershipPage /> }}
+      pages={{ myMembership: <MyMembershipPage />, myWorkouts: <MyPlanPage /> }}
       banner={me && !me.emailVerified ? <EmailNotVerifiedBanner email={me.email} /> : undefined}
       {...props}
     />

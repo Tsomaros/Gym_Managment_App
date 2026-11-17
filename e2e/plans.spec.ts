@@ -242,4 +242,37 @@ test('a trainer builds a two-day plan from scratch, activates it, saves it as a 
   await expect(trainer.getByRole('link', { name: 'Άνοιγμα PDF' })).toBeVisible();
 
   await trainerContext.close();
+
+  // Client A reads the plan on a phone: the days are tabs, the layout is one column.
+  const phoneContext = await browser.newContext({ viewport: { width: 375, height: 812 } });
+  const phone = await phoneContext.newPage();
+  await signIn(phone, memberAEmail, password);
+  await phone.goto(`/g/${gymId}/myWorkouts`);
+  await expect(phone.getByRole('heading', { name: 'Το πρόγραμμά μου' })).toBeVisible();
+  await expect(phone.getByRole('heading', { name: 'Πάνω σώμα και κορμός' })).toBeVisible();
+  const tabs = phone.getByRole('tab');
+  await expect(tabs).toHaveText(['Ημέρα Α', 'Ημέρα Β']);
+  await expect(phone.getByText('4 × 8–10 @ 52,5 kg')).toBeVisible();
+  await tabs.nth(1).click();
+  await expect(phone.getByText('3 × 45″')).toBeVisible();
+  await expect(phone.getByText('4 × 8–10 @ 52,5 kg')).toBeHidden();
+  // One column: nothing makes the page wider than the phone.
+  const overflow = await phone.evaluate(
+    () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+  );
+  expect(overflow).toBeLessThanOrEqual(0);
+  await phoneContext.close();
+
+  // Client B opens the PDF plan from the phone too.
+  const phoneBContext = await browser.newContext({ viewport: { width: 375, height: 812 } });
+  const phoneB = await phoneBContext.newPage();
+  await signIn(phoneB, memberBEmail, password);
+  await phoneB.goto(`/g/${gymId}/myWorkouts`);
+  const openPdf = phoneB.getByRole('link', { name: 'Άνοιγμα PDF' });
+  await expect(openPdf).toBeVisible();
+  await expect(openPdf).toHaveAttribute('target', '_blank');
+  const pdfResponse = await phoneB.request.get((await openPdf.getAttribute('href'))!);
+  expect(pdfResponse.status()).toBe(200);
+  expect((await pdfResponse.body()).subarray(0, 5).toString()).toBe('%PDF-');
+  await phoneBContext.close();
 });

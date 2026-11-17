@@ -121,6 +121,18 @@ describe('PlanView', () => {
     expect(screen.getByRole('tabpanel')).toHaveTextContent('Πιέσεις στήθους');
   });
 
+  it('the day tabs are named, and the panel can be reached with the keyboard', () => {
+    render(<PlanView plan={plan} layout="tabs" />);
+    expect(screen.getByRole('tablist', { name: 'Ημέρες' })).toBeInTheDocument();
+    expect(screen.getByRole('tabpanel')).toHaveAttribute('tabindex', '0');
+  });
+
+  it('a plan with a single day shows it without a tab strip', () => {
+    render(<PlanView plan={{ ...plan, days: [plan.days[0]!] }} layout="tabs" />);
+    expect(screen.queryByRole('tablist')).toBeNull();
+    expect(screen.getByText('Πιέσεις στήθους')).toBeInTheDocument();
+  });
+
   it('a PDF plan offers a big open button (new tab, signed link) and a download', () => {
     const pdfPlan: Plan = {
       ...plan,

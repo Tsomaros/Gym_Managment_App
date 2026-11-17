@@ -602,7 +602,8 @@
       "openPdf": "Open PDF",
       "downloadPdf": "Download",
       "pdfPlan": "Plan as a PDF file",
-      "archivedExercise": "(archived)"
+      "archivedExercise": "(archived)",
+      "days": "Days"
     },
     "editor": {
       "newTitle": "New plan",
@@ -693,6 +694,13 @@
       "deleted": "The template was deleted.",
       "saved": "The template was saved.",
       "loadFailed": "The templates could not be loaded."
+    },
+    "my": {
+      "title": "My plan",
+      "empty": "You have no plan yet — talk to your trainer.",
+      "emptyNoTrainer": "You have no plan yet — ask at reception.",
+      "older": "Previous plans",
+      "backToCurrent": "Back to the current plan"
     }
   }
 }

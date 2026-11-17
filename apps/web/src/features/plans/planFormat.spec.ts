@@ -38,6 +38,11 @@ describe('formatTarget', () => {
     );
   });
 
+  it('"to failure" wins over reps still stored on the row', () => {
+    // repsMin 8 and repsMax 10 stay from `base`
+    expect(formatTarget(row({ toFailure: true }), 'el')).toBe('4 × max @ 50 kg');
+  });
+
   it('leaves out the weight when there is none, and keeps 0 kg and quarter kilos', () => {
     expect(formatTarget(row({ weightKg: null }), 'el')).toBe('4 × 8–10');
     expect(formatTarget(row({ weightKg: 0 }), 'el')).toBe('4 × 8–10 @ 0 kg');

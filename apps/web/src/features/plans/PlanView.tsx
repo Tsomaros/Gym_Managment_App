@@ -11,8 +11,8 @@ function DayExercises({ day }: { day: PlanDay }) {
   return (
     <ol className="flex flex-col gap-2">
       {day.exercises.map((e) => (
-        <li key={e.id} className="rounded-xl border border-slate-200 bg-white p-3">
-          <p className="font-semibold break-words text-slate-900">
+        <li key={e.id} className="rounded-xl border border-slate-300 bg-white p-3">
+          <p className="text-lg font-semibold break-words text-slate-900">
             {exerciseName(e.exercise, lang)}
             {e.exercise.archived && (
               <span className="ml-2 text-sm font-normal text-slate-600">
@@ -20,8 +20,8 @@ function DayExercises({ day }: { day: PlanDay }) {
               </span>
             )}
           </p>
-          <p className="mt-1 flex flex-wrap gap-x-4 text-lg text-slate-900">
-            <span>{formatTarget(e, lang)}</span>
+          <p className="mt-1 flex flex-wrap items-baseline gap-x-4 text-xl font-semibold text-slate-900">
+            <span className="whitespace-nowrap tabular-nums">{formatTarget(e, lang)}</span>
             {e.restSeconds != null && (
               <span className="text-slate-700">
                 {t('plans.view.rest', { seconds: e.restSeconds })}
@@ -37,26 +37,36 @@ function DayExercises({ day }: { day: PlanDay }) {
 
 /** The days as tabs, one panel at a time: the member's layout on a phone. */
 function DayTabs({ days }: { days: PlanDay[] }) {
+  const { t } = useTranslation();
   const base = useId();
   const [selected, setSelected] = useState(0);
   const tabRefs = useRef<(HTMLButtonElement | null)[]>([]);
   const current = Math.min(selected, days.length - 1);
+
+  function select(i: number) {
+    setSelected(i);
+    // A tab half out of view on a narrow screen slides fully in.
+    tabRefs.current[i]?.scrollIntoView?.({ inline: 'nearest', block: 'nearest' });
+  }
 
   function onKeyDown(e: KeyboardEvent) {
     const step = e.key === 'ArrowRight' ? 1 : e.key === 'ArrowLeft' ? -1 : 0;
     if (!step) return;
     e.preventDefault();
     const next = (current + step + days.length) % days.length;
-    setSelected(next);
+    select(next);
     tabRefs.current[next]?.focus();
   }
 
   if (!days.length) return null;
+  // One day needs no choosing.
+  if (days.length === 1) return <DayExercises day={days[0]!} />;
   return (
     <div className="flex flex-col gap-3">
       <div
         role="tablist"
-        className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1"
+        aria-label={t('plans.view.days')}
+        className="-mx-1 flex gap-2 overflow-x-auto p-1"
         onKeyDown={onKeyDown}
       >
         {days.map((d, i) => (
@@ -71,8 +81,9 @@ function DayTabs({ days }: { days: PlanDay[] }) {
             aria-selected={i === current}
             aria-controls={`${base}-panel`}
             tabIndex={i === current ? 0 : -1}
-            onClick={() => setSelected(i)}
-            className={`min-h-11 shrink-0 rounded-full border px-4 text-base font-medium whitespace-nowrap focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-900 ${
+            title={d.title}
+            onClick={() => select(i)}
+            className={`min-h-11 max-w-[75vw] shrink-0 truncate rounded-full border px-4 text-base font-medium whitespace-nowrap focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-900 ${
               i === current
                 ? 'border-slate-900 bg-slate-900 text-white'
                 : 'border-slate-500 bg-white text-slate-800 hover:bg-slate-50'
@@ -82,7 +93,13 @@ function DayTabs({ days }: { days: PlanDay[] }) {
           </button>
         ))}
       </div>
-      <div role="tabpanel" id={`${base}-panel`} aria-labelledby={`${base}-tab-${current}`}>
+      <div
+        role="tabpanel"
+        id={`${base}-panel`}
+        aria-labelledby={`${base}-tab-${current}`}
+        tabIndex={0}
+        className="focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-900"
+      >
         <DayExercises day={days[current]!} />
       </div>
     </div>
@@ -111,7 +128,7 @@ export function PlanView({
         <div className="flex flex-col gap-3">
           <p className="text-slate-700">{t('plans.view.pdfPlan')}</p>
           {plan.pdfUrl && (
-            <div className="flex flex-wrap gap-3">
+            <div className="flex flex-col gap-3 sm:flex-row">
               <a
                 href={plan.pdfUrl}
                 target="_blank"

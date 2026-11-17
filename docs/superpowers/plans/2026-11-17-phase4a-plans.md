@@ -219,7 +219,7 @@
   - Up/down buttons move items; no drag-and-drop library.
 - `TemplatesPage`: the gym's templates with author, and create, edit and delete for your own.
 
-- [ ] **Step 1: Write the failing tests:**
+- [x] **Step 1: Write the failing tests:**
   - Adding an exercise through the picker adds a row.
   - Moving day 2 up sends days in the new order and keeps their ids.
   - Toggling "μέχρι αποτυχίας" clears and disables the reps fields.
@@ -227,10 +227,10 @@
   - Leaving with unsaved changes asks for confirmation.
   - Cover access hides edit controls and shows the banner.
   - E2E: the owner sets up a trainer, and a member with a trainer membership is assigned to them → the trainer creates a 2-day plan from scratch and activates it → saves it as a template → uploads a PDF plan for another client.
-- [ ] **Step 2: Run** `pnpm --filter web test plans && pnpm e2e` → FAIL.
-- [ ] **Step 3: Implement.** Run ui-ux-reviewer (the editor must be usable on a tablet; number inputs with `inputmode="decimal"` for kg).
-- [ ] **Step 4: Run** → PASS.
-- [ ] **Step 5: Commit** `feat(web): plan editor, templates and PDF upload for trainers`.
+- [x] **Step 2: Run** `pnpm --filter web test plans && pnpm e2e` → FAIL.
+- [x] **Step 3: Implement.** Run ui-ux-reviewer (the editor must be usable on a tablet; number inputs with `inputmode="decimal"` for kg).
+- [x] **Step 4: Run** → PASS.
+- [x] **Step 5: Commit** `feat(web): plan editor, templates and PDF upload for trainers`.
 
 ---
 
