@@ -1,5 +1,5 @@
 import { sql } from 'drizzle-orm';
-import { pgTable, text, timestamp, uniqueIndex, uuid } from 'drizzle-orm/pg-core';
+import { pgTable, text, timestamp, unique, uniqueIndex, uuid } from 'drizzle-orm/pg-core';
 import { gyms } from './gyms';
 import { users } from './users';
 
@@ -22,5 +22,9 @@ export const exercises = pgTable(
     createdBy: uuid('created_by').references(() => users.id, { onDelete: 'set null' }),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
-  (t) => [uniqueIndex('exercises_gym_name_el_uq').on(t.gymId, sql`lower(${t.nameEl})`)],
+  (t) => [
+    // Target of the composite foreign key that keeps plan exercises in their own gym.
+    unique('exercises_id_gym_uq').on(t.id, t.gymId),
+    uniqueIndex('exercises_gym_name_el_uq').on(t.gymId, sql`lower(${t.nameEl})`),
+  ],
 );

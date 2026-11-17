@@ -70,16 +70,16 @@
   - `PATCH /gyms/:gymId/exercises/:id` (trainer or owner).
   - `POST /gyms/:gymId/exercises/:id/archive` (owner, or the creator) → `204`.
 
-- [ ] **Step 1: Write the failing tests:**
+- [x] **Step 1: Write the failing tests:**
   - A newly created gym has the default list (count = `DEFAULT_EXERCISES.length`) and includes "Πιέσεις στήθους". After migration, an existing gym in `gym_test` has them too.
   - `q=πιεσεις` finds "Πιέσεις στήθους"; `q=bench` finds it by its English name. *(Review Focus 5)*
   - A trainer adds "Ώμοι με αλτήρες" → `201` + `exercise.created`; the same name again with different case → `409`.
   - A trainer archiving another trainer's exercise → `403`; the owner → `204`; it's hidden by default and shown with `includeArchived=true`.
   - A member or reception calling `GET` → `403`. Two-gym isolation.
-- [ ] **Step 2: Run** `pnpm --filter api test exercises` → FAIL.
-- [ ] **Step 3: Implement.** Consult database-expert on the unique and search indexes.
-- [ ] **Step 4: Run** `pnpm --filter api test` → PASS.
-- [ ] **Step 5: Commit** `feat: per-gym exercise library with default seed`.
+- [x] **Step 2: Run** `pnpm --filter api test exercises` → FAIL.
+- [x] **Step 3: Implement.** Consult database-expert on the unique and search indexes.
+- [x] **Step 4: Run** `pnpm --filter api test` → PASS.
+- [x] **Step 5: Commit** `feat: per-gym exercise library with default seed`.
 
 ---
 
