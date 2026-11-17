@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { MembersModule } from '../members/members.module';
 import { CheckInEvents } from './checkin-events';
 import { CheckInService } from './checkin.service';
 import { KioskCheckInController } from './kiosk.controller';
@@ -10,6 +11,7 @@ import { PresenceService } from './presence.service';
 import { StaffCheckInController } from './staff-checkin.controller';
 
 @Module({
+  imports: [MembersModule],
   controllers: [
     MemberCheckInController,
     KioskCheckInController,

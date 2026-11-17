@@ -5,6 +5,7 @@ import { AuditService } from '../audit/audit.service';
 import { Clock } from '../common/clock';
 import { checkIns, gymRoles, memberships, users } from '../db/schema';
 import { withGym } from '../db/tenant';
+import { PhotosService } from '../members/photos.service';
 import { gymToday, lockMember, membershipsOf } from '../memberships/memberships.service';
 import { CheckInEvents } from './checkin-events';
 import { decideCheckIn, relevantMembership } from './decide';
@@ -28,6 +29,7 @@ export class CheckInService {
     private readonly audit: AuditService,
     private readonly clock: Clock,
     private readonly events: CheckInEvents,
+    private readonly photos: PhotosService,
   ) {}
 
   /**
@@ -49,6 +51,7 @@ export class CheckInService {
         .where(and(eq(gymRoles.userId, memberId), eq(gymRoles.role, 'member')));
       if (!member) throw new NotFoundException('Not a member of this gym');
 
+      const photoUrl = (await this.photos.urlsFor(tx, [memberId])).get(memberId) ?? null;
       const today = await gymToday(tx, gymId, now);
       const ms = (await membershipsOf(tx, [memberId], today)).get(memberId) ?? [];
 
@@ -67,7 +70,7 @@ export class CheckInService {
         // while it is still the verdict: a sale or an ended freeze in between must be honoured.
         const again = decideCheckIn(ms);
         if (latest.valid || (!again.valid && again.reason === latest.reason)) {
-          return this.result(latest, member, ms, true);
+          return this.result(latest, member, photoUrl, ms, true);
         }
       }
 
@@ -125,7 +128,7 @@ export class CheckInService {
       const fresh = consumed
         ? ((await membershipsOf(tx, [memberId], today)).get(memberId) ?? ms)
         : ms;
-      return this.result(row!, member, fresh, false);
+      return this.result(row!, member, photoUrl, fresh, false);
     });
     // After commit, and not for a repeat: the screens already show the first one.
     if (!result.duplicate) this.events.publish(gymId, { type: 'check_in', result });
@@ -136,6 +139,7 @@ export class CheckInService {
   private result(
     row: CheckInRow,
     member: { id: string; firstName: string; lastName: string },
+    photoUrl: string | null,
     ms: readonly Membership[],
     duplicate: boolean,
   ): CheckInResult {
@@ -153,7 +157,7 @@ export class CheckInService {
         id: member.id,
         firstName: member.firstName,
         lastName: member.lastName,
-        photoUrl: null,
+        photoUrl,
       },
       membership,
       at: row.at.toISOString(),

@@ -9,6 +9,7 @@ import { closeDb } from './db/client';
 import { DevicesModule } from './devices/devices.module';
 import { GymsModule } from './gyms/gyms.module';
 import { InvitationsModule } from './invitations/invitations.module';
+import { StorageModule } from './storage/storage.module';
 import { MailModule } from './mail/mail.module';
 import { MembersModule } from './members/members.module';
 import { MembershipsModule } from './memberships/memberships.module';
@@ -19,6 +20,7 @@ import { HealthController } from './health/health.controller';
   imports: [
     ThrottlerModule.forRoot({ throttlers: THROTTLERS }),
     ClockModule,
+    StorageModule,
     MailModule,
     AuditModule,
     AuthModule,

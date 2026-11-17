@@ -6,6 +6,7 @@ import { Clock } from '../common/clock';
 import { checkIns, gyms, users } from '../db/schema';
 import { type Tx, withGym } from '../db/tenant';
 import { memberStatus } from '../members/member-status';
+import { PhotosService } from '../members/photos.service';
 import { addDays, todayIn } from '../memberships/dates';
 import { membershipsOf } from '../memberships/memberships.service';
 import { CheckInEvents } from './checkin-events';
@@ -31,6 +32,7 @@ export class PresenceService {
     private readonly audit: AuditService,
     private readonly clock: Clock,
     private readonly events: CheckInEvents,
+    private readonly photos: PhotosService,
   ) {}
 
   /**
@@ -70,12 +72,16 @@ export class PresenceService {
         inside.map((r) => r.memberId),
         today,
       );
+      const photoUrls = await this.photos.urlsFor(
+        tx,
+        inside.map((r) => r.memberId),
+      );
       return inside.map((r) => ({
         checkInId: r.id,
         memberId: r.memberId,
         firstName: r.firstName,
         lastName: r.lastName,
-        photoUrl: null,
+        photoUrl: photoUrls.get(r.memberId) ?? null,
         at: r.at.toISOString(),
         membershipStatus: memberStatus(byMember.get(r.memberId) ?? []).status,
       }));

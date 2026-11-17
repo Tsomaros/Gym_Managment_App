@@ -14,6 +14,7 @@ import { toFreeze } from '../memberships/freezes.service';
 import { gymToday, membershipsOf } from '../memberships/memberships.service';
 import { PaymentsService } from '../memberships/payments.service';
 import { memberStatus } from './member-status';
+import { PhotosService } from './photos.service';
 
 const MAX_RESULTS = 100;
 
@@ -52,6 +53,7 @@ export class MembersService {
   constructor(
     private readonly clock: Clock,
     private readonly payments: PaymentsService,
+    private readonly photos: PhotosService,
   ) {}
 
   /** Members of the gym (not staff), newest sign-up first, at most 100. */
@@ -81,7 +83,13 @@ export class MembersService {
         rows.map((r) => r.userId),
         today,
       );
-      const summaries = rows.map((r) => this.summary(r, byMember.get(r.userId) ?? []));
+      const photoUrls = await this.photos.urlsFor(
+        tx,
+        rows.map((r) => r.userId),
+      );
+      const summaries = rows.map((r) =>
+        this.summary(r, byMember.get(r.userId) ?? [], photoUrls.get(r.userId) ?? null),
+      );
       return summaries.filter((s) => !q.status || s.status === q.status).slice(0, MAX_RESULTS);
     });
   }
@@ -110,8 +118,9 @@ export class MembersService {
             )
             .orderBy(desc(membershipFreezes.startsOn))
         : [];
+      const photoUrl = (await this.photos.urlsFor(tx, [memberId])).get(memberId) ?? null;
       return {
-        ...this.summary(row, ms),
+        ...this.summary(row, ms, photoUrl),
         dateOfBirth: row.dateOfBirth,
         emergencyContactName: row.emergencyContactName,
         emergencyContactPhone: row.emergencyContactPhone,
@@ -132,8 +141,9 @@ export class MembersService {
     });
   }
 
-  private summary(r: MemberRow, ms: Membership[]): MemberSummary {
+  private summary(r: MemberRow, ms: Membership[], photoUrl: string | null): MemberSummary {
     return {
+      photoUrl,
       userId: r.userId,
       firstName: r.firstName,
       lastName: r.lastName,

@@ -9,6 +9,7 @@ import { MembersPage } from './MembersPage';
 
 const giorgos: MemberSummary = {
   userId: MEMBER,
+  photoUrl: null,
   firstName: 'Γιώργος',
   lastName: 'Παπαδόπουλος',
   email: 'g@x.gr',

@@ -11,6 +11,8 @@ export type MemberStatus = (typeof MEMBER_STATUSES)[number];
 
 export interface MemberSummary {
   userId: string;
+  /** A signed link that works for 5 minutes; null when the member has no photo. */
+  photoUrl: string | null;
   firstName: string;
   lastName: string;
   email: string;

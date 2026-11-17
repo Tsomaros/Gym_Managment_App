@@ -99,6 +99,13 @@
       "when": 1794908204985,
       "tag": "0013_check_ins",
       "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1794908880799,
+      "tag": "0014_member_photos",
+      "breakpoints": true
     }
   ]
 }

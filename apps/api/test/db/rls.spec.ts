@@ -10,6 +10,7 @@ import {
   gymRoles,
   gyms,
   invitations,
+  memberPhotos,
   membershipFreezes,
   memberships,
   membershipTypes,
@@ -950,5 +951,116 @@ describe('row-level security and privileges: check_ins', () => {
     expect(
       await rejectionMessage(withGym(gymA, (tx) => tx.delete(checkIns).where(eq(checkIns.id, rowA)))),
     ).toMatch(/permission denied/);
+  });
+});
+
+describe('row-level security and privileges: member_photos', () => {
+  const run = randomUUID().slice(0, 8);
+  let gymA: string;
+  let gymB: string;
+  let memberA: string;
+  let memberB: string;
+
+  beforeAll(async () => {
+    const g = await systemDb
+      .insert(gyms)
+      .values([{ name: `Photo A ${run}` }, { name: `Photo B ${run}` }])
+      .returning({ id: gyms.id });
+    gymA = g[0]!.id;
+    gymB = g[1]!.id;
+    const u = await systemDb
+      .insert(users)
+      .values([
+        { email: `pa-${run}@x.gr`, firstName: 'A', lastName: 'A' },
+        { email: `pb-${run}@x.gr`, firstName: 'B', lastName: 'B' },
+      ])
+      .returning({ id: users.id });
+    memberA = u[0]!.id;
+    memberB = u[1]!.id;
+    await systemDb.insert(memberPhotos).values([
+      { gymId: gymA, memberId: memberA, objectKey: `gyms/${gymA}/members/${memberA}/a.jpg` },
+      { gymId: gymB, memberId: memberB, objectKey: `gyms/${gymB}/members/${memberB}/b.jpg` },
+    ]);
+  });
+
+  afterAll(async () => {
+    const gymIds = [gymA, gymB].filter(Boolean);
+    if (gymIds.length) {
+      await systemDb.delete(memberPhotos).where(inArray(memberPhotos.gymId, gymIds));
+      await systemDb.delete(gyms).where(inArray(gyms.id, gymIds));
+    }
+    await systemDb.delete(users).where(inArray(users.id, [memberA, memberB].filter(Boolean)));
+  });
+
+  it('withGym(A) sees only gym A photos; without a gym nothing is visible', async () => {
+    const rows = await withGym(gymA, (tx) => tx.select().from(memberPhotos));
+    expect(rows.map((r) => r.gymId)).toEqual([gymA]);
+    expect(await db.select().from(memberPhotos)).toEqual([]);
+  });
+
+  it('withGym(A) cannot add, change or delete a gym B photo', async () => {
+    const msg = await rejectionMessage(
+      withGym(gymA, (tx) =>
+        tx.insert(memberPhotos).values({ gymId: gymB, memberId: memberB, objectKey: 'x' }),
+      ),
+    );
+    expect(msg).toMatch(RLS_VIOLATION);
+    const updated = await withGym(gymA, (tx) =>
+      tx
+        .update(memberPhotos)
+        .set({ objectKey: 'hijacked' })
+        .where(eq(memberPhotos.memberId, memberB))
+        .returning({ id: memberPhotos.memberId }),
+    );
+    expect(updated).toEqual([]);
+    const deleted = await withGym(gymA, (tx) =>
+      tx
+        .delete(memberPhotos)
+        .where(eq(memberPhotos.memberId, memberB))
+        .returning({ id: memberPhotos.memberId }),
+    );
+    expect(deleted).toEqual([]);
+    const [still] = await systemDb
+      .select()
+      .from(memberPhotos)
+      .where(eq(memberPhotos.memberId, memberB));
+    expect(still!.objectKey).toContain('b.jpg');
+  });
+
+  it('gym_app can replace and remove its own gym photo, but not move it to another member or gym', async () => {
+    const replaced = await withGym(gymA, (tx) =>
+      tx
+        .update(memberPhotos)
+        .set({ objectKey: 'new-key', updatedAt: new Date() })
+        .where(eq(memberPhotos.memberId, memberA))
+        .returning({ key: memberPhotos.objectKey }),
+    );
+    expect(replaced).toEqual([{ key: 'new-key' }]);
+    const msg = await rejectionMessage(
+      withGym(gymA, (tx) =>
+        tx.update(memberPhotos).set({ memberId: memberB }).where(eq(memberPhotos.memberId, memberA)),
+      ),
+    );
+    expect(msg).toMatch(/permission denied/);
+    // Moving the row to another gym is a column gym_app may not update (the policy alone would not stop it for gym B).
+    const moveMsg = await rejectionMessage(
+      withGym(gymA, (tx) =>
+        tx.update(memberPhotos).set({ gymId: gymB }).where(eq(memberPhotos.memberId, memberA)),
+      ),
+    );
+    expect(moveMsg).toMatch(/permission denied/);
+    // With no gym set, writing is refused too, not only reading.
+    expect(
+      await rejectionMessage(
+        db.insert(memberPhotos).values({ gymId: gymA, memberId: memberB, objectKey: 'x' }),
+      ),
+    ).toMatch(RLS_VIOLATION);
+    const removed = await withGym(gymA, (tx) =>
+      tx
+        .delete(memberPhotos)
+        .where(eq(memberPhotos.memberId, memberA))
+        .returning({ id: memberPhotos.memberId }),
+    );
+    expect(removed).toHaveLength(1);
   });
 });
