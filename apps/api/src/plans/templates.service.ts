@@ -37,6 +37,7 @@ export class TemplatesService {
         activatedAt: null,
         archivedAt: null,
         authorName: r.authorId ? (names.get(r.authorId) ?? null) : null,
+        authorId: r.authorId,
       }));
     });
   }

@@ -130,6 +130,8 @@ export interface PlanSummary {
   activatedAt: string | null;
   archivedAt: string | null;
   authorName: string | null;
+  /** For "is this mine" (templates are changed only by their author). */
+  authorId: string | null;
 }
 
 export const SaveAsTemplateSchema = z.object({ title });

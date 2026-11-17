@@ -14,7 +14,8 @@ import { PaymentsPage } from '../features/payments/PaymentsPage';
 import { StaffPage } from '../features/staff/StaffPage';
 import { MySchedulePage } from '../features/schedule/MySchedulePage';
 import { SchedulePage } from '../features/schedule/SchedulePage';
-import { TrainerClientsPage } from '../features/trainers/TrainerClientsPage';
+import { TemplatesPage } from '../features/plans/TemplatesPage';
+import { TrainerClientsSection } from '../features/trainers/TrainerClientsPage';
 import { RenewalsPage } from '../features/renewals/RenewalsPage';
 import { GymSettingsPage } from '../features/settings/GymSettingsPage';
 import { NewMemberCodeDialog } from '../features/signup/NewMemberCodeDialog';
@@ -117,7 +118,11 @@ export function TrainerShell(props: GymShellProps) {
       title={t('shell.trainer')}
       nav={['schedule', 'members', 'plans', 'exercises']}
       home={<MySchedulePage />}
-      pages={{ members: <TrainerClientsPage />, exercises: <ExercisesPage /> }}
+      pages={{
+        members: <TrainerClientsSection />,
+        plans: <TemplatesPage />,
+        exercises: <ExercisesPage />,
+      }}
       {...props}
     />
   );

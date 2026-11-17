@@ -220,7 +220,11 @@ describe('plan templates', () => {
 
     const list = (await req('get', '/plan-templates', 'v').expect(200)).body as PlanSummary[];
     const row = list.find((p) => p.id === tpl.id)!;
-    expect(row).toMatchObject({ title: 'Πάνω σώμα (πρότυπο)', authorName: 't Test' });
+    expect(row).toMatchObject({
+      title: 'Πάνω σώμα (πρότυπο)',
+      authorName: 't Test',
+      authorId: id.t,
+    });
     const seen = (await req('get', `/plan-templates/${tpl.id}`, 'v').expect(200)).body as Plan;
     expect(seen.days[0]!.exercises[0]!.exercise.nameEl).toBe('Πιέσεις στήθους');
 

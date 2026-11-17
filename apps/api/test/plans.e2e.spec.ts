@@ -338,6 +338,7 @@ describe('workout plans: interactive plans, access rules, activation', () => {
     expect(all[0]!.status).toBe('active');
     expect(all.slice(1).every((p) => p.status === 'archived')).toBe(true);
     expect(all.find((p) => p.id === one.id)!.authorName).toBe('t Test');
+    expect(all.find((p) => p.id === one.id)!.authorId).toBe(id.t);
   });
 
   it('a cover trainer reads today but cannot change anything, and has no access the next day', async () => {

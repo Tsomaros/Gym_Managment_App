@@ -418,6 +418,7 @@ function toSummary(r: PlanRow, names: Map<string, string>): PlanSummary {
     activatedAt: r.activatedAt?.toISOString() ?? null,
     archivedAt: r.archivedAt?.toISOString() ?? null,
     authorName: r.authorId ? (names.get(r.authorId) ?? null) : null,
+    authorId: r.authorId,
   };
 }
 

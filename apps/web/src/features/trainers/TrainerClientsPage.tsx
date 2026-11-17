@@ -1,13 +1,15 @@
 import type { TrainerClient } from '@gym/shared';
 import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useParams } from 'react-router';
+import { Link, Route, Routes, useParams } from 'react-router';
 import { apiFetch } from '../../api/client';
 import { Avatar } from '../members/Avatar';
 import { StatusBadge } from '../members/StatusBadge';
+import { ClientPlansPage } from '../plans/ClientPlansPage';
 
 function ClientCard({ c }: { c: TrainerClient }) {
   const { t } = useTranslation();
+  const { gymId = '' } = useParams();
   return (
     <li className="flex flex-wrap items-center gap-3 rounded-xl border border-slate-200 bg-white p-4">
       <Avatar firstName={c.firstName} lastName={c.lastName} photoUrl={c.photoUrl} decorative />
@@ -21,6 +23,13 @@ function ClientCard({ c }: { c: TrainerClient }) {
         </span>
       )}
       <StatusBadge status={c.membershipStatus} />
+      <Link
+        to={`/g/${gymId}/members/${c.memberId}/plans`}
+        aria-label={t('plans.linkNamed', { name: `${c.firstName} ${c.lastName}` })}
+        className="min-h-11 content-center rounded-md border border-slate-400 px-3 text-sm font-medium text-slate-900 hover:bg-slate-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-900"
+      >
+        {t('plans.link')}
+      </Link>
     </li>
   );
 }
@@ -82,5 +91,15 @@ export function TrainerClientsPage() {
         </section>
       )}
     </section>
+  );
+}
+
+/** members/ — the trainer's clients, and members/:memberId/plans — one client's plans. */
+export function TrainerClientsSection() {
+  return (
+    <Routes>
+      <Route index element={<TrainerClientsPage />} />
+      <Route path=":memberId/plans" element={<ClientPlansPage />} />
+    </Routes>
   );
 }

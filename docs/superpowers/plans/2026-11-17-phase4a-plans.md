@@ -194,11 +194,11 @@
 - `ExercisesPage`: a searchable list grouped by muscle group, with add and edit (`ExerciseForm`) and archive (owner or creator; confirm dialog).
 - `ExercisePicker` (used by the plan editor): a dialog with a search box (debounced 200 ms) and muscle-group filter chips. Keyboard: arrows move, Enter picks. Archived exercises are never offered.
 
-- [ ] **Step 1: Write the failing tests:** `exerciseName` falls back to Greek in English when `nameEn` is null; the picker sends `q` after typing and calls `onPick` on Enter; archive shows only for the owner or the creator; the add form requires the Greek name.
-- [ ] **Step 2: Run** `pnpm --filter web test exercises` → FAIL.
-- [ ] **Step 3: Implement.** Run ui-ux-reviewer.
-- [ ] **Step 4: Run** → PASS.
-- [ ] **Step 5: Commit** `feat(web): exercise library`.
+- [x] **Step 1: Write the failing tests:** `exerciseName` falls back to Greek in English when `nameEn` is null; the picker sends `q` after typing and calls `onPick` on Enter; archive shows only for the owner or the creator; the add form requires the Greek name.
+- [x] **Step 2: Run** `pnpm --filter web test exercises` → FAIL.
+- [x] **Step 3: Implement.** Run ui-ux-reviewer.
+- [x] **Step 4: Run** → PASS.
+- [x] **Step 5: Commit** `feat(web): exercise library`.
 
 ---
 
