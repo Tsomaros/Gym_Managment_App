@@ -297,7 +297,7 @@
 - [x] **Step 2: Run** `pnpm --filter web test && pnpm e2e` → FAIL.
 - [x] **Step 3: Implement.** Run ui-ux-reviewer on each new component (readable at a glance from 1 m, invalid status impossible to miss, colour never alone).
 - [x] **Step 4: Run** `pnpm lint && pnpm typecheck && pnpm -r test && pnpm e2e` → PASS.
-- [ ] **Step 5: Manual check** on the real devices, as in the spike: kiosk on a tablet or the Android phone (`/kiosk` through the cloudflared tunnel), member on the iPhone. A scan gives a green result in under 2 seconds, and the desk updates live. Record it in `PROGRESS.md`.
+- [x] **Step 5: Manual check** on the real devices, as in the spike: kiosk on a tablet or the Android phone (`/kiosk` through the cloudflared tunnel), member on the iPhone. A scan gives a green result in under 2 seconds, and the desk updates live. Record it in `PROGRESS.md`.
 - [x] **Step 6: Commit** `feat(web): reception desk with live check-ins, photos, renewals, gym settings`.
 
 ---

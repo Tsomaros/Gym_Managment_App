@@ -33,6 +33,8 @@ export default defineConfig({
   server: {
     port: 5173,
     strictPort: true,
+    // Lets a cloudflared quick tunnel reach the dev server for real-device checks.
+    allowedHosts: ['.trycloudflare.com'],
     // Same origin in dev: the refresh cookie is SameSite=Strict. /api/auth/* reaches the API's
     // /auth/*, and the cookie path is rewritten to match what the browser requested.
     // The live check-in stream (text/event-stream) passes through unbuffered: Vite's proxy does not
