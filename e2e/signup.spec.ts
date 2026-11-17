@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { expect, test } from '@playwright/test';
+import { adminLogin } from './admin';
 
 const MAILPIT = process.env.MAILPIT_URL ?? 'http://localhost:8025';
 const API = 'http://localhost:3000';
@@ -48,10 +49,7 @@ test('reception gives a code, a new member signs up on their phone and confirms 
 
   // Set-up through the API: the platform admin creates a gym, its owner accepts, the owner
   // invites a receptionist.
-  const admin = await api<{ accessToken: string }>('/auth/login', {
-    email: process.env.PLATFORM_ADMIN_EMAIL,
-    password: process.env.PLATFORM_ADMIN_PASSWORD,
-  });
+  const admin = await adminLogin();
   const { gymId } = await api<{ gymId: string }>(
     '/platform/gyms',
     {

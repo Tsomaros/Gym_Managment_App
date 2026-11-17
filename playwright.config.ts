@@ -22,6 +22,8 @@ const apiEnv = {
 
 export default defineConfig({
   testDir: 'e2e',
+  // Signs the platform admin in once for all specs (the login route is throttled).
+  globalSetup: './e2e/global-setup.ts',
   timeout: 60_000,
   retries: 0,
   use: { baseURL: 'http://localhost:5173', trace: 'retain-on-failure' },
