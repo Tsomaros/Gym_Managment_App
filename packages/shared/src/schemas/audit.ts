@@ -13,6 +13,13 @@ export const AUDIT_ACTIONS = [
   'payment.voided',
   'freeze.created',
   'freeze.ended',
+  'gym.settings_updated',
+  'device.paired',
+  'device.revoked',
+  'check_in.manual',
+  'check_in.checked_out',
+  'member.photo_updated',
+  'member.photo_removed',
 ] as const;
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];
 

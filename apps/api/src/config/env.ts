@@ -10,6 +10,14 @@ const envSchema = z.object({
   PLATFORM_ADMIN_EMAIL: z.string().trim().toLowerCase().pipe(z.email()),
   PLATFORM_ADMIN_PASSWORD: z.string().min(8),
   /** Path of the refresh cookie as the browser sees it: /api/auth when a proxy serves the API under /api. */
+  /** Signs the members' rotating check-in QR codes. Separate from JWT_SECRET. */
+  CHECKIN_SECRET: z.string().min(32),
+  /** S3-compatible object storage (MinIO locally): member photos. */
+  S3_ENDPOINT: z.url(),
+  S3_REGION: z.string().min(1).default('us-east-1'),
+  S3_ACCESS_KEY: z.string().min(1),
+  S3_SECRET_KEY: z.string().min(1),
+  S3_BUCKET: z.string().min(3),
   COOKIE_PATH: z.string().startsWith('/').default('/auth'),
 });
 

@@ -10,11 +10,16 @@ const valid = {
   SMTP_URL: 'smtp://localhost:1025',
   PLATFORM_ADMIN_EMAIL: 'admin@example.com',
   PLATFORM_ADMIN_PASSWORD: 'long-enough',
+  CHECKIN_SECRET: 'c'.repeat(32),
+  S3_ENDPOINT: 'http://localhost:9000',
+  S3_ACCESS_KEY: 'key',
+  S3_SECRET_KEY: 'secret',
+  S3_BUCKET: 'gym-files',
 };
 
 describe('loadEnv', () => {
-  it('returns every key from a complete environment, with COOKIE_PATH defaulting to /auth', () => {
-    expect(loadEnv(valid)).toEqual({ ...valid, COOKIE_PATH: '/auth' });
+  it('returns every key from a complete environment, with COOKIE_PATH defaulting to /auth and S3_REGION to us-east-1', () => {
+    expect(loadEnv(valid)).toEqual({ ...valid, COOKIE_PATH: '/auth', S3_REGION: 'us-east-1' });
   });
 
   it('accepts a COOKIE_PATH for a deployment behind an /api prefix, and rejects a relative one', () => {
@@ -30,6 +35,18 @@ describe('loadEnv', () => {
   it.each(Object.keys(valid))('throws naming %s when it is missing', (key) => {
     const source: Record<string, string | undefined> = { ...valid, [key]: undefined };
     expect(() => loadEnv(source)).toThrow(key);
+  });
+
+  it('throws when CHECKIN_SECRET is shorter than 32 characters (31 fails, 32 passes)', () => {
+    expect(() => loadEnv({ ...valid, CHECKIN_SECRET: 'x'.repeat(31) })).toThrow('CHECKIN_SECRET');
+    expect(loadEnv({ ...valid, CHECKIN_SECRET: 'x'.repeat(32) }).CHECKIN_SECRET).toBe('x'.repeat(32));
+  });
+
+  it('rejects a non-URL S3_ENDPOINT, an empty S3 key and a 2-character bucket name (3 passes)', () => {
+    expect(() => loadEnv({ ...valid, S3_ENDPOINT: 'not a url' })).toThrow('S3_ENDPOINT');
+    expect(() => loadEnv({ ...valid, S3_ACCESS_KEY: '' })).toThrow('S3_ACCESS_KEY');
+    expect(() => loadEnv({ ...valid, S3_BUCKET: 'ab' })).toThrow('S3_BUCKET');
+    expect(loadEnv({ ...valid, S3_BUCKET: 'abc' }).S3_BUCKET).toBe('abc');
   });
 
   it('throws when JWT_SECRET is shorter than 32 characters (31 fails, 32 passes)', () => {
@@ -82,6 +99,7 @@ describe('loadEnv', () => {
       ...valid,
       PLATFORM_ADMIN_EMAIL: 'admin@example.com',
       COOKIE_PATH: '/auth',
+      S3_REGION: 'us-east-1',
     });
   });
 });
