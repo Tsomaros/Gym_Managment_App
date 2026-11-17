@@ -18,3 +18,10 @@ Task 5: Ruling: CheckInResult.trainer/cover (first name and id of the trainer, w
 Task 5: Ruling: a trainer cannot cover themselves (400); the cover assign serialises with trainer role removal on the same per-trainer lock — cost: none.
 Task 5: minor (deferred): previousTrainerId in cover.assigned history can be stale under two concurrent first covers for one member and date.
 Task 5: complete (tests: pnpm --filter api test → 448 passed, lint, typecheck clean)
+Task 6: Ruling: the trainer-role warning is its own block (ConfirmDialog `warning` prop) with neutral wording ("οι πελάτες που έχει…") instead of the plan's "Οι πελάτες του…" which assumes a male trainer — cost: none.
+Task 6: Ruling: cancelling a pending invitation has no confirmation step (one tap, announced, focus back on the heading) — the invitation can be sent again — cost: a stray tap cancels an invite.
+Task 6: Ruling: the reception-shift switch saves on its own PATCH at once (not part of the minutes form), one request at a time — cost: none.
+Task 6: complete (tests: pnpm --filter web test → 322 passed incl. Task 7; lint clean)
+Task 7: Ruling: POST /shift-series/:id/end with lastDate before validFrom deletes the series (and its overrides) when it has not produced a past day (validFrom ≥ today), else 400 — plan said 400; needed so "from this day on" works on a series' first day — cost: a series starting today loses today's occurrence even if the shift is in progress.
+Task 7: Ruling: MySchedulePage takes "today" from the device calendar (trainers cannot read the gym settings, which hold the time zone) — cost: a trainer whose device is in another time zone sees the window shifted by a day near midnight.
+Task 7: Ruling: reception's schedule section shows the week schedule, their own shifts and a read-only staff list; the owner's schedule is the week schedule only — cost: none.

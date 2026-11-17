@@ -10,11 +10,13 @@ export function LiveFeed({
   results,
   connected,
   onSell,
+  onCover,
 }: {
   /** Newest first. */
   results: CheckInResult[];
   connected: boolean;
   onSell: (result: CheckInResult) => void;
+  onCover?: (result: CheckInResult) => void;
 }) {
   const { t } = useTranslation();
   const reasonText = useReasonText();
@@ -41,7 +43,7 @@ export function LiveFeed({
       </div>
 
       {latest ? (
-        <CheckInCard result={latest} onSell={onSell} />
+        <CheckInCard result={latest} onSell={onSell} onCover={onCover} />
       ) : (
         <p className="text-slate-700">{t('desk.empty')}</p>
       )}

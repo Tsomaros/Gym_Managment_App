@@ -464,4 +464,51 @@ describe('shifts: series, overrides, schedules, on duty now (gym in Europe/Athen
       'shift_series.ended',
     ]);
   });
+
+  it('ending a series on the day before it starts deletes it with its overrides ("edit from the first day")', async () => {
+    await person('tedit', ['trainer']);
+    clock.current = at('2027-05-03', '10:00'); // Monday
+    const starting = (
+      (await newSeries('owner', { staffId: id.tedit, validFrom: '2027-05-03' }).expect(201)).body as {
+        id: string;
+      }
+    ).id;
+    await req('put', `/shift-series/${starting}/occurrences/2027-05-10`, 'owner')
+      .send({ startsAt: '10:00', endsAt: '12:00' })
+      .expect(200);
+    // it starts today: its first occurrence is not past, so "from today on" removes the whole series
+    await req('post', `/shift-series/${starting}/end`, 'owner')
+      .send({ lastDate: '2027-05-02' })
+      .expect(204);
+    expect(await mine('tedit', '2027-05-01', '2027-05-31')).toEqual([]);
+    expect(await systemDb.select().from(shiftSeries).where(eq(shiftSeries.id, starting))).toEqual(
+      [],
+    );
+    expect(await systemDb.select().from(shifts).where(eq(shifts.seriesId, starting))).toEqual([]);
+    await req('post', `/shift-series/${starting}/end`, 'owner')
+      .send({ lastDate: '2027-05-02' })
+      .expect(404);
+
+    // a series that has already run cannot be deleted this way
+    const [old] = await systemDb
+      .insert(shiftSeries)
+      .values({
+        gymId,
+        staffId: id.tedit!,
+        weekday: 2,
+        startsAt: '06:00',
+        endsAt: '14:00',
+        validFrom: '2027-04-27',
+      })
+      .returning({ id: shiftSeries.id });
+    await req('post', `/shift-series/${old!.id}/end`, 'owner')
+      .send({ lastDate: '2027-04-26' })
+      .expect(400);
+    const history = await systemDb
+      .select()
+      .from(auditLog)
+      .where(and(eq(auditLog.entityId, starting), eq(auditLog.action, 'shift_series.ended')));
+    expect(history).toHaveLength(1);
+    expect(history[0]!.data).toMatchObject({ deleted: true });
+  });
 });

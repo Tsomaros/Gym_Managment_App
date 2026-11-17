@@ -3,6 +3,8 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useParams } from 'react-router';
 import { apiFetch } from '../../api/client';
+import { CoverDialog } from '../trainers/CoverDialog';
+import { OnDutyPanel } from '../schedule/OnDutyPanel';
 import { SellMembershipDialog } from '../members/SellMembershipDialog';
 import { LiveFeed } from './LiveFeed';
 import { ManualCheckIn } from './ManualCheckIn';
@@ -59,6 +61,7 @@ export function DeskPage({ reloadMs = RELOAD_MS }: { reloadMs?: number } = {}) {
   const [failed, setFailed] = useState(false);
   const [tab, setTab] = useState<'present' | 'today'>('present');
   const [selling, setSelling] = useState<CheckInResult | null>(null);
+  const [covering, setCovering] = useState<CheckInResult | null>(null);
 
   const load = useCallback(() => {
     setFailed(false);
@@ -182,8 +185,10 @@ export function DeskPage({ reloadMs = RELOAD_MS }: { reloadMs?: number } = {}) {
         </div>
       )}
 
+      <OnDutyPanel />
+
       <div className="grid gap-6 xl:grid-cols-2">
-        <LiveFeed results={feed} connected={connected} onSell={setSelling} />
+        <LiveFeed results={feed} connected={connected} onSell={setSelling} onCover={setCovering} />
         <div className="flex flex-col gap-4">
           <div role="group" aria-label={t('desk.views')} className="flex gap-2">
             <button
@@ -217,6 +222,20 @@ export function DeskPage({ reloadMs = RELOAD_MS }: { reloadMs?: number } = {}) {
         </div>
       </div>
 
+      {covering && (
+        <CoverDialog
+          gymId={gymId}
+          memberId={covering.member.id}
+          memberName={`${covering.member.firstName} ${covering.member.lastName}`}
+          primaryTrainerId={covering.trainer?.userId ?? null}
+          onClose={() => setCovering(null)}
+          onDone={(cover) => {
+            const id = covering.checkInId;
+            setFeed((prev) => prev.map((r) => (r.checkInId === id ? { ...r, cover } : r)));
+            setCovering(null);
+          }}
+        />
+      )}
       {selling && (
         <SellMembershipDialog
           gymId={gymId}

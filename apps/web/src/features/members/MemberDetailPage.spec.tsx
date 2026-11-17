@@ -164,4 +164,34 @@ describe('MemberDetailPage', () => {
     const post = fetchMock.mock.calls.find(([, i]) => i?.method === 'POST')!;
     expect(String(post[0])).toBe(`/api/gyms/${GYM}/members/${MEMBER}/check-ins`);
   });
+
+  it('shows the primary trainer, and says in words when the link is paused', async () => {
+    setup(
+      detail({
+        trainer: { userId: 't1', firstName: 'Νίκος', lastName: 'Γυμναστής', paused: true },
+      }),
+    );
+    const section = (await screen.findByRole('heading', { name: 'Γυμναστής' })).closest('section')!;
+    expect(within(section).getByText(/Νίκος Γυμναστής/)).toBeInTheDocument();
+    expect(within(section).getByText('Σε παύση')).toBeInTheDocument();
+    expect(within(section).getByRole('button', { name: 'Αλλαγή γυμναστή' })).toBeInTheDocument();
+  });
+
+  it('shows no pause badge for a running link, and offers to assign when there is none', async () => {
+    setup(
+      detail({
+        trainer: { userId: 't1', firstName: 'Νίκος', lastName: 'Γυμναστής', paused: false },
+      }),
+    );
+    const section = (await screen.findByRole('heading', { name: 'Γυμναστής' })).closest('section')!;
+    expect(within(section).queryByText('Σε παύση')).not.toBeInTheDocument();
+  });
+
+  it('offers to assign a trainer to a member without one, and opens the dialog', async () => {
+    setup(detail({ trainer: null }));
+    const section = (await screen.findByRole('heading', { name: 'Γυμναστής' })).closest('section')!;
+    expect(within(section).getByText('Δεν έχει γυμναστή.')).toBeInTheDocument();
+    await userEvent.click(within(section).getByRole('button', { name: 'Ανάθεση γυμναστή' }));
+    expect(await screen.findByRole('dialog', { name: /Γυμναστής για/ })).toBeInTheDocument();
+  });
 });

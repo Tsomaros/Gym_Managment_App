@@ -13,6 +13,8 @@ export function ConfirmDialog({
   cancelLabel,
   busy,
   busyLabel,
+  error,
+  warning,
   onConfirm,
   onCancel,
 }: {
@@ -23,11 +25,16 @@ export function ConfirmDialog({
   busy?: boolean;
   /** Shown on the confirm button while `busy`. */
   busyLabel?: string;
+  /** A failure to show inside the dialog, announced at once. */
+  error?: string | null;
+  /** A consequence to read before confirming, set apart from the question. */
+  warning?: string;
   onConfirm: () => void;
   onCancel: () => void;
 }) {
   const titleId = useId();
   const messageId = useId();
+  const warningId = useId();
   const cancelRef = useRef<HTMLButtonElement>(null);
   const confirmRef = useRef<HTMLButtonElement>(null);
   // The latest onCancel without re-running the mount effect (callers pass inline arrows).
@@ -60,12 +67,12 @@ export function ConfirmDialog({
 
   return (
     <Modal>
-      <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-900/50 p-4 sm:items-center">
+      <div className="fixed inset-0 z-50 flex items-end justify-center overflow-y-auto bg-slate-900/50 p-4 sm:items-center">
         <div
           role="alertdialog"
           aria-modal="true"
           aria-labelledby={titleId}
-          aria-describedby={messageId}
+          aria-describedby={warning ? `${messageId} ${warningId}` : messageId}
           onKeyDown={trapTab}
           className="w-full max-w-sm rounded-xl bg-white p-6 shadow-xl"
         >
@@ -75,6 +82,20 @@ export function ConfirmDialog({
           <p id={messageId} className="mt-2 break-words text-slate-700">
             {message}
           </p>
+          {warning && (
+            <p
+              id={warningId}
+              className="mt-3 rounded-md border border-red-300 bg-red-50 p-3 text-sm font-medium text-red-900"
+            >
+              <span aria-hidden="true">⚠ </span>
+              {warning}
+            </p>
+          )}
+          {error && (
+            <p role="alert" className="mt-3 text-red-700">
+              {error}
+            </p>
+          )}
           <div className="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
             <button
               ref={cancelRef}

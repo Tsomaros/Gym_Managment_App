@@ -129,4 +129,51 @@ describe('CheckInCard', () => {
     render(<CheckInCard result={checkInResult({ valid: false, reason: 'no_membership' })} />);
     expect(screen.queryByRole('button', { name: 'Πώληση συνδρομής' })).not.toBeInTheDocument();
   });
+
+  it('names the primary trainer and, when they are off shift, says so and offers a cover', async () => {
+    const onCover = vi.fn();
+    const result = checkInResult({
+      trainer: { userId: 't1', firstName: 'Νίκος', onDuty: false },
+      cover: null,
+    });
+    render(<CheckInCard result={result} onCover={onCover} />);
+    expect(screen.getByText('Γυμναστής: Νίκος (εκτός βάρδιας)')).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Ανάθεση αντικαταστάτη' }));
+    expect(onCover).toHaveBeenCalledWith(result);
+  });
+
+  it('shows no cover button while the trainer is on shift, and says who covers once assigned', () => {
+    const { rerender } = render(
+      <CheckInCard
+        result={checkInResult({ trainer: { userId: 't1', firstName: 'Νίκος', onDuty: true } })}
+        onCover={vi.fn()}
+      />,
+    );
+    expect(screen.getByText('Γυμναστής: Νίκος')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Ανάθεση αντικαταστάτη' })).not.toBeInTheDocument();
+
+    rerender(
+      <CheckInCard
+        result={checkInResult({
+          trainer: { userId: 't1', firstName: 'Νίκος', onDuty: false },
+          cover: { trainerId: 't2', firstName: 'Ελένη' },
+        })}
+        onCover={vi.fn()}
+      />,
+    );
+    expect(screen.getByText('Αντικαταστάτης σήμερα: Ελένη')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Ανάθεση αντικαταστάτη' })).not.toBeInTheDocument();
+  });
+
+  it('shows nothing about trainers for a member without one, and no cover button without a handler', () => {
+    const { rerender } = render(<CheckInCard result={checkInResult()} onCover={vi.fn()} />);
+    expect(screen.queryByText(/Γυμναστής:/)).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Ανάθεση αντικαταστάτη' })).not.toBeInTheDocument();
+    rerender(
+      <CheckInCard
+        result={checkInResult({ trainer: { userId: 't1', firstName: 'Νίκος', onDuty: false } })}
+      />,
+    );
+    expect(screen.queryByRole('button', { name: 'Ανάθεση αντικαταστάτη' })).not.toBeInTheDocument();
+  });
 });

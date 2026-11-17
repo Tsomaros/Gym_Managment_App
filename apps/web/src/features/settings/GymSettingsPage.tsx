@@ -16,6 +16,8 @@ export function GymSettingsPage() {
   const { gymId = '' } = useParams();
   const [loaded, setLoaded] = useState<GymSettings | null>(null);
   const [minutes, setMinutes] = useState('');
+  const [shiftsFailed, setShiftsFailed] = useState(false);
+  const [shiftsState, setShiftsState] = useState<'idle' | 'saving' | 'saved'>('idle');
   const [fieldError, setFieldError] = useState<string | null>(null);
   const [state, setState] = useState<'idle' | 'saving' | 'saved' | 'failed' | 'loadFailed'>('idle');
 
@@ -29,6 +31,24 @@ export function GymSettingsPage() {
       .catch(() => setState('loadFailed'));
   }, [gymId]);
   useEffect(load, [load]);
+
+  /** The reception switch saves at once, on its own: it is a yes/no, not part of the minutes form. */
+  async function toggleShifts(allowed: boolean) {
+    if (shiftsState === 'saving') return;
+    setShiftsFailed(false);
+    setShiftsState('saving');
+    try {
+      const updated = await apiFetch<GymSettings>(`/gyms/${gymId}/settings`, {
+        method: 'PATCH',
+        body: JSON.stringify({ receptionCanEditShifts: allowed }),
+      });
+      setLoaded(updated);
+      setShiftsState('saved');
+    } catch {
+      setShiftsFailed(true);
+      setShiftsState('idle');
+    }
+  }
 
   async function save(e: FormEvent) {
     e.preventDefault();
@@ -108,6 +128,34 @@ export function GymSettingsPage() {
             </button>
           </div>
         </form>
+      )}
+      {loaded && (
+        <div className="flex flex-col gap-1">
+          <label className="flex min-h-11 items-center gap-3 font-medium text-slate-900">
+            <input
+              type="checkbox"
+              checked={loaded.receptionCanEditShifts}
+              disabled={shiftsState === 'saving'}
+              onChange={(e) => void toggleShifts(e.target.checked)}
+              aria-describedby="shifts-hint"
+              className="size-5"
+            />
+            {t('settings.receptionShifts')}
+          </label>
+          <p id="shifts-hint" className="text-sm text-slate-600">
+            {t('settings.receptionShiftsHint')}
+          </p>
+          {shiftsState === 'saved' && (
+            <p role="status" className="text-green-800">
+              ✓ {t('settings.saved')}
+            </p>
+          )}
+          {shiftsFailed && (
+            <p role="alert" className="text-red-700">
+              {t('common.genericError')}
+            </p>
+          )}
+        </div>
       )}
     </section>
   );

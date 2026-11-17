@@ -30,10 +30,13 @@ export function useReasonText() {
 export function CheckInCard({
   result,
   onSell,
+  onCover,
 }: {
   result: CheckInResult;
   /** When given, a refusal offers to sell a membership right away. */
   onSell?: (result: CheckInResult) => void;
+  /** When given, a primary trainer who is off shift offers to assign a cover for today. */
+  onCover?: (result: CheckInResult) => void;
 }) {
   const { t, i18n } = useTranslation();
   const reasonText = useReasonText();
@@ -91,6 +94,29 @@ export function CheckInCard({
                 date: formatDate(membership.effectiveEndsOn, i18n.language),
               })}
           </p>
+        </div>
+      )}
+      {result.trainer && (
+        <p className="text-lg text-slate-800">
+          {t(result.trainer.onDuty ? 'trainers.trainerLine' : 'trainers.trainerLineOff', {
+            name: result.trainer.firstName,
+          })}
+        </p>
+      )}
+      {result.cover && (
+        <p className="text-lg font-semibold text-slate-900">
+          {t('trainers.coverLine', { name: result.cover.firstName })}
+        </p>
+      )}
+      {result.trainer && !result.trainer.onDuty && !result.cover && onCover && (
+        <div>
+          <button
+            type="button"
+            onClick={() => onCover(result)}
+            className="min-h-12 rounded-md border border-slate-400 px-5 text-lg font-semibold text-slate-900 hover:bg-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-900"
+          >
+            {t('trainers.assignCover')}
+          </button>
         </div>
       )}
       {result.duplicate && <p className="text-base text-slate-700">{t('desk.duplicate')}</p>}

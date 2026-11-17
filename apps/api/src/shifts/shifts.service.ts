@@ -242,7 +242,22 @@ export class ShiftsService {
       const [s] = await tx.select().from(shiftSeries).where(eq(shiftSeries.id, id)).for('update');
       if (!s) throw new NotFoundException();
       if (lastDate < addDays(today, -1)) throw new BadRequestException('Past days cannot change');
-      if (lastDate < s.validFrom) throw new BadRequestException('Ends before it starts');
+      if (lastDate < s.validFrom) {
+        // "From validFrom on" of a series that has not produced a past day: delete it whole, so a
+        // weekly shift can be changed from its very first day.
+        if (s.validFrom < today) throw new BadRequestException('Ends before it starts');
+        await tx.delete(shifts).where(eq(shifts.seriesId, id));
+        await tx.delete(shiftSeries).where(eq(shiftSeries.id, id));
+        await this.audit.record(tx, {
+          gymId,
+          actorId,
+          action: 'shift_series.ended',
+          entity: 'shift_series',
+          entityId: id,
+          data: { staffId: s.staffId, lastDate, deleted: true },
+        });
+        return;
+      }
       if (s.validUntil !== null && lastDate > s.validUntil) {
         throw new BadRequestException('A series cannot be extended');
       }
