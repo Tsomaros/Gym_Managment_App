@@ -11,7 +11,7 @@ export function useTestDatabase(): { appUrl: string; systemUrl: string; migrator
 
   const toTestDb = (key: string): string => {
     const value = process.env[key];
-    if (!value) throw new Error(`${key} must be set (copy .env.example to .env)`);
+    if (!value) throw new Error(`${key} must be set (see the .env keys in PROGRESS.md)`);
     const url = new URL(value);
     url.pathname = '/gym_test';
     process.env[key] = url.toString();

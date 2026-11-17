@@ -6,7 +6,7 @@ if (existsSync('.env')) process.loadEnvFile('.env');
 const toTestDb = (value: string | undefined): string => {
   if (!value)
     throw new Error(
-      'DATABASE_URL, DATABASE_SYSTEM_URL and DATABASE_MIGRATOR_URL must be set (see .env.example)',
+      'DATABASE_URL, DATABASE_SYSTEM_URL and DATABASE_MIGRATOR_URL must be set (see .env keys in PROGRESS.md)',
     );
   const url = new URL(value);
   url.pathname = '/gym_test';

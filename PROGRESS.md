@@ -20,8 +20,10 @@
 - 2026-11-15: phase 0–1 merged into `main` (merge f29a541); lint, typecheck, 152 unit/integration tests and the e2e pass on the merged result. Next: plan Phase 2 (memberships, payments, check-in) after deciding the open questions below. Decisions and rulings: `docs/superpowers/plans/2026-11-15-phase0-1-foundation.ledger.md`.
 
 ## Local setup (Windows PC)
-- **Existing local DB volumes need the `gym_system` role before migration 0002**: either `docker compose down -v && docker compose up -d --wait` (wipes dev data), or create it in place: `docker compose exec postgres psql -U postgres -c "CREATE ROLE gym_system LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE BYPASSRLS PASSWORD '<GYM_SYSTEM_PASSWORD>'"`, then `pnpm --filter api db:migrate`. `.env` needs `GYM_SYSTEM_PASSWORD` and `DATABASE_SYSTEM_URL` (see `.env.example`). Done on this PC 2026-11-16.
-- Copy `.env.example` to `.env` and set real passwords (the local `.env` already exists, with random values).
+- **Existing local DB volumes need the `gym_system` role before migration 0002**: either `docker compose down -v && docker compose up -d --wait` (wipes dev data), or create it in place: `docker compose exec postgres psql -U postgres -c "CREATE ROLE gym_system LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE BYPASSRLS PASSWORD '<GYM_SYSTEM_PASSWORD>'"`, then `pnpm --filter api db:migrate`. `.env` needs `GYM_SYSTEM_PASSWORD` and `DATABASE_SYSTEM_URL`. Done on this PC 2026-11-16.
+- `.env` (git-ignored, never committed; the local one already exists with random values) needs these keys. No `.env.example` is kept in git (decided 2026-11-17).
+  - Docker (read by `docker-compose.yml`): `POSTGRES_PORT` (5433), `POSTGRES_PASSWORD`, `GYM_OWNER_PASSWORD`, `GYM_APP_PASSWORD`, `GYM_SYSTEM_PASSWORD`, `MINIO_ROOT_USER`, `MINIO_ROOT_PASSWORD`.
+  - API (validated by `apps/api/src/config/env.ts`): `DATABASE_URL` (role gym_app), `DATABASE_SYSTEM_URL` (gym_system), `DATABASE_MIGRATOR_URL` (gym_owner), `JWT_SECRET` (32+ random characters), `WEB_ORIGIN` (http://localhost:5173), `SMTP_URL` (smtp://localhost:1025), `PLATFORM_ADMIN_EMAIL`, `PLATFORM_ADMIN_PASSWORD`, `COOKIE_PATH` (optional, default /auth).
 - `docker compose up -d --wait`. Postgres listens on host port **5433** (5432 belongs to another project). Mailpit: http://localhost:8025, MinIO console: http://localhost:9001.
 - MinIO image is `cgr.dev/chainguard/minio` (MinIO no longer publishes free images on Docker Hub).
 - If you edit `docker/postgres/init.sql`: `docker compose down -v && docker compose up -d --wait`.

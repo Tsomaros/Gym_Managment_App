@@ -27,7 +27,7 @@ A gym management app for a new gym opening around May 2027, built so other gyms 
 - Timestamps are `timestamptz` in UTC; anything "per day" uses the gym's `timezone` (default `Europe/Athens`).
 - Every visible string goes through i18next, with Greek (`el`, default) and English (`en`).
 - Personal and health data (measurements, photos) need explicit consent and are served only through signed, expiring links (GDPR).
-- Secrets (`JWT_SECRET`, SMTP, DB passwords) come from `.env`, never git. `.env.example` lists every key.
+- Secrets (`JWT_SECRET`, SMTP, DB passwords) come from `.env`, never git (`.env` and `.env.example` are both git-ignored). The keys are defined in `apps/api/src/config/env.ts` (API) and `docker-compose.yml` (Docker services); the list is in `PROGRESS.md` under Local setup.
 - Tests run offline. API integration tests use the `gym_test` database from Docker.
 
 ## Working from two places
