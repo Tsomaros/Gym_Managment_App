@@ -270,6 +270,20 @@ describe('DeskPage', () => {
     expect(within(insideList()).queryByText('Νίκος Αλεξίου')).not.toBeInTheDocument();
   });
 
+  it('asks again every so often, because who is inside changes with the clock, not only with events', async () => {
+    render(
+      <MemoryRouter initialEntries={[`/g/${GYM}`]}>
+        <Routes>
+          <Route path="/g/:gymId" element={<DeskPage reloadMs={80} />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+    await screen.findByText('Νίκος Αλεξίου', { selector: 'li *' });
+    present = []; // by now the auto check-out has let him go
+    await waitFor(() => expect(calls('/check-ins/present').length).toBeGreaterThanOrEqual(2));
+    await within(insideList()).findByText('Δεν υπάρχει κανείς μέσα.');
+  });
+
   it('shows an error with a retry when the lists cannot be loaded', async () => {
     fetchMock.mockImplementation(async (input) =>
       String(input).endsWith('/settings') ? json(200, SETTINGS) : json(500, {}),

@@ -353,6 +353,7 @@ describe('check-in (gym in Europe/Athens)', () => {
         membership: { id: m.membership!.id },
       });
       expect(body.checkInId).toEqual(expect.any(String));
+      expect(body.membership).not.toHaveProperty('priceCents');
       expect(await visitsUsed(m.membership!.id)).toBe(1);
 
       const [row] = await rowsOf(m.id);

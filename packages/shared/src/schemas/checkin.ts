@@ -37,6 +37,9 @@ export interface CheckInTokenResponse {
 export const KioskCheckInSchema = z.object({ token: z.string().max(1000) });
 export type KioskCheckIn = z.infer<typeof KioskCheckInSchema>;
 
+/** The membership as the live screens see it: no price (trainers get the stream too). */
+export type CheckInMembership = Omit<Membership, 'priceCents'>;
+
 /** What reception sees for one check-in attempt, valid or not. */
 export interface CheckInResult {
   /** Null only when nothing was recorded. */
@@ -48,7 +51,7 @@ export interface CheckInResult {
   method: 'kiosk' | 'manual';
   member: { id: string; firstName: string; lastName: string; photoUrl: string | null };
   /** The membership used, or for a refusal the one that explains it. */
-  membership: Membership | null;
+  membership: CheckInMembership | null;
   at: string;
 }
 

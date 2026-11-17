@@ -56,12 +56,8 @@
           "name": "gym_roles_gym_id_gyms_id_fk",
           "tableFrom": "gym_roles",
           "tableTo": "gyms",
-          "columnsFrom": [
-            "gym_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["gym_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -69,12 +65,8 @@
           "name": "gym_roles_user_id_users_id_fk",
           "tableFrom": "gym_roles",
           "tableTo": "users",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -82,11 +74,7 @@
       "compositePrimaryKeys": {
         "gym_roles_gym_id_user_id_role_pk": {
           "name": "gym_roles_gym_id_user_id_role_pk",
-          "columns": [
-            "gym_id",
-            "user_id",
-            "role"
-          ]
+          "columns": ["gym_id", "user_id", "role"]
         }
       },
       "uniqueConstraints": {},
@@ -268,12 +256,8 @@
           "name": "invitations_gym_id_gyms_id_fk",
           "tableFrom": "invitations",
           "tableTo": "gyms",
-          "columnsFrom": [
-            "gym_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["gym_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -281,12 +265,8 @@
           "name": "invitations_invited_by_users_id_fk",
           "tableFrom": "invitations",
           "tableTo": "users",
-          "columnsFrom": [
-            "invited_by"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["invited_by"],
+          "columnsTo": ["id"],
           "onDelete": "set null",
           "onUpdate": "no action"
         }
@@ -296,9 +276,7 @@
         "invitations_token_hash_unique": {
           "name": "invitations_token_hash_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "token_hash"
-          ]
+          "columns": ["token_hash"]
         }
       },
       "policies": {},
@@ -406,12 +384,8 @@
           "name": "refresh_tokens_user_id_users_id_fk",
           "tableFrom": "refresh_tokens",
           "tableTo": "users",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -419,12 +393,8 @@
           "name": "refresh_tokens_replaced_by_refresh_tokens_id_fk",
           "tableFrom": "refresh_tokens",
           "tableTo": "refresh_tokens",
-          "columnsFrom": [
-            "replaced_by"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["replaced_by"],
+          "columnsTo": ["id"],
           "onDelete": "set null",
           "onUpdate": "no action"
         }
@@ -434,9 +404,7 @@
         "refresh_tokens_token_hash_unique": {
           "name": "refresh_tokens_token_hash_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "token_hash"
-          ]
+          "columns": ["token_hash"]
         }
       },
       "policies": {},
@@ -547,9 +515,7 @@
         "users_email_unique": {
           "name": "users_email_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "email"
-          ]
+          "columns": ["email"]
         }
       },
       "policies": {},
@@ -630,12 +596,8 @@
           "name": "email_verifications_user_id_users_id_fk",
           "tableFrom": "email_verifications",
           "tableTo": "users",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -645,9 +607,7 @@
         "email_verifications_token_hash_unique": {
           "name": "email_verifications_token_hash_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "token_hash"
-          ]
+          "columns": ["token_hash"]
         }
       },
       "policies": {},
@@ -737,12 +697,8 @@
           "name": "signup_codes_gym_id_gyms_id_fk",
           "tableFrom": "signup_codes",
           "tableTo": "gyms",
-          "columnsFrom": [
-            "gym_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["gym_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -750,12 +706,8 @@
           "name": "signup_codes_used_by_users_id_fk",
           "tableFrom": "signup_codes",
           "tableTo": "users",
-          "columnsFrom": [
-            "used_by"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["used_by"],
+          "columnsTo": ["id"],
           "onDelete": "set null",
           "onUpdate": "no action"
         },
@@ -763,12 +715,8 @@
           "name": "signup_codes_created_by_users_id_fk",
           "tableFrom": "signup_codes",
           "tableTo": "users",
-          "columnsFrom": [
-            "created_by"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["created_by"],
+          "columnsTo": ["id"],
           "onDelete": "set null",
           "onUpdate": "no action"
         }
@@ -778,9 +726,7 @@
         "signup_codes_code_hash_unique": {
           "name": "signup_codes_code_hash_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "code_hash"
-          ]
+          "columns": ["code_hash"]
         }
       },
       "policies": {},
@@ -903,12 +849,8 @@
           "name": "audit_log_gym_id_gyms_id_fk",
           "tableFrom": "audit_log",
           "tableTo": "gyms",
-          "columnsFrom": [
-            "gym_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["gym_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -916,12 +858,8 @@
           "name": "audit_log_actor_id_users_id_fk",
           "tableFrom": "audit_log",
           "tableTo": "users",
-          "columnsFrom": [
-            "actor_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["actor_id"],
+          "columnsTo": ["id"],
           "onDelete": "set null",
           "onUpdate": "no action"
         }
@@ -1048,12 +986,8 @@
           "name": "membership_types_gym_id_gyms_id_fk",
           "tableFrom": "membership_types",
           "tableTo": "gyms",
-          "columnsFrom": [
-            "gym_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["gym_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -1063,10 +997,7 @@
         "membership_types_id_gym_id_uq": {
           "name": "membership_types_id_gym_id_uq",
           "nullsNotDistinct": false,
-          "columns": [
-            "id",
-            "gym_id"
-          ]
+          "columns": ["id", "gym_id"]
         }
       },
       "policies": {},
@@ -1249,12 +1180,8 @@
           "name": "memberships_gym_id_gyms_id_fk",
           "tableFrom": "memberships",
           "tableTo": "gyms",
-          "columnsFrom": [
-            "gym_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["gym_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -1262,12 +1189,8 @@
           "name": "memberships_member_id_users_id_fk",
           "tableFrom": "memberships",
           "tableTo": "users",
-          "columnsFrom": [
-            "member_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["member_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -1275,12 +1198,8 @@
           "name": "memberships_created_by_users_id_fk",
           "tableFrom": "memberships",
           "tableTo": "users",
-          "columnsFrom": [
-            "created_by"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["created_by"],
+          "columnsTo": ["id"],
           "onDelete": "set null",
           "onUpdate": "no action"
         },
@@ -1288,14 +1207,8 @@
           "name": "memberships_type_same_gym_fk",
           "tableFrom": "memberships",
           "tableTo": "membership_types",
-          "columnsFrom": [
-            "type_id",
-            "gym_id"
-          ],
-          "columnsTo": [
-            "id",
-            "gym_id"
-          ],
+          "columnsFrom": ["type_id", "gym_id"],
+          "columnsTo": ["id", "gym_id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -1305,10 +1218,7 @@
         "memberships_id_gym_id_uq": {
           "name": "memberships_id_gym_id_uq",
           "nullsNotDistinct": false,
-          "columns": [
-            "id",
-            "gym_id"
-          ]
+          "columns": ["id", "gym_id"]
         }
       },
       "policies": {},
@@ -1479,12 +1389,8 @@
           "name": "payments_gym_id_gyms_id_fk",
           "tableFrom": "payments",
           "tableTo": "gyms",
-          "columnsFrom": [
-            "gym_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["gym_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -1492,12 +1398,8 @@
           "name": "payments_member_id_users_id_fk",
           "tableFrom": "payments",
           "tableTo": "users",
-          "columnsFrom": [
-            "member_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["member_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -1505,12 +1407,8 @@
           "name": "payments_recorded_by_users_id_fk",
           "tableFrom": "payments",
           "tableTo": "users",
-          "columnsFrom": [
-            "recorded_by"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["recorded_by"],
+          "columnsTo": ["id"],
           "onDelete": "set null",
           "onUpdate": "no action"
         },
@@ -1518,12 +1416,8 @@
           "name": "payments_voided_by_users_id_fk",
           "tableFrom": "payments",
           "tableTo": "users",
-          "columnsFrom": [
-            "voided_by"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["voided_by"],
+          "columnsTo": ["id"],
           "onDelete": "set null",
           "onUpdate": "no action"
         },
@@ -1531,14 +1425,8 @@
           "name": "payments_membership_same_gym_fk",
           "tableFrom": "payments",
           "tableTo": "memberships",
-          "columnsFrom": [
-            "membership_id",
-            "gym_id"
-          ],
-          "columnsTo": [
-            "id",
-            "gym_id"
-          ],
+          "columnsFrom": ["membership_id", "gym_id"],
+          "columnsTo": ["id", "gym_id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -1654,12 +1542,8 @@
           "name": "membership_freezes_gym_id_gyms_id_fk",
           "tableFrom": "membership_freezes",
           "tableTo": "gyms",
-          "columnsFrom": [
-            "gym_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["gym_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -1667,12 +1551,8 @@
           "name": "membership_freezes_created_by_users_id_fk",
           "tableFrom": "membership_freezes",
           "tableTo": "users",
-          "columnsFrom": [
-            "created_by"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["created_by"],
+          "columnsTo": ["id"],
           "onDelete": "set null",
           "onUpdate": "no action"
         },
@@ -1680,14 +1560,8 @@
           "name": "membership_freezes_membership_same_gym_fk",
           "tableFrom": "membership_freezes",
           "tableTo": "memberships",
-          "columnsFrom": [
-            "membership_id",
-            "gym_id"
-          ],
-          "columnsTo": [
-            "id",
-            "gym_id"
-          ],
+          "columnsFrom": ["membership_id", "gym_id"],
+          "columnsTo": ["id", "gym_id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -1780,12 +1654,8 @@
           "name": "devices_gym_id_gyms_id_fk",
           "tableFrom": "devices",
           "tableTo": "gyms",
-          "columnsFrom": [
-            "gym_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["gym_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -1793,12 +1663,8 @@
           "name": "devices_created_by_users_id_fk",
           "tableFrom": "devices",
           "tableTo": "users",
-          "columnsFrom": [
-            "created_by"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["created_by"],
+          "columnsTo": ["id"],
           "onDelete": "set null",
           "onUpdate": "no action"
         }
@@ -1808,17 +1674,12 @@
         "devices_token_hash_unique": {
           "name": "devices_token_hash_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "token_hash"
-          ]
+          "columns": ["token_hash"]
         },
         "devices_id_gym_id_uq": {
           "name": "devices_id_gym_id_uq",
           "nullsNotDistinct": false,
-          "columns": [
-            "id",
-            "gym_id"
-          ]
+          "columns": ["id", "gym_id"]
         }
       },
       "policies": {},
@@ -1902,12 +1763,8 @@
           "name": "device_pairing_codes_gym_id_gyms_id_fk",
           "tableFrom": "device_pairing_codes",
           "tableTo": "gyms",
-          "columnsFrom": [
-            "gym_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["gym_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -1915,12 +1772,8 @@
           "name": "device_pairing_codes_created_by_users_id_fk",
           "tableFrom": "device_pairing_codes",
           "tableTo": "users",
-          "columnsFrom": [
-            "created_by"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["created_by"],
+          "columnsTo": ["id"],
           "onDelete": "set null",
           "onUpdate": "no action"
         }
@@ -1930,9 +1783,7 @@
         "device_pairing_codes_code_hash_unique": {
           "name": "device_pairing_codes_code_hash_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "code_hash"
-          ]
+          "columns": ["code_hash"]
         }
       },
       "policies": {},
@@ -2080,12 +1931,8 @@
           "name": "check_ins_gym_id_gyms_id_fk",
           "tableFrom": "check_ins",
           "tableTo": "gyms",
-          "columnsFrom": [
-            "gym_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["gym_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -2093,12 +1940,8 @@
           "name": "check_ins_member_id_users_id_fk",
           "tableFrom": "check_ins",
           "tableTo": "users",
-          "columnsFrom": [
-            "member_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["member_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -2106,12 +1949,8 @@
           "name": "check_ins_by_user_id_users_id_fk",
           "tableFrom": "check_ins",
           "tableTo": "users",
-          "columnsFrom": [
-            "by_user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["by_user_id"],
+          "columnsTo": ["id"],
           "onDelete": "set null",
           "onUpdate": "no action"
         },
@@ -2119,12 +1958,8 @@
           "name": "check_ins_checked_out_by_users_id_fk",
           "tableFrom": "check_ins",
           "tableTo": "users",
-          "columnsFrom": [
-            "checked_out_by"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["checked_out_by"],
+          "columnsTo": ["id"],
           "onDelete": "set null",
           "onUpdate": "no action"
         },
@@ -2132,14 +1967,8 @@
           "name": "check_ins_device_same_gym_fk",
           "tableFrom": "check_ins",
           "tableTo": "devices",
-          "columnsFrom": [
-            "device_id",
-            "gym_id"
-          ],
-          "columnsTo": [
-            "id",
-            "gym_id"
-          ],
+          "columnsFrom": ["device_id", "gym_id"],
+          "columnsTo": ["id", "gym_id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -2147,14 +1976,8 @@
           "name": "check_ins_membership_same_gym_fk",
           "tableFrom": "check_ins",
           "tableTo": "memberships",
-          "columnsFrom": [
-            "membership_id",
-            "gym_id"
-          ],
-          "columnsTo": [
-            "id",
-            "gym_id"
-          ],
+          "columnsFrom": ["membership_id", "gym_id"],
+          "columnsTo": ["id", "gym_id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -2224,12 +2047,8 @@
           "name": "member_photos_gym_id_gyms_id_fk",
           "tableFrom": "member_photos",
           "tableTo": "gyms",
-          "columnsFrom": [
-            "gym_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["gym_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -2237,12 +2056,8 @@
           "name": "member_photos_member_id_users_id_fk",
           "tableFrom": "member_photos",
           "tableTo": "users",
-          "columnsFrom": [
-            "member_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["member_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -2250,12 +2065,8 @@
           "name": "member_photos_updated_by_users_id_fk",
           "tableFrom": "member_photos",
           "tableTo": "users",
-          "columnsFrom": [
-            "updated_by"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["updated_by"],
+          "columnsTo": ["id"],
           "onDelete": "set null",
           "onUpdate": "no action"
         }
@@ -2263,10 +2074,7 @@
       "compositePrimaryKeys": {
         "member_photos_gym_id_member_id_pk": {
           "name": "member_photos_gym_id_member_id_pk",
-          "columns": [
-            "gym_id",
-            "member_id"
-          ]
+          "columns": ["gym_id", "member_id"]
         }
       },
       "uniqueConstraints": {},

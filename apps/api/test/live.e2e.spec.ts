@@ -231,7 +231,12 @@ describe('live check-in stream', () => {
     expect(got?.event).toBe('check_in');
     expect(got?.data).toMatchObject({
       type: 'check_in',
-      result: { checkInId: result.checkInId, method: 'manual', valid: true, member: { firstName: 'giorgos' } },
+      result: {
+        checkInId: result.checkInId,
+        method: 'manual',
+        valid: true,
+        member: { firstName: 'giorgos' },
+      },
     });
   });
 
@@ -239,7 +244,12 @@ describe('live check-in stream', () => {
     const s = await stream(gymA, await ticket(gymA, trainerA));
     clock.advance(10 * 60_000);
     const result = (await manual(gymA, recA, memberA).expect(201)).body as CheckInResult;
-    expect((await s.next())?.event).toBe('check_in');
+    const first = await s.next();
+    expect(first?.event).toBe('check_in');
+    // a trainer sees who came in, not what they paid
+    const shown = (first!.data as { result: CheckInResult }).result.membership;
+    expect(shown).not.toBeNull();
+    expect(shown).not.toHaveProperty('priceCents');
     await request(server())
       .post(`/gyms/${gymA}/check-ins/${result.checkInId}/check-out`)
       .auth(recA, { type: 'bearer' })

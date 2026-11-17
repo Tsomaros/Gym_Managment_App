@@ -46,7 +46,10 @@ const visitorFrom = (r: CheckInResult): VisitorRow => ({
  * clear red warning when it is not valid, who is inside, today's visitors, and a box to check
  * someone in by name. The lists are loaded once; after that the live stream updates them.
  */
-export function DeskPage() {
+/** The lists are asked for again this often: who is inside also changes with the clock. */
+const RELOAD_MS = 60_000;
+
+export function DeskPage({ reloadMs = RELOAD_MS }: { reloadMs?: number } = {}) {
   const { t } = useTranslation();
   const { gymId = '' } = useParams();
   const [feed, setFeed] = useState<CheckInResult[]>([]);
@@ -73,6 +76,11 @@ export function DeskPage() {
       .catch(() => setFailed(true));
   }, [gymId]);
   useEffect(load, [load]);
+  // Auto check-out and the gym's midnight move people out of "inside now" without any event.
+  useEffect(() => {
+    const timer = setInterval(load, reloadMs);
+    return () => clearInterval(timer);
+  }, [load, reloadMs]);
 
   /**
    * One check-in, from the stream or from the box. The stream and the box can both deliver the

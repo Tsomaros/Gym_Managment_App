@@ -1,6 +1,7 @@
 import {
   Controller,
   Get,
+  Inject,
   Param,
   ParseUUIDPipe,
   Post,
@@ -19,12 +20,21 @@ import { LiveTickets } from './live-tickets';
 
 const PING_MS = 25_000;
 
+/**
+ * How long one stream stays open. The role is only checked when the ticket is issued, so a stream
+ * must end now and then: the client asks for a new ticket, which checks the role again, and a
+ * staff member who was removed stops receiving names within this time.
+ */
+export const LIVE_STREAM_MAX_MS = 'LIVE_STREAM_MAX_MS';
+export const DEFAULT_LIVE_STREAM_MAX_MS = 15 * 60_000;
+
 /** Server-Sent Events for reception and trainers: each check-in and check-out as it happens. */
 @Controller('gyms/:gymId/live')
 export class LiveController {
   constructor(
     private readonly tickets: LiveTickets,
     private readonly events: CheckInEvents,
+    @Inject(LIVE_STREAM_MAX_MS) private readonly maxAgeMs: number,
   ) {}
 
   @Post('tickets')
@@ -65,9 +75,12 @@ export class LiveController {
     });
     const ping = setInterval(() => res.write(': ping\n\n'), PING_MS);
     ping.unref();
+    const maxAge = setTimeout(() => res.end(), this.maxAgeMs);
+    maxAge.unref();
     // res, not req: it fires when the connection ends or drops, whatever the Node version
     res.on('close', () => {
       clearInterval(ping);
+      clearTimeout(maxAge);
       unsubscribe();
     });
   }

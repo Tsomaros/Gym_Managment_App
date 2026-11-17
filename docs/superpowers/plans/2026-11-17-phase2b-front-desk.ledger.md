@@ -30,3 +30,17 @@ Task 8: Ruling: CheckInResult gained `method` (kiosk|manual) so the desk can add
 Task 8: Ruling: reception home is the desk (nav checkIn first); owner gets it as the "checkIn" section; trainers have no desk UI yet (API ready) — cost: none.
 Task 8: minor (deferred): a refused card is replaced on the big card by the next check-in (it stays in the previous list); check-in results are not announced to screen readers; DevicesPage still formats times in the browser time zone.
 Task 8: Step 5 (manual check on real devices) NOT done by the agent — needs the user (kiosk on tablet/Android phone via /kiosk through the tunnel, member on iPhone).
+Task 8: complete (commits 8610c6d..441a4f3, tests: pnpm -r test → apps/web test: Done)
+Final: fixed desk lists never aging out (auto check-out, gym midnight) — DeskPage 'asks again every so often' RED→GREEN (reload every 60 s), suite 60/387/266 + 4 e2e.
+Final: fixed trainers receiving membership prices over the live stream and in check-in results — trainer-stream and manual check-in assertions on priceCents RED→GREEN.
+Final: fixed open live streams outliving a removed role — live-lifetime.e2e RED→GREEN (streams end after 15 min; the client re-tickets, which re-checks the role).
+Final: minor (deferred): QR screen sticks on 'Loading' when the phone clock is >45 s fast (expiry is compared with the device clock; time it from when the answer arrived).
+Final: minor (deferred): kiosk does not retry by itself when the API is unreachable at start-up (offline panel with a Retry button only).
+Final: minor (deferred): visitors list and check-out are reception-only, spec §5/§6.2 would also let trainers see today's visitors and check out — no ledger decision from the owner yet.
+Final: minor (deferred): live-added 'inside' rows show 'active' where a reload may show 'expiring' for a pack with ≤ 2 visits.
+Final: minor (deferred): photo links are signed against S3_ENDPOINT (http://localhost:9000): a desk or phone that cannot reach it directly (cloudflared tunnel, other machine) shows initials instead of photos — needs an S3_PUBLIC_ENDPOINT or a proxy before real use.
+Final: minor (deferred): members list/renewals sign a photo link for every member before the filter and the 100-row cut.
+Final: minor (deferred): env.ts doc comment for COOKIE_PATH now sits above CHECKIN_SECRET.
+Final: minor (deferred): migration 0013 was regenerated; any database that applied the old 0013 (only gym_test did, fixed by hand) must delete its last __drizzle_migrations row and drop check_ins and devices_id_gym_id_uq first. The dev `gym` database has none of 0011–0014 yet.
+Final: Ruling: photo consent — spec §8 asks explicit consent for progress photos, §6.0 plans the optional ID photo taken by reception at the desk; no consent checkbox was added in 2b — cost: if the owner wants consent recorded for ID photos, it is a small addition.
+Final: Ruling: the whole-branch reviewer's 'two devices at once give ok + duplicate' remark — the concurrency test spaces the two attempts 3 minutes apart on purpose; two real scans in the same second give one row and a repeated verdict, which is the intended duplicate rule — cost: none.

@@ -1,5 +1,5 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import type { CheckInReason, CheckInResult, Membership } from '@gym/shared';
+import type { CheckInMembership, CheckInReason, CheckInResult, Membership } from '@gym/shared';
 import { and, desc, eq, isNull, lt, sql } from 'drizzle-orm';
 import { AuditService } from '../audit/audit.service';
 import { Clock } from '../common/clock';
@@ -22,6 +22,13 @@ export interface CheckInInput {
 }
 
 type CheckInRow = typeof checkIns.$inferSelect;
+
+/** What was paid is for the owner and reception; the live stream also reaches trainers. */
+function withoutPrice(m: Membership): CheckInMembership {
+  const rest: Partial<Membership> = { ...m };
+  delete rest.priceCents;
+  return rest as CheckInMembership;
+}
 
 @Injectable()
 export class CheckInService {
@@ -160,7 +167,7 @@ export class CheckInService {
         lastName: member.lastName,
         photoUrl,
       },
-      membership,
+      membership: membership ? withoutPrice(membership) : null,
       at: row.at.toISOString(),
     };
   }
