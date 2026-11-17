@@ -65,7 +65,10 @@ export type ScheduleQuery = z.infer<typeof ScheduleQuerySchema>;
 export const CreateShiftSeriesSchema = z
   .object({
     staffId: z.uuid(),
-    weekday: z.number().int().refine((n): n is Weekday => (WEEKDAYS as readonly number[]).includes(n)),
+    weekday: z
+      .number()
+      .int()
+      .refine((n): n is Weekday => (WEEKDAYS as readonly number[]).includes(n)),
     startsAt: shiftTimeSchema,
     endsAt: shiftTimeSchema,
     validFrom: isoDateSchema,
@@ -110,7 +113,10 @@ export const OccurrenceSchema = z.union([
   z
     .object({ startsAt: shiftTimeSchema, endsAt: shiftTimeSchema, note: noteSchema })
     .strict()
-    .refine((s) => s.endsAt > s.startsAt, { message: 'Must end after it starts', path: ['endsAt'] }),
+    .refine((s) => s.endsAt > s.startsAt, {
+      message: 'Must end after it starts',
+      path: ['endsAt'],
+    }),
 ]);
 export type Occurrence = z.infer<typeof OccurrenceSchema>;
 

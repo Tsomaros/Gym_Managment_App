@@ -14,3 +14,7 @@ export * from './devices';
 export * from './device-pairing-codes';
 export * from './check-ins';
 export * from './member-photos';
+export * from './shift-series';
+export * from './shifts';
+export * from './member-trainers';
+export * from './trainer-covers';

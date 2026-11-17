@@ -62,7 +62,11 @@ describe('expandShifts', () => {
 
   it('replaces one occurrence with an override and drops a cancelled one', () => {
     const s = series({ id: 'a', validFrom: '2027-05-03' });
-    const moved = expandShifts([s], [row({ id: 'r1', date: '2027-05-10', seriesId: 'a' })], ...range);
+    const moved = expandShifts(
+      [s],
+      [row({ id: 'r1', date: '2027-05-10', seriesId: 'a' })],
+      ...range,
+    );
     expect(brief(moved)).toEqual(['2027-05-03 06:00-14:00', '2027-05-10 10:00-18:00']);
     expect(moved[1]!.shiftId).toBe('r1');
     expect(moved[0]!.shiftId).toBeNull();

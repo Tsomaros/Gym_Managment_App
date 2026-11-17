@@ -33,6 +33,7 @@ const detail = (over: Partial<MemberDetail> = {}): MemberDetail => ({
   memberships: [membership()],
   payments: [],
   freezes: [],
+  trainer: null,
   ...over,
 });
 

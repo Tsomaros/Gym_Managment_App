@@ -11,10 +11,14 @@ import {
   gyms,
   invitations,
   memberPhotos,
+  memberTrainers,
   membershipFreezes,
   memberships,
   membershipTypes,
   payments,
+  shiftSeries,
+  trainerCovers,
+  shifts,
   signupCodes,
   users,
 } from '../../src/db/schema';
@@ -1077,5 +1081,530 @@ describe('row-level security and privileges: member_photos', () => {
         .returning({ id: memberPhotos.memberId }),
     );
     expect(removed).toHaveLength(1);
+  });
+});
+
+describe('row-level security and privileges: shift_series and shifts', () => {
+  const run = randomUUID().slice(0, 8);
+  let gymA: string;
+  let gymB: string;
+  let staffA: string;
+  let staffB: string;
+  let seriesA: string;
+  let seriesB: string;
+  let shiftB: string;
+  let shiftA: string;
+
+  beforeAll(async () => {
+    const g = await systemDb
+      .insert(gyms)
+      .values([{ name: `Shift A ${run}` }, { name: `Shift B ${run}` }])
+      .returning({ id: gyms.id });
+    gymA = g[0]!.id;
+    gymB = g[1]!.id;
+    const u = await systemDb
+      .insert(users)
+      .values([
+        { email: `sa-${run}@x.gr`, firstName: 'A', lastName: 'A' },
+        { email: `sb-${run}@x.gr`, firstName: 'B', lastName: 'B' },
+      ])
+      .returning({ id: users.id });
+    staffA = u[0]!.id;
+    staffB = u[1]!.id;
+    const series = await systemDb
+      .insert(shiftSeries)
+      .values([
+        {
+          gymId: gymA,
+          staffId: staffA,
+          weekday: 1,
+          startsAt: '06:00',
+          endsAt: '14:00',
+          validFrom: '2027-05-03',
+        },
+        {
+          gymId: gymB,
+          staffId: staffB,
+          weekday: 1,
+          startsAt: '06:00',
+          endsAt: '14:00',
+          validFrom: '2027-05-03',
+        },
+      ])
+      .returning({ id: shiftSeries.id });
+    seriesA = series[0]!.id;
+    seriesB = series[1]!.id;
+    const s = await systemDb
+      .insert(shifts)
+      .values([
+        { gymId: gymB, staffId: staffB, date: '2027-05-05', startsAt: '09:00', endsAt: '12:00' },
+        { gymId: gymA, staffId: staffA, date: '2027-05-05', startsAt: '09:00', endsAt: '12:00' },
+      ])
+      .returning({ id: shifts.id });
+    shiftB = s[0]!.id;
+    shiftA = s[1]!.id;
+  });
+
+  afterAll(async () => {
+    const gymIds = [gymA, gymB].filter(Boolean);
+    if (gymIds.length) {
+      await systemDb.delete(shifts).where(inArray(shifts.gymId, gymIds));
+      await systemDb.delete(shiftSeries).where(inArray(shiftSeries.gymId, gymIds));
+      await systemDb.delete(gyms).where(inArray(gyms.id, gymIds));
+    }
+    await systemDb.delete(users).where(inArray(users.id, [staffA, staffB].filter(Boolean)));
+  });
+
+  it('withGym(A) sees only gym A series and shifts; without a gym nothing is visible', async () => {
+    expect(
+      (await withGym(gymA, (tx) => tx.select().from(shiftSeries))).map((r) => r.gymId),
+    ).toEqual([gymA]);
+    expect((await withGym(gymA, (tx) => tx.select().from(shifts))).map((r) => r.id)).toEqual([
+      shiftA,
+    ]);
+    // and the same from gym B's side
+    expect((await withGym(gymB, (tx) => tx.select().from(shiftSeries))).map((r) => r.id)).toEqual([
+      seriesB,
+    ]);
+    expect((await withGym(gymB, (tx) => tx.select().from(shifts))).map((r) => r.id)).toEqual([
+      shiftB,
+    ]);
+    expect(await db.select().from(shiftSeries)).toEqual([]);
+    expect(await db.select().from(shifts)).toEqual([]);
+  });
+
+  it('with no gym set, inserting is refused too', async () => {
+    expect(
+      await rejectionMessage(
+        db.insert(shiftSeries).values({
+          gymId: gymA,
+          staffId: staffA,
+          weekday: 3,
+          startsAt: '06:00',
+          endsAt: '07:00',
+          validFrom: '2027-05-05',
+        }),
+      ),
+    ).toMatch(RLS_VIOLATION);
+    expect(
+      await rejectionMessage(
+        db.insert(shifts).values({
+          gymId: gymA,
+          staffId: staffA,
+          date: '2027-05-06',
+          startsAt: '09:00',
+          endsAt: '10:00',
+        }),
+      ),
+    ).toMatch(RLS_VIOLATION);
+  });
+
+  it('withGym(A) cannot add rows for gym B, nor change or delete gym B rows', async () => {
+    expect(
+      await rejectionMessage(
+        withGym(gymA, (tx) =>
+          tx.insert(shiftSeries).values({
+            gymId: gymB,
+            staffId: staffB,
+            weekday: 2,
+            startsAt: '06:00',
+            endsAt: '07:00',
+            validFrom: '2027-05-04',
+          }),
+        ),
+      ),
+    ).toMatch(RLS_VIOLATION);
+    expect(
+      await rejectionMessage(
+        withGym(gymA, (tx) =>
+          tx.insert(shifts).values({
+            gymId: gymB,
+            staffId: staffB,
+            date: '2027-05-06',
+            startsAt: '09:00',
+            endsAt: '10:00',
+          }),
+        ),
+      ),
+    ).toMatch(RLS_VIOLATION);
+    const ended = await withGym(gymA, (tx) =>
+      tx
+        .update(shiftSeries)
+        .set({ validUntil: '2027-05-09' })
+        .where(eq(shiftSeries.id, seriesB))
+        .returning({ id: shiftSeries.id }),
+    );
+    expect(ended).toEqual([]);
+    const changed = await withGym(gymA, (tx) =>
+      tx
+        .update(shifts)
+        .set({ cancelled: true })
+        .where(eq(shifts.id, shiftB))
+        .returning({ id: shifts.id }),
+    );
+    expect(changed).toEqual([]);
+    expect(
+      await withGym(gymA, (tx) =>
+        tx.delete(shifts).where(eq(shifts.id, shiftB)).returning({ id: shifts.id }),
+      ),
+    ).toEqual([]);
+    expect(
+      await withGym(gymA, (tx) =>
+        tx.delete(shiftSeries).where(eq(shiftSeries.id, seriesB)).returning({ id: shiftSeries.id }),
+      ),
+    ).toEqual([]);
+    const [still] = await systemDb.select().from(shifts).where(eq(shifts.id, shiftB));
+    expect(still!.cancelled).toBe(false);
+    const [stillSeries] = await systemDb
+      .select()
+      .from(shiftSeries)
+      .where(eq(shiftSeries.id, seriesB));
+    expect(stillSeries!.validUntil).toBeNull();
+  });
+
+  it("refuses an override that points at another gym or another person's series", async () => {
+    // gym A override of gym B's series: same-gym foreign key
+    expect(
+      await rejectionMessage(
+        withGym(gymA, (tx) =>
+          tx.insert(shifts).values({
+            gymId: gymA,
+            staffId: staffA,
+            date: '2027-05-10',
+            startsAt: '09:00',
+            endsAt: '10:00',
+            seriesId: seriesB,
+          }),
+        ),
+      ),
+    ).toMatch(/foreign key/);
+    // same gym, but another staff member than the series belongs to
+    expect(
+      await rejectionMessage(
+        systemDb.insert(shifts).values({
+          gymId: gymA,
+          staffId: staffB,
+          date: '2027-05-10',
+          startsAt: '09:00',
+          endsAt: '10:00',
+          seriesId: seriesA,
+        }),
+      ),
+    ).toMatch(/foreign key/);
+  });
+
+  it('gym_app can end a series but not change who or when it runs', async () => {
+    const ended = await withGym(gymA, (tx) =>
+      tx
+        .update(shiftSeries)
+        .set({ validUntil: '2027-05-09' })
+        .where(eq(shiftSeries.id, seriesA))
+        .returning({ validUntil: shiftSeries.validUntil }),
+    );
+    expect(ended).toEqual([{ validUntil: '2027-05-09' }]);
+    // a one-off's day, person and gym are fixed too; its hours may change
+    for (const change of [{ date: '2027-05-06' }, { staffId: staffB }, { gymId: gymB }]) {
+      expect(
+        await rejectionMessage(
+          withGym(gymA, (tx) => tx.update(shifts).set(change).where(eq(shifts.id, shiftA))),
+        ),
+      ).toMatch(/permission denied/);
+    }
+    const hours = await withGym(gymA, (tx) =>
+      tx
+        .update(shifts)
+        .set({ endsAt: '13:00' })
+        .where(eq(shifts.id, shiftA))
+        .returning({ endsAt: shifts.endsAt }),
+    );
+    expect(hours).toHaveLength(1);
+    expect(
+      await rejectionMessage(
+        withGym(gymA, (tx) =>
+          tx.update(shiftSeries).set({ weekday: 2 }).where(eq(shiftSeries.id, seriesA)),
+        ),
+      ),
+    ).toMatch(/permission denied/);
+    expect(
+      await rejectionMessage(
+        withGym(gymA, (tx) =>
+          tx.update(shiftSeries).set({ staffId: staffB }).where(eq(shiftSeries.id, seriesA)),
+        ),
+      ),
+    ).toMatch(/permission denied/);
+    expect(
+      await rejectionMessage(
+        withGym(gymA, (tx) =>
+          tx.update(shiftSeries).set({ startsAt: '01:00' }).where(eq(shiftSeries.id, seriesA)),
+        ),
+      ),
+    ).toMatch(/permission denied/);
+  });
+});
+
+describe('row-level security and privileges: member_trainers', () => {
+  const run = randomUUID().slice(0, 8);
+  let gymA: string;
+  let gymB: string;
+  let memberA: string;
+  let memberB: string;
+  let trainerA: string;
+  let trainerB: string;
+
+  beforeAll(async () => {
+    const g = await systemDb
+      .insert(gyms)
+      .values([{ name: `Trainer A ${run}` }, { name: `Trainer B ${run}` }])
+      .returning({ id: gyms.id });
+    gymA = g[0]!.id;
+    gymB = g[1]!.id;
+    const u = await systemDb
+      .insert(users)
+      .values(
+        ['ma', 'mb', 'ta', 'tb'].map((n) => ({
+          email: `${n}-${run}@x.gr`,
+          firstName: n,
+          lastName: 'X',
+        })),
+      )
+      .returning({ id: users.id });
+    [memberA, memberB, trainerA, trainerB] = u.map((r) => r.id) as [string, string, string, string];
+    await systemDb.insert(memberTrainers).values([
+      { gymId: gymA, memberId: memberA, trainerId: trainerA },
+      { gymId: gymB, memberId: memberB, trainerId: trainerB },
+    ]);
+  });
+
+  afterAll(async () => {
+    const gymIds = [gymA, gymB].filter(Boolean);
+    if (gymIds.length) {
+      await systemDb.delete(memberTrainers).where(inArray(memberTrainers.gymId, gymIds));
+      await systemDb.delete(gyms).where(inArray(gyms.id, gymIds));
+    }
+    await systemDb
+      .delete(users)
+      .where(inArray(users.id, [memberA, memberB, trainerA, trainerB].filter(Boolean)));
+  });
+
+  it('withGym(A) sees only gym A links; without a gym nothing is visible', async () => {
+    const rows = await withGym(gymA, (tx) => tx.select().from(memberTrainers));
+    expect(rows.map((r) => r.gymId)).toEqual([gymA]);
+    expect(await db.select().from(memberTrainers)).toEqual([]);
+  });
+
+  it('withGym(A) cannot add, change or delete a gym B link', async () => {
+    expect(
+      await rejectionMessage(
+        withGym(gymA, (tx) =>
+          tx.insert(memberTrainers).values({ gymId: gymB, memberId: memberA, trainerId: trainerB }),
+        ),
+      ),
+    ).toMatch(RLS_VIOLATION);
+    const changed = await withGym(gymA, (tx) =>
+      tx
+        .update(memberTrainers)
+        .set({ trainerId: trainerA })
+        .where(eq(memberTrainers.memberId, memberB))
+        .returning({ id: memberTrainers.memberId }),
+    );
+    expect(changed).toEqual([]);
+    const deleted = await withGym(gymA, (tx) =>
+      tx
+        .delete(memberTrainers)
+        .where(eq(memberTrainers.memberId, memberB))
+        .returning({ id: memberTrainers.memberId }),
+    );
+    expect(deleted).toEqual([]);
+    const [still] = await systemDb
+      .select()
+      .from(memberTrainers)
+      .where(eq(memberTrainers.memberId, memberB));
+    expect(still!.trainerId).toBe(trainerB);
+  });
+
+  it('gym_app can replace the trainer of its own link but not move it to another member', async () => {
+    const replaced = await withGym(gymA, (tx) =>
+      tx
+        .update(memberTrainers)
+        .set({ trainerId: trainerB })
+        .where(eq(memberTrainers.memberId, memberA))
+        .returning({ trainerId: memberTrainers.trainerId }),
+    );
+    expect(replaced).toEqual([{ trainerId: trainerB }]);
+    expect(
+      await rejectionMessage(
+        withGym(gymA, (tx) =>
+          tx
+            .update(memberTrainers)
+            .set({ memberId: memberB })
+            .where(eq(memberTrainers.memberId, memberA)),
+        ),
+      ),
+    ).toMatch(/permission denied/);
+    // nor move the link to another gym
+    expect(
+      await rejectionMessage(
+        withGym(gymA, (tx) =>
+          tx
+            .update(memberTrainers)
+            .set({ gymId: gymB })
+            .where(eq(memberTrainers.memberId, memberA)),
+        ),
+      ),
+    ).toMatch(/permission denied/);
+    const [row] = await systemDb
+      .select()
+      .from(memberTrainers)
+      .where(eq(memberTrainers.memberId, memberA));
+    expect(row).toMatchObject({ gymId: gymA, memberId: memberA, trainerId: trainerB });
+  });
+});
+
+describe('row-level security and privileges: trainer_covers', () => {
+  const run = randomUUID().slice(0, 8);
+  let gymA: string;
+  let gymB: string;
+  let memberA: string;
+  let memberB: string;
+  let trainerA: string;
+  let trainerB: string;
+
+  beforeAll(async () => {
+    const g = await systemDb
+      .insert(gyms)
+      .values([{ name: `Cover A ${run}` }, { name: `Cover B ${run}` }])
+      .returning({ id: gyms.id });
+    gymA = g[0]!.id;
+    gymB = g[1]!.id;
+    const u = await systemDb
+      .insert(users)
+      .values(
+        ['cma', 'cmb', 'cta', 'ctb'].map((n) => ({
+          email: `${n}-${run}@x.gr`,
+          firstName: n,
+          lastName: 'X',
+        })),
+      )
+      .returning({ id: users.id });
+    [memberA, memberB, trainerA, trainerB] = u.map((r) => r.id) as [string, string, string, string];
+    await systemDb.insert(trainerCovers).values([
+      { gymId: gymA, memberId: memberA, trainerId: trainerA, date: '2027-05-12' },
+      { gymId: gymB, memberId: memberB, trainerId: trainerB, date: '2027-05-12' },
+    ]);
+  });
+
+  afterAll(async () => {
+    const gymIds = [gymA, gymB].filter(Boolean);
+    if (gymIds.length) {
+      await systemDb.delete(trainerCovers).where(inArray(trainerCovers.gymId, gymIds));
+      await systemDb.delete(gyms).where(inArray(gyms.id, gymIds));
+    }
+    await systemDb
+      .delete(users)
+      .where(inArray(users.id, [memberA, memberB, trainerA, trainerB].filter(Boolean)));
+  });
+
+  it('withGym(A) sees only gym A covers; without a gym nothing is visible', async () => {
+    const rows = await withGym(gymA, (tx) => tx.select().from(trainerCovers));
+    expect(rows.map((r) => r.gymId)).toEqual([gymA]);
+    expect(
+      (await withGym(gymB, (tx) => tx.select().from(trainerCovers))).map((r) => r.gymId),
+    ).toEqual([gymB]);
+    expect(await db.select().from(trainerCovers)).toEqual([]);
+  });
+
+  it('withGym(A) cannot add, change or delete a gym B cover', async () => {
+    expect(
+      await rejectionMessage(
+        withGym(gymA, (tx) =>
+          tx.insert(trainerCovers).values({
+            gymId: gymB,
+            memberId: memberA,
+            trainerId: trainerB,
+            date: '2027-05-13',
+          }),
+        ),
+      ),
+    ).toMatch(RLS_VIOLATION);
+    expect(
+      await withGym(gymA, (tx) =>
+        tx
+          .update(trainerCovers)
+          .set({ trainerId: trainerA })
+          .where(eq(trainerCovers.memberId, memberB))
+          .returning({ id: trainerCovers.id }),
+      ),
+    ).toEqual([]);
+    expect(
+      await withGym(gymA, (tx) =>
+        tx
+          .delete(trainerCovers)
+          .where(eq(trainerCovers.memberId, memberB))
+          .returning({ id: trainerCovers.id }),
+      ),
+    ).toEqual([]);
+    const [still] = await systemDb
+      .select()
+      .from(trainerCovers)
+      .where(eq(trainerCovers.memberId, memberB));
+    expect(still!.trainerId).toBe(trainerB);
+  });
+
+  it('allows one cover per member and date, and gym_app cannot move a cover to another date', async () => {
+    expect(
+      await rejectionMessage(
+        withGym(gymA, (tx) =>
+          tx.insert(trainerCovers).values({
+            gymId: gymA,
+            memberId: memberA,
+            trainerId: trainerB,
+            date: '2027-05-12',
+          }),
+        ),
+      ),
+    ).toMatch(/duplicate key|unique/);
+    expect(
+      await rejectionMessage(
+        withGym(gymA, (tx) =>
+          tx
+            .update(trainerCovers)
+            .set({ date: '2027-05-20' })
+            .where(eq(trainerCovers.memberId, memberA)),
+        ),
+      ),
+    ).toMatch(/permission denied/);
+  });
+
+  it('gym_app can replace the trainer of its own cover but not move it to another member or gym', async () => {
+    const replaced = await withGym(gymA, (tx) =>
+      tx
+        .update(trainerCovers)
+        .set({ trainerId: trainerB })
+        .where(eq(trainerCovers.memberId, memberA))
+        .returning({ trainerId: trainerCovers.trainerId }),
+    );
+    expect(replaced).toEqual([{ trainerId: trainerB }]);
+    expect(
+      await rejectionMessage(
+        withGym(gymA, (tx) =>
+          tx
+            .update(trainerCovers)
+            .set({ memberId: memberB })
+            .where(eq(trainerCovers.memberId, memberA)),
+        ),
+      ),
+    ).toMatch(/permission denied/);
+    expect(
+      await rejectionMessage(
+        withGym(gymA, (tx) =>
+          tx.update(trainerCovers).set({ gymId: gymB }).where(eq(trainerCovers.memberId, memberA)),
+        ),
+      ),
+    ).toMatch(/permission denied/);
+    const [row] = await systemDb
+      .select()
+      .from(trainerCovers)
+      .where(eq(trainerCovers.memberId, memberA));
+    expect(row).toMatchObject({ gymId: gymA, memberId: memberA, trainerId: trainerB });
   });
 });

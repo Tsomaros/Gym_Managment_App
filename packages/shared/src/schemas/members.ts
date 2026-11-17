@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import type { Freeze, Membership, Payment } from './memberships.js';
+import type { MemberTrainer } from './trainers.js';
 
 /**
  * A member's overall state for reception: `new` (never had a membership), `active`, `frozen`,
@@ -35,6 +36,8 @@ export interface MemberDetail extends MemberSummary {
   /** Owner only; reception gets an empty list. */
   payments: Payment[];
   freezes: Freeze[];
+  /** The primary trainer, or null. */
+  trainer: MemberTrainer | null;
 }
 
 export interface MyMemberships {

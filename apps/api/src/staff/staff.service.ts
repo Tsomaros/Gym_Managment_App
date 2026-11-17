@@ -1,15 +1,29 @@
-import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import type { PendingInvitation, StaffList, StaffMember, StaffRole } from '@gym/shared';
 import { and, asc, eq, gt, inArray, isNull, sql } from 'drizzle-orm';
 import { AuditService } from '../audit/audit.service';
 import { gymRoles, invitations, users } from '../db/schema';
 import { withGym } from '../db/tenant';
+import { lockTrainer } from '../trainers/trainer-access';
+import { CoversService } from '../trainers/covers.service';
+import { TrainersService } from '../trainers/trainers.service';
+import { ShiftsService } from '../shifts/shifts.service';
 
 const STAFF: StaffRole[] = ['owner', 'reception', 'trainer'];
 
 @Injectable()
 export class StaffService {
-  constructor(private readonly audit: AuditService) {}
+  constructor(
+    private readonly audit: AuditService,
+    private readonly shifts: ShiftsService,
+    private readonly trainers: TrainersService,
+    private readonly covers: CoversService,
+  ) {}
 
   /** Everyone with a staff role (member-only people are not listed), plus pending staff invites for the owner. */
   async list(gymId: string, isOwner: boolean): Promise<StaffList> {
@@ -34,7 +48,8 @@ export class StaffService {
         const existing = byUser.get(r.userId);
         if (existing) {
           existing.roles.push(r.role as StaffRole);
-          if (r.createdAt.toISOString() < existing.since) existing.since = r.createdAt.toISOString();
+          if (r.createdAt.toISOString() < existing.since)
+            existing.since = r.createdAt.toISOString();
         } else {
           byUser.set(r.userId, {
             userId: r.userId,
@@ -80,8 +95,10 @@ export class StaffService {
    * at once can't leave the gym without an owner.
    */
   async removeRole(gymId: string, actorId: string, userId: string, role: StaffRole): Promise<void> {
-    if (!STAFF.includes(role)) throw new BadRequestException('Only staff roles can be removed here');
+    if (!STAFF.includes(role))
+      throw new BadRequestException('Only staff roles can be removed here');
     await withGym(gymId, async (tx) => {
+      if (role === 'trainer') await lockTrainer(tx, userId);
       if (role === 'owner') {
         const owners = await tx
           .select({ userId: gymRoles.userId })
@@ -97,8 +114,18 @@ export class StaffService {
         .returning({ userId: gymRoles.userId });
       if (!removed.length) throw new NotFoundException();
 
-      // PHASE3-REMOVAL-HOOKS: removing the trainer role also ends their primary links and covers
-      // (Tasks 4, 5), and removing any staff role deletes their future shifts (Task 3).
+      // PHASE3-REMOVAL-HOOKS: removing the trainer role also ends their primary links (Task 4)
+      // and covers (Task 5).
+      if (role === 'trainer') await this.trainers.removeLinksOf(tx, gymId, actorId, userId);
+      if (role === 'trainer') await this.covers.removeCoversOf(tx, gymId, actorId, userId);
+      // Shifts go when the trainer role is removed, or when the person is left with no staff role.
+      const [stillStaff] = await tx
+        .select({ role: gymRoles.role })
+        .from(gymRoles)
+        .where(and(eq(gymRoles.userId, userId), inArray(gymRoles.role, STAFF)))
+        .limit(1);
+      if (role === 'trainer' || !stillStaff)
+        await this.shifts.removeFutureShifts(tx, gymId, userId);
 
       await this.audit.record(tx, {
         gymId,

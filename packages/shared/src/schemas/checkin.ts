@@ -17,15 +17,22 @@ export type CheckInReason = (typeof CHECK_IN_REASONS)[number];
 export const AUTO_CHECKOUT_MIN = 30;
 export const AUTO_CHECKOUT_MAX = 600;
 
-export const UpdateGymSettingsSchema = z.object({
-  autoCheckoutMinutes: z.number().int().min(AUTO_CHECKOUT_MIN).max(AUTO_CHECKOUT_MAX),
-});
+export const UpdateGymSettingsSchema = z
+  .object({
+    autoCheckoutMinutes: z.number().int().min(AUTO_CHECKOUT_MIN).max(AUTO_CHECKOUT_MAX).optional(),
+    receptionCanEditShifts: z.boolean().optional(),
+  })
+  .refine((s) => s.autoCheckoutMinutes !== undefined || s.receptionCanEditShifts !== undefined, {
+    message: 'Nothing to change',
+  });
 export type UpdateGymSettings = z.infer<typeof UpdateGymSettingsSchema>;
 
 export interface GymSettings {
   name: string;
   timezone: string;
   autoCheckoutMinutes: number;
+  /** Whether reception may edit shifts too; the owner always may. */
+  receptionCanEditShifts: boolean;
 }
 
 /** The member's rotating QR payload and when it stops being accepted. */
@@ -53,6 +60,10 @@ export interface CheckInResult {
   /** The membership used, or for a refusal the one that explains it. */
   membership: CheckInMembership | null;
   at: string;
+  /** The member's primary trainer and whether they are on duty right now; null without one. */
+  trainer: { userId: string; firstName: string; onDuty: boolean } | null;
+  /** Today's cover trainer, if reception assigned one. */
+  cover: { trainerId: string; firstName: string } | null;
 }
 
 /** What the tablet gets: a first name and pass/fail, nothing else about the member. */
