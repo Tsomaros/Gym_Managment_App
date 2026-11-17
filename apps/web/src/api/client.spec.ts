@@ -1,5 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { apiFetch, getAccessToken, onSignedOut, setAccessToken } from './client';
+import {
+  ApiError,
+  apiFetch,
+  getAccessToken,
+  kioskFetch,
+  onSignedOut,
+  setAccessToken,
+} from './client';
 
 const json = (status: number, body: unknown) =>
   new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } });
@@ -101,5 +108,81 @@ describe('apiFetch', () => {
     fetchMock.mockResolvedValueOnce(json(403, { message: 'Forbidden' }));
     await expect(apiFetch('/a')).rejects.toMatchObject({ status: 403 });
     expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('kioskFetch', () => {
+  let fetchMock: ReturnType<typeof vi.fn<typeof fetch>>;
+
+  beforeEach(() => {
+    fetchMock = vi.fn<typeof fetch>();
+    vi.stubGlobal('fetch', fetchMock);
+    setAccessToken('user-token'); // a signed-in user in the same browser must not leak in
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    setAccessToken(null);
+  });
+
+  it('sends the device token, never the user token, and no cookies', async () => {
+    fetchMock.mockResolvedValueOnce(json(200, { ok: true }));
+    await expect(kioskFetch('/kiosk/me', 'dev-1')).resolves.toEqual({ ok: true });
+    const [url, init] = fetchMock.mock.calls[0]!;
+    expect(url).toBe('/api/kiosk/me');
+    expect(new Headers(init?.headers).get('authorization')).toBe('Device dev-1');
+    expect(init?.credentials).toBe('omit'); // the user's refresh cookie must not travel
+  });
+
+  it('sends a JSON body with a content type, and no authorization before pairing', async () => {
+    fetchMock.mockResolvedValueOnce(json(201, {}));
+    await kioskFetch('/kiosk/pair', null, { method: 'POST', body: '{"code":"X"}' });
+    const headers = new Headers(fetchMock.mock.calls[0]![1]?.headers);
+    expect(headers.get('content-type')).toBe('application/json');
+    expect(headers.has('authorization')).toBe(false);
+  });
+
+  it('gives up on a request that never answers after 5 s (not before) and aborts it', async () => {
+    vi.useFakeTimers();
+    try {
+      let signal: AbortSignal | null | undefined;
+      fetchMock.mockImplementation((_url, init) => {
+        signal = init?.signal;
+        return new Promise<Response>(() => undefined);
+      });
+      let outcome: unknown = 'pending';
+      void kioskFetch('/kiosk/me', 'dev-1').catch((e: unknown) => (outcome = e));
+      await vi.advanceTimersByTimeAsync(4_999);
+      expect(outcome).toBe('pending');
+      expect(signal?.aborted).toBe(false);
+      await vi.advanceTimersByTimeAsync(1);
+      expect(outcome).toBeInstanceOf(Error);
+      expect(outcome).not.toBeInstanceOf(ApiError); // not a 401: the caller must not un-pair
+      expect(signal?.aborted).toBe(true);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('does not time out a request that answered in time', async () => {
+    vi.useFakeTimers();
+    try {
+      fetchMock.mockResolvedValueOnce(json(200, { ok: true }));
+      await expect(kioskFetch('/kiosk/me', 'dev-1')).resolves.toEqual({ ok: true });
+      expect(vi.getTimerCount()).toBe(0); // the timeout was cleared
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('on 401 throws ApiError without refreshing or signing anyone out', async () => {
+    const signedOut = vi.fn();
+    const off = onSignedOut(signedOut);
+    fetchMock.mockResolvedValue(json(401, {}));
+    await expect(kioskFetch('/kiosk/me', 'revoked')).rejects.toMatchObject({ status: 401 });
+    expect(fetchMock).toHaveBeenCalledTimes(1); // no /auth/refresh
+    expect(signedOut).not.toHaveBeenCalled();
+    expect(getAccessToken()).toBe('user-token');
+    off();
   });
 });

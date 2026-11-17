@@ -5,6 +5,7 @@ import { useAuth } from '../auth/AuthProvider';
 import { EmailNotVerifiedBanner } from '../components/EmailNotVerifiedBanner';
 import { HistoryPage } from '../features/audit/HistoryPage';
 import { MemberCheckInPage } from '../features/checkin/MemberCheckInPage';
+import { DevicesPage } from '../features/devices/DevicesPage';
 import { MembersSection } from '../features/members/MembersSection';
 import { MyMembershipPage } from '../features/my-membership/MyMembershipPage';
 import { PaymentsPage } from '../features/payments/PaymentsPage';
@@ -42,12 +43,22 @@ export function OwnerShell(props: GymShellProps) {
     <ShellLayout
       testId="shell-owner"
       title={t('shell.owner')}
-      nav={['dashboard', 'members', 'membershipTypes', 'payments', 'history', 'staff', 'checkIn']}
+      nav={[
+        'dashboard',
+        'members',
+        'membershipTypes',
+        'payments',
+        'history',
+        'staff',
+        'checkIn',
+        'devices',
+      ]}
       pages={{
         members: <MembersSection />,
         membershipTypes: <MembershipTypesPage />,
         payments: <PaymentsPage />,
         history: <HistoryPage />,
+        devices: <DevicesPage />,
       }}
       actions={<NewMemberCodeButton />}
       {...props}

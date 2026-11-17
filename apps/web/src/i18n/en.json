@@ -53,7 +53,8 @@
     "membershipTypes": "Membership types",
     "payments": "Payments",
     "history": "History",
-    "memberCheckIn": "Check in"
+    "memberCheckIn": "Check in",
+    "devices": "Devices"
   },
   "shell": {
     "owner": "Owner area",
@@ -307,5 +308,44 @@
     "offline": "No connection — reception can check you in by name.",
     "retry": "Try again",
     "qrLabelAnonymous": "Entry code"
+  },
+  "kiosk": {
+    "pairTitle": "Connect this tablet",
+    "pairHint": "Ask the owner for a pairing code (Devices → Connect a new tablet).",
+    "codeLabel": "Pairing code",
+    "pairButton": "Connect",
+    "pairing": "Connecting…",
+    "pairInvalid": "This code is not valid or has expired. Ask for a new one.",
+    "pairBusy": "Too many attempts. Wait a moment and try again.",
+    "pairError": "Could not connect. Try again.",
+    "connecting": "Connecting to the gym…",
+    "offline": "No connection to the server.",
+    "scanTitle": "Scan your code",
+    "scanHint": "Open \"Check in\" in the app and hold the code up here.",
+    "cameraDenied": "The camera is not available. Check the browser permissions.",
+    "switchCamera": "Switch camera",
+    "welcome": "Welcome, {{name}}!",
+    "toReception": "Please see reception",
+    "codeExpired": "Code expired — open the app again",
+    "connectionProblem": "Connection problem — please see reception",
+    "welcomeNoName": "Welcome!"
+  },
+  "devices": {
+    "title": "Entrance devices",
+    "connect": "Connect a new tablet",
+    "nameLabel": "Tablet name",
+    "namePlaceholder": "e.g. Entrance",
+    "create": "Create code",
+    "codeTitle": "Tablet pairing code",
+    "codeHint": "Type it on the tablet at /kiosk. It works once, until {{time}}.",
+    "done": "Done",
+    "lastSeen": "Last used: {{when}}",
+    "neverSeen": "Not used yet",
+    "revoked": "Revoked",
+    "revoke": "Revoke",
+    "revokeNamed": "Revoke: {{name}}",
+    "revokeTitle": "Revoke tablet",
+    "revokeMessage": "The tablet \"{{name}}\" stops working immediately. Using it again needs a new pairing code.",
+    "empty": "No tablet is connected."
   }
 }
