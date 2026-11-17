@@ -10,3 +10,5 @@ export * from './membership-types';
 export * from './memberships';
 export * from './payments';
 export * from './membership-freezes';
+export * from './devices';
+export * from './device-pairing-codes';

@@ -4,6 +4,8 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { closeDb, db, systemDb } from '../../src/db/client';
 import {
   auditLog,
+  devicePairingCodes,
+  devices,
   gymRoles,
   gyms,
   invitations,
@@ -720,5 +722,116 @@ describe('row-level security: membership_freezes', () => {
         ),
       ),
     ).toMatch(/violates check constraint/);
+  });
+});
+
+describe('row-level security and privileges: devices and device_pairing_codes', () => {
+  const run = randomUUID().slice(0, 8);
+  let gymA: string;
+  let gymB: string;
+  let deviceA: string;
+
+  beforeAll(async () => {
+    const g = await systemDb
+      .insert(gyms)
+      .values([{ name: `Dev A ${run}` }, { name: `Dev B ${run}` }])
+      .returning({ id: gyms.id });
+    gymA = g[0]!.id;
+    gymB = g[1]!.id;
+    const expiresAt = new Date(Date.now() + 900_000);
+    const d = await systemDb
+      .insert(devices)
+      .values([
+        { gymId: gymA, name: 'A', tokenHash: `a-${randomUUID()}` },
+        { gymId: gymB, name: 'B', tokenHash: `b-${randomUUID()}` },
+      ])
+      .returning({ id: devices.id });
+    deviceA = d[0]!.id;
+    await systemDb.insert(devicePairingCodes).values([
+      { gymId: gymA, name: 'A', codeHash: `a-${randomUUID()}`, expiresAt },
+      { gymId: gymB, name: 'B', codeHash: `b-${randomUUID()}`, expiresAt },
+    ]);
+  });
+
+  afterAll(async () => {
+    const gymIds = [gymA, gymB].filter(Boolean);
+    if (gymIds.length) {
+      await systemDb.delete(devices).where(inArray(devices.gymId, gymIds));
+      await systemDb.delete(devicePairingCodes).where(inArray(devicePairingCodes.gymId, gymIds));
+      await systemDb.delete(gyms).where(inArray(gyms.id, gymIds));
+    }
+  });
+
+  it('withGym(A) sees only gym A devices and pairing codes', async () => {
+    const d = await withGym(gymA, (tx) => tx.select().from(devices));
+    const c = await withGym(gymA, (tx) => tx.select().from(devicePairingCodes));
+    expect(d.map((r) => r.gymId)).toEqual([gymA]);
+    expect(c.map((r) => r.gymId)).toEqual([gymA]);
+  });
+
+  it('sees nothing when no gym is set', async () => {
+    expect(await db.select().from(devices)).toEqual([]);
+    expect(await db.select().from(devicePairingCodes)).toEqual([]);
+  });
+
+  it('withGym(A) cannot create a pairing code for gym B', async () => {
+    const msg = await rejectionMessage(
+      withGym(gymA, (tx) =>
+        tx.insert(devicePairingCodes).values({
+          gymId: gymB,
+          name: 'x',
+          codeHash: `x-${randomUUID()}`,
+          expiresAt: new Date(Date.now() + 900_000),
+        }),
+      ),
+    );
+    expect(msg).toMatch(RLS_VIOLATION);
+  });
+
+  it('gym_app can revoke its own devices but not rename them or revoke gym B devices', async () => {
+    const revoked = await withGym(gymA, (tx) =>
+      tx
+        .update(devices)
+        .set({ revokedAt: new Date() })
+        .where(eq(devices.id, deviceA))
+        .returning({ id: devices.id }),
+    );
+    expect(revoked).toHaveLength(1);
+    const other = await withGym(gymA, (tx) =>
+      tx
+        .update(devices)
+        .set({ revokedAt: new Date() })
+        .where(eq(devices.gymId, gymB))
+        .returning({ id: devices.id }),
+    );
+    expect(other).toEqual([]);
+    const msg = await rejectionMessage(
+      withGym(gymA, (tx) => tx.update(devices).set({ name: 'renamed' }).where(eq(devices.id, deviceA))),
+    );
+    expect(msg).toMatch(/permission denied/);
+  });
+
+  it('gym_app cannot delete devices or touch pairing codes beyond creating them', async () => {
+    const del = await rejectionMessage(
+      withGym(gymA, (tx) => tx.delete(devices).where(eq(devices.id, deviceA))),
+    );
+    expect(del).toMatch(/permission denied/);
+    const upd = await rejectionMessage(
+      withGym(gymA, (tx) => tx.update(devicePairingCodes).set({ usedAt: new Date() })),
+    );
+    expect(upd).toMatch(/permission denied/);
+    const delCode = await rejectionMessage(withGym(gymA, (tx) => tx.delete(devicePairingCodes)));
+    expect(delCode).toMatch(/permission denied/);
+    // nothing was lost
+    expect(await systemDb.select().from(devices).where(eq(devices.id, deviceA))).toHaveLength(1);
+  });
+
+  it('gym_app cannot create devices (pairing goes through systemDb)', async () => {
+    const msg = await rejectionMessage(
+      withGym(gymA, (tx) =>
+        tx.insert(devices).values({ gymId: gymA, name: 'x', tokenHash: `x-${randomUUID()}` }),
+      ),
+    );
+    expect(msg).toMatch(/permission denied/);
   });
 });

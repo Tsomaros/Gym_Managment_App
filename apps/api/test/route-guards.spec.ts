@@ -11,6 +11,7 @@ import { GUARDS_METADATA, PATH_METADATA } from '@nestjs/common/constants';
 import { afterEach, describe, expect, it } from 'vitest';
 import { GYM_ROLES_KEY, GymRolesGuard } from '../src/access/gym-roles.guard';
 import { GymRoles } from '../src/access/roles.decorator';
+import { DeviceGuard } from '../src/devices/device.guard';
 import { AppModule } from '../src/app.module';
 import { createApp } from '../src/main';
 
@@ -47,6 +48,36 @@ function gymRoutes(app: INestApplication): { id: string; guarded: boolean }[] {
           ];
           const guarded = !!roles?.length && guards.includes(GymRolesGuard);
           found.push({ id: `${controller.name}.${name} ${path}`, guarded });
+        }
+      }
+    }
+  }
+  return found;
+}
+
+/** Every /kiosk route except the public pairing one must carry DeviceGuard. */
+function kioskRoutes(app: INestApplication): { id: string; guarded: boolean }[] {
+  const discovery = app.get(DiscoveryService);
+  const scanner = app.get(MetadataScanner);
+  const found: { id: string; guarded: boolean }[] = [];
+  for (const wrapper of discovery.getControllers()) {
+    const controller = wrapper.metatype as Type | null;
+    if (!controller) continue;
+    const base = Reflect.getMetadata(PATH_METADATA, controller) as string | string[] | undefined;
+    const proto = controller.prototype as Record<string, unknown>;
+    for (const name of scanner.getAllMethodNames(proto)) {
+      const handler = proto[name] as (...args: unknown[]) => unknown;
+      const sub = Reflect.getMetadata(PATH_METADATA, handler) as string | string[] | undefined;
+      if (sub === undefined) continue;
+      for (const b of [base ?? ''].flat()) {
+        for (const p of [sub].flat()) {
+          const path = `/${b}/${p}`.replace(/\/+/g, '/');
+          if (!path.startsWith('/kiosk/')) continue;
+          const guards = [
+            ...((Reflect.getMetadata(GUARDS_METADATA, controller) as unknown[] | undefined) ?? []),
+            ...((Reflect.getMetadata(GUARDS_METADATA, handler) as unknown[] | undefined) ?? []),
+          ];
+          found.push({ id: `${controller.name}.${name} ${path}`, guarded: guards.includes(DeviceGuard) });
         }
       }
     }
@@ -152,6 +183,17 @@ describe('every /gyms/:gymId route carries @GymRoles', () => {
         'ProbeClassGuardedController.a /gyms/:gymId/covered/a',
       ].sort(),
     );
+  });
+
+  it('every /kiosk route except /kiosk/pair carries DeviceGuard', async () => {
+    app = await createApp(RealModule);
+    await app.init();
+    const routes = kioskRoutes(app);
+    expect(routes.filter((r) => !r.guarded).map((r) => r.id)).toEqual([
+      'DevicesController.pair /kiosk/pair',
+    ]);
+    // not vacuous: the scan must see the real kiosk routes
+    expect(routes.map((r) => r.id)).toContain('DevicesController.me /kiosk/me');
   });
 
   it('the real app has no unguarded gym routes', async () => {
