@@ -8,12 +8,13 @@ import type {
 } from '@gym/shared';
 import { and, asc, desc, eq, inArray, type SQL, sql } from 'drizzle-orm';
 import { Clock } from '../common/clock';
-import { gymRoles, membershipFreezes, memberships, users } from '../db/schema';
-import { type Tx, withGym } from '../db/tenant';
+import { gymRoles, membershipFreezes, users } from '../db/schema';
+import { withGym } from '../db/tenant';
 import { toFreeze } from '../memberships/freezes.service';
-import { gymToday, toMembership } from '../memberships/memberships.service';
+import { gymToday, membershipsOf } from '../memberships/memberships.service';
 import { PaymentsService } from '../memberships/payments.service';
 import { memberStatus } from './member-status';
+import { PhotosService } from './photos.service';
 
 const MAX_RESULTS = 100;
 
@@ -52,6 +53,7 @@ export class MembersService {
   constructor(
     private readonly clock: Clock,
     private readonly payments: PaymentsService,
+    private readonly photos: PhotosService,
   ) {}
 
   /** Members of the gym (not staff), newest sign-up first, at most 100. */
@@ -73,16 +75,38 @@ export class MembersService {
         .orderBy(desc(gymRoles.createdAt), asc(users.id));
       // Status depends on today's date, so it is computed here, not in SQL. Without a status filter
       // only the page is loaded; with one, every match is evaluated first (fine for a gym's size).
-      const rows = q.status ? await query : await query.limit(MAX_RESULTS);
+      // The end date is computed (freezes), so a sort by it also loads every match first.
+      const rows = q.status || q.sort ? await query : await query.limit(MAX_RESULTS);
 
       const today = await gymToday(tx, gymId, this.clock.now());
-      const byMember = await this.membershipsOf(
+      const byMember = await membershipsOf(
         tx,
         rows.map((r) => r.userId),
         today,
       );
-      const summaries = rows.map((r) => this.summary(r, byMember.get(r.userId) ?? []));
-      return summaries.filter((s) => !q.status || s.status === q.status).slice(0, MAX_RESULTS);
+      const photoUrls = await this.photos.urlsFor(
+        tx,
+        rows.map((r) => r.userId),
+      );
+      const summaries = rows.map((r) =>
+        this.summary(r, byMember.get(r.userId) ?? [], photoUrls.get(r.userId) ?? null),
+      );
+      const wanted = summaries.filter((s) => !q.status || s.status === q.status);
+      if (q.sort === 'ending') {
+        // Stable: members with the same end keep the newest-sign-up-first order.
+        wanted.sort((a, b) =>
+          a.currentEndsOn === b.currentEndsOn
+            ? 0
+            : a.currentEndsOn === null
+              ? 1
+              : b.currentEndsOn === null
+                ? -1
+                : a.currentEndsOn < b.currentEndsOn
+                  ? -1
+                  : 1,
+        );
+      }
+      return wanted.slice(0, MAX_RESULTS);
     });
   }
 
@@ -97,7 +121,7 @@ export class MembersService {
       if (!row) throw new NotFoundException({ message: 'Not a member of this gym' });
 
       const today = await gymToday(tx, gymId, this.clock.now());
-      const ms = (await this.membershipsOf(tx, [memberId], today)).get(memberId) ?? [];
+      const ms = (await membershipsOf(tx, [memberId], today)).get(memberId) ?? [];
       const freezes = ms.length
         ? await tx
             .select()
@@ -110,8 +134,9 @@ export class MembersService {
             )
             .orderBy(desc(membershipFreezes.startsOn))
         : [];
+      const photoUrl = (await this.photos.urlsFor(tx, [memberId])).get(memberId) ?? null;
       return {
-        ...this.summary(row, ms),
+        ...this.summary(row, ms, photoUrl),
         dateOfBirth: row.dateOfBirth,
         emergencyContactName: row.emergencyContactName,
         emergencyContactPhone: row.emergencyContactPhone,
@@ -127,13 +152,14 @@ export class MembersService {
   async mine(gymId: string, userId: string): Promise<MyMemberships> {
     return withGym(gymId, async (tx) => {
       const today = await gymToday(tx, gymId, this.clock.now());
-      const ms = (await this.membershipsOf(tx, [userId], today)).get(userId) ?? [];
+      const ms = (await membershipsOf(tx, [userId], today)).get(userId) ?? [];
       return { memberships: ms.filter((m) => m.status !== 'voided') };
     });
   }
 
-  private summary(r: MemberRow, ms: Membership[]): MemberSummary {
+  private summary(r: MemberRow, ms: Membership[], photoUrl: string | null): MemberSummary {
     return {
+      photoUrl,
       userId: r.userId,
       firstName: r.firstName,
       lastName: r.lastName,
@@ -143,41 +169,5 @@ export class MembersService {
       joinedAt: r.joinedAt.toISOString(),
       ...memberStatus(ms),
     };
-  }
-
-  /** Every membership of these members, evaluated for `today`, newest first per member. */
-  private async membershipsOf(
-    tx: Tx,
-    memberIds: string[],
-    today: string,
-  ): Promise<Map<string, Membership[]>> {
-    const result = new Map<string, Membership[]>();
-    if (!memberIds.length) return result;
-    const rows = await tx
-      .select()
-      .from(memberships)
-      .where(inArray(memberships.memberId, memberIds))
-      .orderBy(desc(memberships.createdAt));
-    const freezes = rows.length
-      ? await tx
-          .select()
-          .from(membershipFreezes)
-          .where(
-            inArray(
-              membershipFreezes.membershipId,
-              rows.map((r) => r.id),
-            ),
-          )
-      : [];
-    const freezesOf = new Map<string, typeof freezes>();
-    for (const f of freezes)
-      freezesOf.set(f.membershipId, [...(freezesOf.get(f.membershipId) ?? []), f]);
-    for (const r of rows) {
-      const own = freezesOf.get(r.id) ?? [];
-      const list = result.get(r.memberId) ?? [];
-      list.push(toMembership(r, own, today));
-      result.set(r.memberId, list);
-    }
-    return result;
   }
 }

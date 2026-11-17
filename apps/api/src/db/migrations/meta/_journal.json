@@ -78,6 +78,34 @@
       "when": 1794904921025,
       "tag": "0010_chain_grants",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1794907349452,
+      "tag": "0011_gym_settings",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1794907689299,
+      "tag": "0012_devices",
+      "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1794908204985,
+      "tag": "0013_check_ins",
+      "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1794908880799,
+      "tag": "0014_member_photos",
+      "breakpoints": true
     }
   ]
 }

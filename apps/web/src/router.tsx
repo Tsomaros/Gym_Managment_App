@@ -4,6 +4,7 @@ import { Navigate, Route, Routes, useParams } from 'react-router';
 import { useAuth } from './auth/AuthProvider';
 import { highestRole, homePath } from './auth/home';
 import { RequireAuth } from './auth/RequireAuth';
+import { KioskApp } from './features/kiosk/KioskApp';
 import { AcceptInvitePage } from './pages/AcceptInvitePage';
 import { GymPickerPage } from './pages/GymPickerPage';
 import { JoinPage } from './pages/JoinPage';
@@ -54,6 +55,8 @@ export function AppRoutes() {
       <Route path="/invite/:token" element={<AcceptInvitePage />} />
       <Route path="/join" element={<JoinPage />} />
       <Route path="/verify-email/:token" element={<VerifyEmailPage />} />
+      {/* The entrance tablet signs in as a device, not a user: outside RequireAuth. */}
+      <Route path="/kiosk" element={<KioskApp />} />
       <Route element={<RequireAuth />}>
         <Route index element={<HomeRedirect />} />
         <Route path="gyms" element={<GymPickerPage />} />

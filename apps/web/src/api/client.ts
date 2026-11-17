@@ -64,7 +64,8 @@ export function refreshSession(): Promise<boolean> {
 async function send(path: string, init: RequestInit): Promise<Response> {
   const headers = new Headers(init.headers);
   if (accessToken) headers.set('authorization', `Bearer ${accessToken}`);
-  if (init.body !== undefined && !headers.has('content-type')) {
+  // A FormData body (a photo) needs the browser's own multipart content type, with its boundary.
+  if (init.body !== undefined && !(init.body instanceof FormData) && !headers.has('content-type')) {
     headers.set('content-type', 'application/json');
   }
   return fetch(`/api${path}`, { ...init, headers, credentials: 'include' });
@@ -74,6 +75,45 @@ async function parse<T>(res: Response): Promise<T> {
   if (res.status === 204) return undefined as T;
   const text = await res.text();
   return (text ? JSON.parse(text) : undefined) as T;
+}
+
+/**
+ * Calls made by a paired kiosk tablet: authorised by its device token, never by a user. No
+ * cookies, no refresh and no sign-out; a 401 means the tablet was revoked and is the caller's to
+ * handle.
+ */
+export const KIOSK_TIMEOUT_MS = 5000;
+
+export async function kioskFetch<T>(
+  path: string,
+  deviceToken: string | null,
+  init: RequestInit = {},
+): Promise<T> {
+  const headers = new Headers(init.headers);
+  if (deviceToken) headers.set('authorization', `Device ${deviceToken}`);
+  if (init.body !== undefined && !headers.has('content-type')) {
+    headers.set('content-type', 'application/json');
+  }
+  // A hung request must not freeze the tablet: give up and let the caller show "connection problem".
+  const abort = new AbortController();
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => {
+      abort.abort();
+      reject(new Error('kiosk request timed out'));
+    }, KIOSK_TIMEOUT_MS);
+  });
+  let res: Response;
+  try {
+    res = await Promise.race([
+      fetch(`/api${path}`, { ...init, headers, credentials: 'omit', signal: abort.signal }),
+      timeout,
+    ]);
+  } finally {
+    clearTimeout(timer);
+  }
+  if (!res.ok) throw new ApiError(res.status, await parse<unknown>(res).catch(() => undefined));
+  return parse<T>(res);
 }
 
 /** Auth calls that don't use the access token: a 401 there is the answer, not an expired token. */

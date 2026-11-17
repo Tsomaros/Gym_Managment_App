@@ -52,7 +52,11 @@
     "label": "Sections",
     "membershipTypes": "Membership types",
     "payments": "Payments",
-    "history": "History"
+    "history": "History",
+    "memberCheckIn": "Check in",
+    "devices": "Devices",
+    "renewals": "Renewals",
+    "settings": "Settings"
   },
   "shell": {
     "owner": "Owner area",
@@ -296,5 +300,119 @@
       "cash": "cash",
       "card": "card"
     }
+  },
+  "checkin": {
+    "title": "Gym entry",
+    "hint": "Show this code to the tablet at the entrance.",
+    "qrLabel": "Entry code for {{name}}",
+    "refresh": "Valid for {{count}} s",
+    "loading": "Loading your code…",
+    "offline": "No connection — reception can check you in by name.",
+    "retry": "Try again",
+    "qrLabelAnonymous": "Entry code"
+  },
+  "kiosk": {
+    "pairTitle": "Connect this tablet",
+    "pairHint": "Ask the owner for a pairing code (Devices → Connect a new tablet).",
+    "codeLabel": "Pairing code",
+    "pairButton": "Connect",
+    "pairing": "Connecting…",
+    "pairInvalid": "This code is not valid or has expired. Ask for a new one.",
+    "pairBusy": "Too many attempts. Wait a moment and try again.",
+    "pairError": "Could not connect. Try again.",
+    "connecting": "Connecting to the gym…",
+    "offline": "No connection to the server.",
+    "scanTitle": "Scan your code",
+    "scanHint": "Open \"Check in\" in the app and hold the code up here.",
+    "cameraDenied": "The camera is not available. Check the browser permissions.",
+    "switchCamera": "Switch camera",
+    "welcome": "Welcome, {{name}}!",
+    "toReception": "Please see reception",
+    "codeExpired": "Code expired — open the app again",
+    "connectionProblem": "Connection problem — please see reception",
+    "welcomeNoName": "Welcome!"
+  },
+  "devices": {
+    "title": "Entrance devices",
+    "connect": "Connect a new tablet",
+    "nameLabel": "Tablet name",
+    "namePlaceholder": "e.g. Entrance",
+    "create": "Create code",
+    "codeTitle": "Tablet pairing code",
+    "codeHint": "Type it on the tablet at /kiosk. It works once, until {{time}}.",
+    "done": "Done",
+    "lastSeen": "Last used: {{when}}",
+    "neverSeen": "Not used yet",
+    "revoked": "Revoked",
+    "revoke": "Revoke",
+    "revokeNamed": "Revoke: {{name}}",
+    "revokeTitle": "Revoke tablet",
+    "revokeMessage": "The tablet \"{{name}}\" stops working immediately. Using it again needs a new pairing code.",
+    "empty": "No tablet is connected."
+  },
+  "desk": {
+    "title": "Front desk",
+    "liveTitle": "Latest check-ins",
+    "connection": "Connection status",
+    "live": "Live",
+    "reconnecting": "Reconnecting…",
+    "empty": "Check-ins appear here as they happen.",
+    "previous": "Earlier",
+    "valid": "Checked in",
+    "refused": "Entry not allowed",
+    "duplicate": "Repeat a moment ago — not recorded again",
+    "sell": "Sell a membership",
+    "newEnd": "New end: {{date}}",
+    "reason": {
+      "frozen": "The membership is frozen",
+      "upcoming_only": "The membership starts on {{date}}",
+      "classes_only": "Has only a class pack — it does not open the door",
+      "used_up": "All visits are used up",
+      "expired": "The membership ended on {{date}}",
+      "no_membership": "Has no membership"
+    },
+    "reasonNoDate": {
+      "upcoming_only": "The membership has not started yet",
+      "expired": "The membership has ended"
+    },
+    "present": "Inside now",
+    "presentEmpty": "Nobody is inside.",
+    "checkOut": "Check out",
+    "checkOutNamed": "Check out: {{name}}",
+    "today": "Today",
+    "visitorsEmpty": "Nobody came today.",
+    "kiosk": "Tablet",
+    "manual": "By hand",
+    "leftAt": "out {{time}}",
+    "manualLabel": "Check in by name",
+    "manualPlaceholder": "Name, email or mobile — Enter to check in",
+    "noMatch": "No member found.",
+    "checkInButton": "Check in",
+    "views": "View"
+  },
+  "photo": {
+    "add": "Add a photo",
+    "change": "Change photo",
+    "remove": "Remove photo",
+    "removeConfirm": "Remove",
+    "removeMessage": "The member's photo will be deleted.",
+    "alt": "Photo: {{name}}",
+    "error": "The photo was not uploaded. Try another.",
+    "uploading": "Uploading…"
+  },
+  "renewals": {
+    "title": "Renewals",
+    "hint": "Members about to run out, soonest first.",
+    "empty": "Nobody is running out soon.",
+    "call": "Call: {{name}}",
+    "sell": "Sell",
+    "sellNamed": "Sell: {{name}}"
+  },
+  "settings": {
+    "title": "Gym settings",
+    "autoCheckout": "Automatic check-out after (minutes)",
+    "hint": "Anyone who came in longer ago than this counts as having left. Allowed: 30–600.",
+    "invalid": "Enter a whole number from 30–600.",
+    "saved": "Saved"
   }
 }

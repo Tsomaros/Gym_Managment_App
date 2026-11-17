@@ -55,16 +55,16 @@
 - `GET /gyms/:gymId/settings` (`@GymRoles('reception')`) → `{ name, timezone, autoCheckoutMinutes }`. `PATCH /gyms/:gymId/settings` (`@GymRoles('owner')`, body `{ autoCheckoutMinutes }`) → `200` + `gym.settings_updated` history row.
 - Shared: `GymSettingsSchema`, `CheckInTokenResponse`.
 
-- [ ] **Step 1: Write the failing tests:**
+- [x] **Step 1: Write the failing tests:**
   - A token signed at `t` verifies at `t + 44 s` and is `null` at `t + 46 s`.
   - Flipping one character of the payload or the signature → `null`. `'GYM2.'` prefix → `null`. `'garbage'` → `null` (no throw).
   - Verifying with a different `CHECKIN_SECRET` → `null`.
   - The endpoint returns a token for the caller's own member id; a trainer → `403`.
   - Settings: reception `GET` → `200` with `autoCheckoutMinutes: 120`; reception `PATCH` → `403`; owner `PATCH 20` → `400`; owner `PATCH 90` → `200` + history row.
-- [ ] **Step 2: Run** `pnpm --filter api test checkin-token gym-settings` → FAIL.
-- [ ] **Step 3: Implement.**
-- [ ] **Step 4: Run** → PASS.
-- [ ] **Step 5: Commit** `feat: gym settings and rotating check-in tokens`.
+- [x] **Step 2: Run** `pnpm --filter api test checkin-token gym-settings` → FAIL.
+- [x] **Step 3: Implement.**
+- [x] **Step 4: Run** → PASS.
+- [x] **Step 5: Commit** `feat: gym settings and rotating check-in tokens`.
 
 ---
 
@@ -89,16 +89,16 @@
 - `DeviceGuard`: parses `Authorization: Device <token>`, looks up the hash through `systemDb`. Missing, unknown or revoked → `401`. Sets `req.device = { id, gymId }` and updates `last_seen_at` at most once a minute. `@CurrentDevice()` param decorator.
 - `GET /kiosk/me` (`DeviceGuard`) → `{ gymId, gymName, deviceName }`. The kiosk calls this at start-up to know whether it's still paired.
 
-- [ ] **Step 1: Write the failing tests:**
+- [x] **Step 1: Write the failing tests:**
   - Owner creates a code → `/kiosk/pair` with it in lower case → `201` with a device token; `/kiosk/me` with `Device <token>` → `200` and the gym's name.
   - Same code again → `410`; expired → `410`; reception creating a code → `403`.
   - After revoke, `/kiosk/me` → `401`. *(Review Focus 4)*
   - A bearer user token on `/kiosk/me` → `401`; a device token on a `/gyms/:gymId/...` route → `401`.
   - Two-gym isolation for both tables. 11 pair attempts from one IP in 60 s → `429`.
-- [ ] **Step 2: Run** `pnpm --filter api test devices` → FAIL.
-- [ ] **Step 3: Implement.**
-- [ ] **Step 4: Run** `pnpm --filter api test` → PASS.
-- [ ] **Step 5: Commit** `feat: kiosk device pairing and revocable device tokens`.
+- [x] **Step 2: Run** `pnpm --filter api test devices` → FAIL.
+- [x] **Step 3: Implement.**
+- [x] **Step 4: Run** `pnpm --filter api test` → PASS.
+- [x] **Step 5: Commit** `feat: kiosk device pairing and revocable device tokens`.
 
 ---
 
@@ -125,7 +125,7 @@
   - `POST /kiosk/check-in` (`DeviceGuard`, `@ThrottleKiosk()`, body `{ token }`) → `200 KioskCheckInResult`. `verifyCheckInToken` failing, or `gymId` ≠ device's gym → `{ valid: false, reason: 'invalid_token', firstName: null }`, nothing recorded. Not a member of the gym → `not_member`, nothing recorded.
   - `POST /gyms/:gymId/members/:memberId/check-ins` (`@GymRoles('reception')`) → `201 CheckInResult`. Not a member → `404`.
 
-- [ ] **Step 1: Write the failing tests:**
+- [x] **Step 1: Write the failing tests:**
   - `decide.spec.ts` (hand-built `Membership` objects):
     - Active time membership + active pack → valid, `consumeVisit: false`, uses the time membership.
     - Two active packs, ends 06-30 and NULL → uses the 06-30 one.
@@ -139,10 +139,10 @@
     - Member with 1 visit left, two devices check in concurrently (`Promise.all`, the second at Clock + 3 min to skip the duplicate rule) → results `ok` and `used_up`; `visits_used = 1 = visits_total`. *(Review Focus 3)*
     - Manual check-in by reception → `201`, `method 'manual'`, `by_user_id` set, `check_in.manual` in history. Trainer → `403`.
     - Two-gym isolation for `check_ins`.
-- [ ] **Step 2: Run** `pnpm --filter api test checkin` → FAIL.
-- [ ] **Step 3: Implement.** Consult database-expert on the lock order (member lock, then membership update) and the indexes.
-- [ ] **Step 4: Run** `pnpm --filter api test` → PASS.
-- [ ] **Step 5: Commit** `feat: check-in rules, kiosk and manual check-in`.
+- [x] **Step 2: Run** `pnpm --filter api test checkin` → FAIL.
+- [x] **Step 3: Implement.** Consult database-expert on the lock order (member lock, then membership update) and the indexes.
+- [x] **Step 4: Run** `pnpm --filter api test` → PASS.
+- [x] **Step 5: Commit** `feat: check-in rules, kiosk and manual check-in`.
 
 ---
 
@@ -164,17 +164,17 @@
   - `GET /gyms/:gymId/live?ticket=…` (no bearer; the ticket is the credential; the ticket's gym must match `:gymId`) → `text/event-stream`. Sends `event: check_in` / `event: check_out` with JSON `data`, plus a `: ping` comment every 25 s. Bad, used or expired ticket → `401`. Unsubscribes on client close.
   - Trainer streams carry the same events (spec §5: trainers see live check-ins).
 
-- [ ] **Step 1: Write the failing tests** (gym `Europe/Athens`, auto check-out 120):
+- [x] **Step 1: Write the failing tests** (gym `Europe/Athens`, auto check-out 120):
   - Check-in at 10:00, Clock 12:00 → present; Clock 12:01 → not present. *(Review Focus 5)*
   - Check-in at 23:30, Clock 00:10 the next day → not present (new gym day). *(Review Focus 5)*
   - A member who checked in twice (11:00 and, after the duplicate window, 11:30) appears once, with the 11:30 check-in.
   - Invalid check-ins aren't present but appear in `?date=` visitors with their reason.
   - Check-out → gone from present; second check-out → `409`; trainer check-out → `403`; trainer `GET present` → `200`.
   - Live: get a ticket, open the stream, perform a manual check-in → the stream receives one `check_in` event with the member's name within 1 s. Reusing the ticket → `401`. A gym B ticket on gym A's URL → `401`. A gym A check-in never reaches a gym B stream.
-- [ ] **Step 2: Run** `pnpm --filter api test presence live` → FAIL.
-- [ ] **Step 3: Implement.** Make sure the proxy in `apps/web/vite.config.ts` doesn't buffer `text/event-stream`, and that responses carry `Cache-Control: no-cache` and `X-Accel-Buffering: no`.
-- [ ] **Step 4: Run** `pnpm --filter api test` → PASS.
-- [ ] **Step 5: Commit** `feat: who's in, today's visitors, check-out, live check-in stream`.
+- [x] **Step 2: Run** `pnpm --filter api test presence live` → FAIL.
+- [x] **Step 3: Implement.** Make sure the proxy in `apps/web/vite.config.ts` doesn't buffer `text/event-stream`, and that responses carry `Cache-Control: no-cache` and `X-Accel-Buffering: no`.
+- [x] **Step 4: Run** `pnpm --filter api test` → PASS.
+- [x] **Step 5: Commit** `feat: who's in, today's visitors, check-out, live check-in stream`.
 
 ---
 
@@ -195,14 +195,14 @@
   - `DELETE /gyms/:gymId/members/:memberId/photo` → `204` + `member.photo_removed`.
 - `photoUrl` in `MemberSummary`, `MemberDetail`, `CheckInResult` and `PresentMember` = a presigned URL or `null`.
 
-- [ ] **Step 1: Write the failing tests:**
+- [x] **Step 1: Write the failing tests:**
   - Upload a small JPEG → `200`; member detail has a `photoUrl` that, fetched, returns the same bytes. A second upload replaces it and the old object is gone.
   - A text file renamed `.jpg` → `415`. 2.1 MB → `413`. Trainer → `403`. Not a member of this gym → `404`.
   - A manual check-in result carries the `photoUrl`. Two-gym isolation for `member_photos`.
-- [ ] **Step 2: Run** `pnpm --filter api test photos` → FAIL.
-- [ ] **Step 3: Implement.**
-- [ ] **Step 4: Run** `pnpm --filter api test` → PASS.
-- [ ] **Step 5: Commit** `feat: member photos in object storage with signed links`.
+- [x] **Step 2: Run** `pnpm --filter api test photos` → FAIL.
+- [x] **Step 3: Implement.**
+- [x] **Step 4: Run** `pnpm --filter api test` → PASS.
+- [x] **Step 5: Commit** `feat: member photos in object storage with signed links`.
 
 ---
 
@@ -221,14 +221,14 @@
   - Offline or error: "Δεν υπάρχει σύνδεση — η ρεσεψιόν μπορεί να σε περάσει με το όνομά σου" instead of a stale code.
   - Keeps the screen awake with the Wake Lock API where supported (`useWakeLock`, ignored where unsupported).
 
-- [ ] **Step 1: Write the failing tests** (fake timers, mocked API):
+- [x] **Step 1: Write the failing tests** (fake timers, mocked API):
   - The hook fetches once on mount, again after 30 s, and again on `visibilitychange` to visible.
   - With the API failing, the page shows the offline message and no QR.
   - The QR is rendered for the token returned by the API.
-- [ ] **Step 2: Run** `pnpm --filter web test checkin` → FAIL.
-- [ ] **Step 3: Implement.** Run ui-ux-reviewer (375 px, Greek, dark mode).
-- [ ] **Step 4: Run** → PASS.
-- [ ] **Step 5: Commit** `feat(web): member check-in QR screen`.
+- [x] **Step 2: Run** `pnpm --filter web test checkin` → FAIL.
+- [x] **Step 3: Implement.** Run ui-ux-reviewer (375 px, Greek, dark mode).
+- [x] **Step 4: Run** → PASS.
+- [x] **Step 5: Commit** `feat(web): member check-in QR screen`.
 
 ---
 
@@ -253,16 +253,16 @@
   - Text, not only colour.
 - `DevicesPage`: list (name, last seen, revoked), "Σύνδεση νέου tablet" → name → shows the pairing code and its expiry, and a revoke action with confirmation.
 
-- [ ] **Step 1: Write the failing tests:**
+- [x] **Step 1: Write the failing tests:**
   - Without a stored token, the pairing screen shows. A successful pair stores the token and shows the scanner.
   - A stored token with `/kiosk/me` → `401` clears storage and shows pairing.
   - A scan result `{ valid: true, firstName: 'Μαρία' }` shows "Καλώς ήρθες, Μαρία!" and returns to scanning after 3 s (fake timers). `{ valid: false, reason: 'expired' }` shows the reception message and **not** the word "expired"/"έληξε συνδρομή".
   - The same token decoded twice within 3 s causes one API call.
   - Devices page: revoke asks for confirmation; the pairing code shows in large text.
-- [ ] **Step 2: Run** `pnpm --filter web test kiosk devices` → FAIL.
-- [ ] **Step 3: Implement.** Run ui-ux-reviewer (tablet landscape and portrait, arm's-length readability, touch targets ≥ 44 px).
-- [ ] **Step 4: Run** → PASS.
-- [ ] **Step 5: Commit** `feat(web): kiosk tablet pairing and scanning, device management`.
+- [x] **Step 2: Run** `pnpm --filter web test kiosk devices` → FAIL.
+- [x] **Step 3: Implement.** Run ui-ux-reviewer (tablet landscape and portrait, arm's-length readability, touch targets ≥ 44 px).
+- [x] **Step 4: Run** → PASS.
+- [x] **Step 5: Commit** `feat(web): kiosk tablet pairing and scanning, device management`.
 
 ---
 
@@ -286,7 +286,7 @@
 - `PhotoCapture`: `<input type="file" accept="image/*" capture="user">` with a preview, client-side resize to 800 px JPEG 0.85 via canvas, upload, remove.
 - `RenewalsPage`: members with `status=expiring`, sorted by `currentEndsOn` (add `sort=ending` to `GET /members` if not present, with a test), with phone (a `tel:` link) and a "Πώληση" button.
 
-- [ ] **Step 1: Write the failing tests:**
+- [x] **Step 1: Write the failing tests:**
   - `useLiveEvents`: on an `error` event, a new ticket is requested and a new `EventSource` opened after 1 s; `connected` goes false, then true.
   - A `check_in` event with `valid: false, reason: 'frozen'` renders a red card with the frozen-until text and the sell button; a valid one renders the green state with the photo.
   - A `check_out` event removes the member from "Μέσα τώρα".
@@ -294,11 +294,11 @@
   - Photo capture resizes a 2000×1500 image to 800×600 before upload (canvas mocked).
   - Renewals list is sorted by end date.
   - E2E (two browser contexts): owner pairs a kiosk (context A, `/kiosk` with the code) → a member (context B) opens the check-in screen → the test reads the token from the API as that member and posts it to `/kiosk/check-in` with the device token (camera can't be driven in CI) → the reception desk (context C) shows the check-in live → reception checks the member out → "Μέσα τώρα" is empty.
-- [ ] **Step 2: Run** `pnpm --filter web test && pnpm e2e` → FAIL.
-- [ ] **Step 3: Implement.** Run ui-ux-reviewer on each new component (readable at a glance from 1 m, invalid status impossible to miss, colour never alone).
-- [ ] **Step 4: Run** `pnpm lint && pnpm typecheck && pnpm -r test && pnpm e2e` → PASS.
-- [ ] **Step 5: Manual check** on the real devices, as in the spike: kiosk on a tablet or the Android phone (`/kiosk` through the cloudflared tunnel), member on the iPhone. A scan gives a green result in under 2 seconds, and the desk updates live. Record it in `PROGRESS.md`.
-- [ ] **Step 6: Commit** `feat(web): reception desk with live check-ins, photos, renewals, gym settings`.
+- [x] **Step 2: Run** `pnpm --filter web test && pnpm e2e` → FAIL.
+- [x] **Step 3: Implement.** Run ui-ux-reviewer on each new component (readable at a glance from 1 m, invalid status impossible to miss, colour never alone).
+- [x] **Step 4: Run** `pnpm lint && pnpm typecheck && pnpm -r test && pnpm e2e` → PASS.
+- [x] **Step 5: Manual check** on the real devices, as in the spike: kiosk on a tablet or the Android phone (`/kiosk` through the cloudflared tunnel), member on the iPhone. A scan gives a green result in under 2 seconds, and the desk updates live. Record it in `PROGRESS.md`.
+- [x] **Step 6: Commit** `feat(web): reception desk with live check-ins, photos, renewals, gym settings`.
 
 ---
 

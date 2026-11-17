@@ -1,4 +1,11 @@
-import type { Membership, MembershipType, Payment } from '@gym/shared';
+import type {
+  CheckInResult,
+  Membership,
+  MembershipType,
+  Payment,
+  PresentMember,
+  VisitorRow,
+} from '@gym/shared';
 
 export const GYM = '0b1c2d3e-4f5a-4b6c-8d7e-9f0a1b2c3d4e';
 export const MEMBER = '6f1c2b8e-3d4a-4f5b-9c6d-7e8f9a0b1c2d';
@@ -59,6 +66,48 @@ export function payment(overrides: Partial<Payment> = {}): Payment {
     voidedAt: null,
     voidedBy: null,
     voidReason: null,
+    ...overrides,
+  };
+}
+
+export function checkInResult(overrides: Partial<CheckInResult> = {}): CheckInResult {
+  return {
+    checkInId: '4f5a6b7c-8d9e-4f0a-9b1c-2d3e4f5a6b70',
+    valid: true,
+    reason: null,
+    duplicate: false,
+    method: 'kiosk',
+    member: { id: MEMBER, firstName: 'Γιώργος', lastName: 'Παπαδόπουλος', photoUrl: null },
+    membership: membership(),
+    at: '2027-05-02T07:00:00.000Z',
+    ...overrides,
+  };
+}
+
+export function presentMember(overrides: Partial<PresentMember> = {}): PresentMember {
+  return {
+    checkInId: '4f5a6b7c-8d9e-4f0a-9b1c-2d3e4f5a6b70',
+    memberId: MEMBER,
+    firstName: 'Γιώργος',
+    lastName: 'Παπαδόπουλος',
+    photoUrl: null,
+    at: '2027-05-02T07:00:00.000Z',
+    membershipStatus: 'active',
+    ...overrides,
+  };
+}
+
+export function visitorRow(overrides: Partial<VisitorRow> = {}): VisitorRow {
+  return {
+    checkInId: '4f5a6b7c-8d9e-4f0a-9b1c-2d3e4f5a6b70',
+    memberId: MEMBER,
+    firstName: 'Γιώργος',
+    lastName: 'Παπαδόπουλος',
+    at: '2027-05-02T07:00:00.000Z',
+    method: 'kiosk',
+    valid: true,
+    reason: null,
+    checkedOutAt: null,
     ...overrides,
   };
 }

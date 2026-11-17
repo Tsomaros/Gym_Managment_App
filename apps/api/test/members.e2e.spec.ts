@@ -249,6 +249,24 @@ describe('members list, member detail and my memberships', () => {
     clock.setDay('2027-05-01');
   });
 
+  it('sorts by the soonest end with sort=ending, members without an end last; other values are refused', async () => {
+    clock.setDay('2027-05-27');
+    // giorgos ends 31 May, eleni 7 June (after her freeze), nikos has a visit pack without an end
+    expect((await list('?sort=ending')).map((m) => m.userId)).toEqual([
+      id.giorgos,
+      id.eleni,
+      id.nikos,
+    ]);
+    expect((await list('?status=expiring&sort=ending')).map((m) => m.userId)).toEqual([
+      id.giorgos,
+      id.nikos,
+    ]);
+    // the default order is unchanged: newest sign-up first
+    expect((await list()).map((m) => m.userId)).toEqual([id.nikos, id.eleni, id.giorgos]);
+    expect((await get('/members?sort=name', token.reception)).status).toBe(400);
+    clock.setDay('2027-05-01');
+  });
+
   it('searches names without accents or case, and phone digits; never another gym', async () => {
     expect((await list('?q=γιωργος')).map((m) => m.userId)).toEqual([id.giorgos]);
     expect((await list('?q=ΠΑΠΑΔΌΠΟΥΛΟΣ')).map((m) => m.userId)).toEqual([id.giorgos]);

@@ -4,9 +4,13 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { closeDb, db, systemDb } from '../../src/db/client';
 import {
   auditLog,
+  checkIns,
+  devicePairingCodes,
+  devices,
   gymRoles,
   gyms,
   invitations,
+  memberPhotos,
   membershipFreezes,
   memberships,
   membershipTypes,
@@ -720,5 +724,358 @@ describe('row-level security: membership_freezes', () => {
         ),
       ),
     ).toMatch(/violates check constraint/);
+  });
+});
+
+describe('row-level security and privileges: devices and device_pairing_codes', () => {
+  const run = randomUUID().slice(0, 8);
+  let gymA: string;
+  let gymB: string;
+  let deviceA: string;
+
+  beforeAll(async () => {
+    const g = await systemDb
+      .insert(gyms)
+      .values([{ name: `Dev A ${run}` }, { name: `Dev B ${run}` }])
+      .returning({ id: gyms.id });
+    gymA = g[0]!.id;
+    gymB = g[1]!.id;
+    const expiresAt = new Date(Date.now() + 900_000);
+    const d = await systemDb
+      .insert(devices)
+      .values([
+        { gymId: gymA, name: 'A', tokenHash: `a-${randomUUID()}` },
+        { gymId: gymB, name: 'B', tokenHash: `b-${randomUUID()}` },
+      ])
+      .returning({ id: devices.id });
+    deviceA = d[0]!.id;
+    await systemDb.insert(devicePairingCodes).values([
+      { gymId: gymA, name: 'A', codeHash: `a-${randomUUID()}`, expiresAt },
+      { gymId: gymB, name: 'B', codeHash: `b-${randomUUID()}`, expiresAt },
+    ]);
+  });
+
+  afterAll(async () => {
+    const gymIds = [gymA, gymB].filter(Boolean);
+    if (gymIds.length) {
+      await systemDb.delete(devices).where(inArray(devices.gymId, gymIds));
+      await systemDb.delete(devicePairingCodes).where(inArray(devicePairingCodes.gymId, gymIds));
+      await systemDb.delete(gyms).where(inArray(gyms.id, gymIds));
+    }
+  });
+
+  it('withGym(A) sees only gym A devices and pairing codes', async () => {
+    const d = await withGym(gymA, (tx) => tx.select().from(devices));
+    const c = await withGym(gymA, (tx) => tx.select().from(devicePairingCodes));
+    expect(d.map((r) => r.gymId)).toEqual([gymA]);
+    expect(c.map((r) => r.gymId)).toEqual([gymA]);
+  });
+
+  it('sees nothing when no gym is set', async () => {
+    expect(await db.select().from(devices)).toEqual([]);
+    expect(await db.select().from(devicePairingCodes)).toEqual([]);
+  });
+
+  it('withGym(A) cannot create a pairing code for gym B', async () => {
+    const msg = await rejectionMessage(
+      withGym(gymA, (tx) =>
+        tx.insert(devicePairingCodes).values({
+          gymId: gymB,
+          name: 'x',
+          codeHash: `x-${randomUUID()}`,
+          expiresAt: new Date(Date.now() + 900_000),
+        }),
+      ),
+    );
+    expect(msg).toMatch(RLS_VIOLATION);
+  });
+
+  it('gym_app can revoke its own devices but not rename them or revoke gym B devices', async () => {
+    const revoked = await withGym(gymA, (tx) =>
+      tx
+        .update(devices)
+        .set({ revokedAt: new Date() })
+        .where(eq(devices.id, deviceA))
+        .returning({ id: devices.id }),
+    );
+    expect(revoked).toHaveLength(1);
+    const other = await withGym(gymA, (tx) =>
+      tx
+        .update(devices)
+        .set({ revokedAt: new Date() })
+        .where(eq(devices.gymId, gymB))
+        .returning({ id: devices.id }),
+    );
+    expect(other).toEqual([]);
+    const msg = await rejectionMessage(
+      withGym(gymA, (tx) =>
+        tx.update(devices).set({ name: 'renamed' }).where(eq(devices.id, deviceA)),
+      ),
+    );
+    expect(msg).toMatch(/permission denied/);
+  });
+
+  it('gym_app cannot delete devices or touch pairing codes beyond creating them', async () => {
+    const del = await rejectionMessage(
+      withGym(gymA, (tx) => tx.delete(devices).where(eq(devices.id, deviceA))),
+    );
+    expect(del).toMatch(/permission denied/);
+    const upd = await rejectionMessage(
+      withGym(gymA, (tx) => tx.update(devicePairingCodes).set({ usedAt: new Date() })),
+    );
+    expect(upd).toMatch(/permission denied/);
+    const delCode = await rejectionMessage(withGym(gymA, (tx) => tx.delete(devicePairingCodes)));
+    expect(delCode).toMatch(/permission denied/);
+    // nothing was lost
+    expect(await systemDb.select().from(devices).where(eq(devices.id, deviceA))).toHaveLength(1);
+  });
+
+  it('gym_app cannot create devices (pairing goes through systemDb)', async () => {
+    const msg = await rejectionMessage(
+      withGym(gymA, (tx) =>
+        tx.insert(devices).values({ gymId: gymA, name: 'x', tokenHash: `x-${randomUUID()}` }),
+      ),
+    );
+    expect(msg).toMatch(/permission denied/);
+  });
+});
+
+describe('row-level security and privileges: check_ins', () => {
+  const run = randomUUID().slice(0, 8);
+  let gymA: string;
+  let gymB: string;
+  let memberA: string;
+  let memberB: string;
+  let rowA: string;
+
+  beforeAll(async () => {
+    const g = await systemDb
+      .insert(gyms)
+      .values([{ name: `Check A ${run}` }, { name: `Check B ${run}` }])
+      .returning({ id: gyms.id });
+    gymA = g[0]!.id;
+    gymB = g[1]!.id;
+    const u = await systemDb
+      .insert(users)
+      .values([
+        { email: `ca-${run}@x.gr`, firstName: 'A', lastName: 'A' },
+        { email: `cb-${run}@x.gr`, firstName: 'B', lastName: 'B' },
+      ])
+      .returning({ id: users.id });
+    memberA = u[0]!.id;
+    memberB = u[1]!.id;
+    const rows = await systemDb
+      .insert(checkIns)
+      .values([
+        { gymId: gymA, memberId: memberA, method: 'manual', valid: true },
+        { gymId: gymB, memberId: memberB, method: 'manual', valid: true },
+      ])
+      .returning({ id: checkIns.id });
+    rowA = rows[0]!.id;
+  });
+
+  afterAll(async () => {
+    const gymIds = [gymA, gymB].filter(Boolean);
+    if (gymIds.length) {
+      await systemDb.delete(checkIns).where(inArray(checkIns.gymId, gymIds));
+      await systemDb.delete(gyms).where(inArray(gyms.id, gymIds));
+    }
+    await systemDb.delete(users).where(inArray(users.id, [memberA, memberB].filter(Boolean)));
+  });
+
+  it('withGym(A) sees only gym A check-ins; without a gym nothing is visible', async () => {
+    const rows = await withGym(gymA, (tx) => tx.select().from(checkIns));
+    expect(rows.map((r) => r.gymId)).toEqual([gymA]);
+    expect(await db.select().from(checkIns)).toEqual([]);
+  });
+
+  it('withGym(A) cannot record a check-in for gym B', async () => {
+    const msg = await rejectionMessage(
+      withGym(gymA, (tx) =>
+        tx
+          .insert(checkIns)
+          .values({ gymId: gymB, memberId: memberB, method: 'manual', valid: true }),
+      ),
+    );
+    expect(msg).toMatch(RLS_VIOLATION);
+  });
+
+  it('withGym(A) cannot check out a gym B visitor', async () => {
+    const out = await withGym(gymA, (tx) =>
+      tx
+        .update(checkIns)
+        .set({ checkedOutAt: new Date() })
+        .where(eq(checkIns.memberId, memberB))
+        .returning({ id: checkIns.id }),
+    );
+    expect(out).toEqual([]);
+    const [rowB] = await systemDb.select().from(checkIns).where(eq(checkIns.memberId, memberB));
+    expect(rowB!.checkedOutAt).toBeNull();
+  });
+
+  it('a valid check-in must have no reason and an invalid one must have one', async () => {
+    const bad = (valid: boolean, reason: string | null) =>
+      rejectionMessage(
+        withGym(gymA, (tx) =>
+          tx
+            .insert(checkIns)
+            .values({ gymId: gymA, memberId: memberA, method: 'manual', valid, reason }),
+        ),
+      );
+    expect(await bad(true, 'expired')).toMatch(/check_ins_reason_matches_valid/);
+    expect(await bad(false, null)).toMatch(/check_ins_reason_matches_valid/);
+  });
+
+  it('a kiosk check-in needs a device, and a consumed visit needs a valid check-in with a membership', async () => {
+    const insert = (v: Partial<typeof checkIns.$inferInsert>) =>
+      rejectionMessage(
+        withGym(gymA, (tx) =>
+          tx
+            .insert(checkIns)
+            .values({ gymId: gymA, memberId: memberA, method: 'manual', valid: true, ...v }),
+        ),
+      );
+    expect(await insert({ method: 'kiosk' })).toMatch(/check_ins_kiosk_has_device/);
+    expect(await insert({ visitConsumed: true })).toMatch(/check_ins_visit_consumed_valid/);
+    expect(await insert({ visitConsumed: true, valid: false, reason: 'used_up' })).toMatch(
+      /check_ins_visit_consumed_valid/,
+    );
+  });
+
+  it('gym_app can check a visitor out but cannot change anything else or delete', async () => {
+    const out = await withGym(gymA, (tx) =>
+      tx
+        .update(checkIns)
+        .set({ checkedOutAt: new Date() })
+        .where(eq(checkIns.id, rowA))
+        .returning({ id: checkIns.id }),
+    );
+    expect(out).toHaveLength(1);
+    expect(
+      await rejectionMessage(
+        withGym(gymA, (tx) =>
+          tx.update(checkIns).set({ valid: false, reason: 'expired' }).where(eq(checkIns.id, rowA)),
+        ),
+      ),
+    ).toMatch(/permission denied/);
+    expect(
+      await rejectionMessage(
+        withGym(gymA, (tx) => tx.delete(checkIns).where(eq(checkIns.id, rowA))),
+      ),
+    ).toMatch(/permission denied/);
+  });
+});
+
+describe('row-level security and privileges: member_photos', () => {
+  const run = randomUUID().slice(0, 8);
+  let gymA: string;
+  let gymB: string;
+  let memberA: string;
+  let memberB: string;
+
+  beforeAll(async () => {
+    const g = await systemDb
+      .insert(gyms)
+      .values([{ name: `Photo A ${run}` }, { name: `Photo B ${run}` }])
+      .returning({ id: gyms.id });
+    gymA = g[0]!.id;
+    gymB = g[1]!.id;
+    const u = await systemDb
+      .insert(users)
+      .values([
+        { email: `pa-${run}@x.gr`, firstName: 'A', lastName: 'A' },
+        { email: `pb-${run}@x.gr`, firstName: 'B', lastName: 'B' },
+      ])
+      .returning({ id: users.id });
+    memberA = u[0]!.id;
+    memberB = u[1]!.id;
+    await systemDb.insert(memberPhotos).values([
+      { gymId: gymA, memberId: memberA, objectKey: `gyms/${gymA}/members/${memberA}/a.jpg` },
+      { gymId: gymB, memberId: memberB, objectKey: `gyms/${gymB}/members/${memberB}/b.jpg` },
+    ]);
+  });
+
+  afterAll(async () => {
+    const gymIds = [gymA, gymB].filter(Boolean);
+    if (gymIds.length) {
+      await systemDb.delete(memberPhotos).where(inArray(memberPhotos.gymId, gymIds));
+      await systemDb.delete(gyms).where(inArray(gyms.id, gymIds));
+    }
+    await systemDb.delete(users).where(inArray(users.id, [memberA, memberB].filter(Boolean)));
+  });
+
+  it('withGym(A) sees only gym A photos; without a gym nothing is visible', async () => {
+    const rows = await withGym(gymA, (tx) => tx.select().from(memberPhotos));
+    expect(rows.map((r) => r.gymId)).toEqual([gymA]);
+    expect(await db.select().from(memberPhotos)).toEqual([]);
+  });
+
+  it('withGym(A) cannot add, change or delete a gym B photo', async () => {
+    const msg = await rejectionMessage(
+      withGym(gymA, (tx) =>
+        tx.insert(memberPhotos).values({ gymId: gymB, memberId: memberB, objectKey: 'x' }),
+      ),
+    );
+    expect(msg).toMatch(RLS_VIOLATION);
+    const updated = await withGym(gymA, (tx) =>
+      tx
+        .update(memberPhotos)
+        .set({ objectKey: 'hijacked' })
+        .where(eq(memberPhotos.memberId, memberB))
+        .returning({ id: memberPhotos.memberId }),
+    );
+    expect(updated).toEqual([]);
+    const deleted = await withGym(gymA, (tx) =>
+      tx
+        .delete(memberPhotos)
+        .where(eq(memberPhotos.memberId, memberB))
+        .returning({ id: memberPhotos.memberId }),
+    );
+    expect(deleted).toEqual([]);
+    const [still] = await systemDb
+      .select()
+      .from(memberPhotos)
+      .where(eq(memberPhotos.memberId, memberB));
+    expect(still!.objectKey).toContain('b.jpg');
+  });
+
+  it('gym_app can replace and remove its own gym photo, but not move it to another member or gym', async () => {
+    const replaced = await withGym(gymA, (tx) =>
+      tx
+        .update(memberPhotos)
+        .set({ objectKey: 'new-key', updatedAt: new Date() })
+        .where(eq(memberPhotos.memberId, memberA))
+        .returning({ key: memberPhotos.objectKey }),
+    );
+    expect(replaced).toEqual([{ key: 'new-key' }]);
+    const msg = await rejectionMessage(
+      withGym(gymA, (tx) =>
+        tx
+          .update(memberPhotos)
+          .set({ memberId: memberB })
+          .where(eq(memberPhotos.memberId, memberA)),
+      ),
+    );
+    expect(msg).toMatch(/permission denied/);
+    // Moving the row to another gym is a column gym_app may not update (the policy alone would not stop it for gym B).
+    const moveMsg = await rejectionMessage(
+      withGym(gymA, (tx) =>
+        tx.update(memberPhotos).set({ gymId: gymB }).where(eq(memberPhotos.memberId, memberA)),
+      ),
+    );
+    expect(moveMsg).toMatch(/permission denied/);
+    // With no gym set, writing is refused too, not only reading.
+    expect(
+      await rejectionMessage(
+        db.insert(memberPhotos).values({ gymId: gymA, memberId: memberB, objectKey: 'x' }),
+      ),
+    ).toMatch(RLS_VIOLATION);
+    const removed = await withGym(gymA, (tx) =>
+      tx
+        .delete(memberPhotos)
+        .where(eq(memberPhotos.memberId, memberA))
+        .returning({ id: memberPhotos.memberId }),
+    );
+    expect(removed).toHaveLength(1);
   });
 });

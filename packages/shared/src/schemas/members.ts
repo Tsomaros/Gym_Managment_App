@@ -11,6 +11,8 @@ export type MemberStatus = (typeof MEMBER_STATUSES)[number];
 
 export interface MemberSummary {
   userId: string;
+  /** A signed link that works for 5 minutes; null when the member has no photo. */
+  photoUrl: string | null;
   firstName: string;
   lastName: string;
   email: string;
@@ -43,5 +45,7 @@ export interface MyMemberships {
 export const MembersQuerySchema = z.object({
   q: z.string().trim().max(100).optional(),
   status: z.enum(MEMBER_STATUSES).optional(),
+  /** 'ending': the soonest end first, members without an end last (the renewals list). */
+  sort: z.enum(['ending']).optional(),
 });
 export type MembersQuery = z.infer<typeof MembersQuerySchema>;
