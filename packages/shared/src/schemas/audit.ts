@@ -20,6 +20,17 @@ export const AUDIT_ACTIONS = [
   'check_in.checked_out',
   'member.photo_updated',
   'member.photo_removed',
+  'staff.role_removed',
+  'invitation.cancelled',
+  'shift_series.created',
+  'shift_series.ended',
+  'shift.created',
+  'shift.updated',
+  'shift.cancelled',
+  'trainer.assigned',
+  'trainer.unassigned',
+  'cover.assigned',
+  'cover.removed',
 ] as const;
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];
 

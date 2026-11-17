@@ -46,6 +46,19 @@ export class InvitationsController {
     return this.invitations.invite(gym, req.user!.id, body);
   }
 
+  /** Owner only: withdraws a pending invitation; its link then gives 410. */
+  @Post('gyms/:gymId/invitations/:id/cancel')
+  @HttpCode(204)
+  @GymRoles('owner')
+  cancel(
+    @Param('gymId', ParseUUIDPipe) _gymId: string,
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentGym() gym: GymContext,
+    @Req() req: AppRequest,
+  ): Promise<void> {
+    return this.invitations.cancel(gym.id, req.user!.id, id);
+  }
+
   /** Public: what the invite page shows before the person accepts. 410 if not redeemable. */
   @Get('auth/invitations/:token')
   preview(@Param('token') token: string): Promise<InvitePreview> {
