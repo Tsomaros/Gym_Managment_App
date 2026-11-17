@@ -9,7 +9,15 @@ import { AppModule } from '../src/app.module';
 import { hashPassword } from '../src/auth/password';
 import { signAccessToken } from '../src/auth/tokens';
 import { systemDb } from '../src/db/client';
-import { auditLog, gymRoles, gyms, invitations, refreshTokens, users } from '../src/db/schema';
+import {
+  auditLog,
+  exercises,
+  gymRoles,
+  gyms,
+  invitations,
+  refreshTokens,
+  users,
+} from '../src/db/schema';
 import { type MailMessage, MailService } from '../src/mail/mail.service';
 import { configureApp } from '../src/main';
 
@@ -102,6 +110,7 @@ describe('gyms and invitations', () => {
     await systemDb.delete(users).where(emails);
     if (createdGyms.length) {
       await systemDb.delete(auditLog).where(inArray(auditLog.gymId, createdGyms));
+      await systemDb.delete(exercises).where(inArray(exercises.gymId, createdGyms));
       await systemDb.delete(gyms).where(inArray(gyms.id, createdGyms));
     }
     await app?.close();

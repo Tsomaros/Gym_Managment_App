@@ -4,6 +4,7 @@ import { NestFactory } from '@nestjs/core';
 import cookieParser from 'cookie-parser';
 import { AppModule } from './app.module';
 import { getEnv } from './config/env';
+import { seedGymsWithoutExercises } from './exercises/seed-exercises';
 import { seedPlatformAdmin } from './seed';
 
 /**
@@ -25,6 +26,7 @@ export function configureApp(app: INestApplication): INestApplication {
 async function bootstrap(): Promise<void> {
   const env = getEnv(); // fail fast on a missing or invalid key
   await seedPlatformAdmin(env.PLATFORM_ADMIN_EMAIL, env.PLATFORM_ADMIN_PASSWORD);
+  await seedGymsWithoutExercises();
   const app = await createApp();
   app.enableShutdownHooks();
   await app.listen(Number(process.env.PORT ?? 3000));

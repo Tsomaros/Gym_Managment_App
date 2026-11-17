@@ -7,6 +7,7 @@ import {
   checkIns,
   devicePairingCodes,
   devices,
+  exercises,
   gymRoles,
   gyms,
   invitations,
@@ -1606,5 +1607,156 @@ describe('row-level security and privileges: trainer_covers', () => {
       .from(trainerCovers)
       .where(eq(trainerCovers.memberId, memberA));
     expect(row).toMatchObject({ gymId: gymA, memberId: memberA, trainerId: trainerB });
+  });
+});
+
+describe('row-level security and privileges: exercises', () => {
+  const run = randomUUID().slice(0, 8);
+  let gymA: string;
+  let gymB: string;
+  let exA: string;
+  let exB: string;
+
+  beforeAll(async () => {
+    const g = await systemDb
+      .insert(gyms)
+      .values([{ name: `Ex A ${run}` }, { name: `Ex B ${run}` }])
+      .returning({ id: gyms.id });
+    gymA = g[0]!.id;
+    gymB = g[1]!.id;
+    const rows = await systemDb
+      .insert(exercises)
+      .values([
+        { gymId: gymA, nameEl: 'Πιέσεις', muscleGroup: 'chest', measure: 'weight_reps' },
+        { gymId: gymB, nameEl: 'Πιέσεις', muscleGroup: 'chest', measure: 'weight_reps' },
+      ])
+      .returning({ id: exercises.id });
+    exA = rows[0]!.id;
+    exB = rows[1]!.id;
+  });
+
+  afterAll(async () => {
+    const gymIds = [gymA, gymB].filter(Boolean);
+    if (gymIds.length) {
+      await systemDb.delete(exercises).where(inArray(exercises.gymId, gymIds));
+      await systemDb.delete(gyms).where(inArray(gyms.id, gymIds));
+    }
+  });
+
+  it('withGym(A) sees only gym A exercises; without a gym nothing is visible', async () => {
+    expect((await withGym(gymA, (tx) => tx.select().from(exercises))).map((r) => r.id)).toEqual([
+      exA,
+    ]);
+    expect((await withGym(gymB, (tx) => tx.select().from(exercises))).map((r) => r.id)).toEqual([
+      exB,
+    ]);
+    expect(await db.select().from(exercises)).toEqual([]);
+  });
+
+  it('withGym(A) cannot add, change or archive a gym B exercise', async () => {
+    expect(
+      await rejectionMessage(
+        withGym(gymA, (tx) =>
+          tx
+            .insert(exercises)
+            .values({ gymId: gymB, nameEl: 'Άλλο', muscleGroup: 'core', measure: 'reps' }),
+        ),
+      ),
+    ).toMatch(RLS_VIOLATION);
+    expect(
+      await withGym(gymA, (tx) =>
+        tx
+          .update(exercises)
+          .set({ archivedAt: new Date() })
+          .where(eq(exercises.id, exB))
+          .returning({ id: exercises.id }),
+      ),
+    ).toEqual([]);
+    const [still] = await systemDb.select().from(exercises).where(eq(exercises.id, exB));
+    expect(still!.archivedAt).toBeNull();
+  });
+
+  it('the same Greek name may exist in two gyms but not twice in one, whatever the case', async () => {
+    expect(
+      await rejectionMessage(
+        withGym(gymA, (tx) =>
+          tx
+            .insert(exercises)
+            .values({ gymId: gymA, nameEl: 'πιέσεις', muscleGroup: 'core', measure: 'reps' }),
+        ),
+      ),
+    ).toMatch(/duplicate key|unique/);
+  });
+
+  it('gym_app can neither delete an exercise nor change its gym or creator', async () => {
+    expect(
+      await rejectionMessage(
+        withGym(gymA, (tx) => tx.delete(exercises).where(eq(exercises.id, exA))),
+      ),
+    ).toMatch(/permission denied/);
+    expect(
+      await rejectionMessage(
+        withGym(gymA, (tx) =>
+          tx.update(exercises).set({ gymId: gymB }).where(eq(exercises.id, exA)),
+        ),
+      ),
+    ).toMatch(/permission denied/);
+    expect(
+      await rejectionMessage(
+        withGym(gymA, (tx) =>
+          tx.update(exercises).set({ createdBy: randomUUID() }).where(eq(exercises.id, exA)),
+        ),
+      ),
+    ).toMatch(/permission denied/);
+  });
+
+  it('withGym(A) can archive its own exercise (the grant is not too narrow)', async () => {
+    const [own] = await withGym(gymA, (tx) =>
+      tx
+        .insert(exercises)
+        .values({ gymId: gymA, nameEl: 'Δική μας', muscleGroup: 'core', measure: 'reps' })
+        .returning({ id: exercises.id }),
+    );
+    const done = await withGym(gymA, (tx) =>
+      tx
+        .update(exercises)
+        .set({ archivedAt: new Date() })
+        .where(eq(exercises.id, own!.id))
+        .returning({ id: exercises.id }),
+    );
+    expect(done).toHaveLength(1);
+  });
+
+  it('rejects a blank Greek name', async () => {
+    expect(
+      await rejectionMessage(
+        withGym(gymA, (tx) =>
+          tx
+            .insert(exercises)
+            .values({ gymId: gymA, nameEl: '   ', muscleGroup: 'core', measure: 'reps' }),
+        ),
+      ),
+    ).toMatch(/check constraint/);
+  });
+
+  it('rejects an unknown muscle group or measure', async () => {
+    expect(
+      await rejectionMessage(
+        withGym(gymA, (tx) =>
+          tx
+            .insert(exercises)
+            .values({ gymId: gymA, nameEl: 'Χ1', muscleGroup: 'wings', measure: 'reps' }),
+        ),
+      ),
+    ).toMatch(/check constraint/);
+    expect(
+      await rejectionMessage(
+        withGym(gymA, (tx) =>
+          tx
+            .insert(exercises)
+            .values({ gymId: gymA, nameEl: 'Χ2', muscleGroup: 'core', measure: 'miles' }),
+        ),
+      ),
+    ).toMatch(/check constraint/);
   });
 });

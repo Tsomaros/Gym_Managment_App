@@ -31,6 +31,16 @@ export const AUDIT_ACTIONS = [
   'trainer.unassigned',
   'cover.assigned',
   'cover.removed',
+  'exercise.created',
+  'exercise.updated',
+  'exercise.archived',
+  'plan.created',
+  'plan.updated',
+  'plan.activated',
+  'plan.archived',
+  'template.created',
+  'template.updated',
+  'template.deleted',
 ] as const;
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];
 
