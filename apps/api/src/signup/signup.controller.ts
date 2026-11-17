@@ -53,8 +53,8 @@ export class SignupController {
     @Body(new ZodValidationPipe(SignupSchema)) body: Signup,
     @Res({ passthrough: true }) res: Response,
   ): Promise<SignupResponse> {
-    const { userId, isPlatformAdmin, created } = await this.signups.signup(body);
-    if (!created) return { signInRequired: true };
+    // A new account, or an existing one that proved its password: either way, signed in.
+    const { userId, isPlatformAdmin } = await this.signups.signup(body);
     setRefreshCookie(res, await this.refreshStore.issue(userId));
     return { accessToken: signAccessToken({ sub: userId, adm: isPlatformAdmin }) };
   }

@@ -5,12 +5,19 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import type { Membership, SellMembership } from '@gym/shared';
-import { and, eq, gte, isNull, max, sql } from 'drizzle-orm';
+import { and, eq, gt, gte, isNull, max, sql } from 'drizzle-orm';
 import { AuditService } from '../audit/audit.service';
 import { Clock } from '../common/clock';
-import { gymRoles, gyms, memberships, membershipTypes, payments } from '../db/schema';
+import {
+  gymRoles,
+  gyms,
+  membershipFreezes,
+  memberships,
+  membershipTypes,
+  payments,
+} from '../db/schema';
 import { type Tx, withGym } from '../db/tenant';
-import { addDays, type DateRange, periodEnd, todayIn } from './dates';
+import { addDays, type DateRange, daysBetweenInclusive, periodEnd, todayIn } from './dates';
 import { membershipStatus, remaining } from './status';
 
 type MembershipRow = typeof memberships.$inferSelect;
@@ -59,6 +66,61 @@ export async function lockMember(tx: Tx, gymId: string, memberId: string): Promi
   await tx.execute(
     sql`select pg_advisory_xact_lock(hashtextextended(${`${gymId}:${memberId}`}, 0))`,
   );
+}
+
+/**
+ * When a time membership's end moves from `oldEnd` to `newEnd` (a freeze, an early end, a void),
+ * the not-yet-started time memberships booked to start "the day after" follow it, one after the
+ * other, so a renewal never overlaps or leaves a gap. Each keeps its paid length in days, and
+ * any freeze booked on it moves with it. Call under lockMember.
+ */
+export async function shiftFollowers(
+  tx: Tx,
+  memberId: string,
+  oldEnd: string | null,
+  newEnd: string | null,
+  today: string,
+): Promise<void> {
+  let prevOld = oldEnd;
+  let prevNew = newEnd;
+  // A member has a handful of queued renewals at most; the bound only guards against a loop.
+  for (let step = 0; step < 50 && prevOld && prevNew && prevOld !== prevNew; step++) {
+    const [next] = await tx
+      .select()
+      .from(memberships)
+      .where(
+        and(
+          eq(memberships.memberId, memberId),
+          eq(memberships.kind, 'time'),
+          isNull(memberships.voidedAt),
+          eq(memberships.startsOn, addDays(prevOld, 1)),
+          gt(memberships.startsOn, today),
+        ),
+      )
+      .limit(1);
+    if (!next) return;
+    let newStart = addDays(prevNew, 1);
+    if (newStart < today) newStart = today;
+    const delta = daysBetweenInclusive(next.startsOn, newStart) - 1;
+    if (delta === 0) return;
+    const newEndsOn = addDays(next.endsOn!, delta);
+    await tx
+      .update(memberships)
+      .set({ startsOn: newStart, baseEndsOn: addDays(next.baseEndsOn!, delta), endsOn: newEndsOn })
+      .where(eq(memberships.id, next.id));
+    const booked = await tx
+      .select()
+      .from(membershipFreezes)
+      .where(eq(membershipFreezes.membershipId, next.id));
+    for (const f of booked) {
+      await tx
+        .update(membershipFreezes)
+        .set({ startsOn: addDays(f.startsOn, delta), endsOn: addDays(f.endsOn, delta) })
+        .where(eq(membershipFreezes.id, f.id));
+    }
+    prevOld = next.endsOn;
+    prevNew = newEndsOn;
+  }
 }
 
 /** Today in the gym's time zone, inside a gym transaction. */
@@ -111,6 +173,9 @@ export class MembershipsService {
       if (body.startsOn) {
         if (body.startsOn < today) {
           throw new BadRequestException({ message: 'The start date is in the past' });
+        }
+        if (body.startsOn > addDays(today, 366)) {
+          throw new BadRequestException({ message: 'The start date is more than a year ahead' });
         }
         startsOn = body.startsOn;
       } else if (type.kind === 'time') {

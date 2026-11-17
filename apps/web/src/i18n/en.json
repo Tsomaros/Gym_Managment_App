@@ -170,7 +170,8 @@
     "alreadyMember": "You are already a member of this gym. Sign in with your password.",
     "tooMany": "Too many attempts. Wait a minute and try again.",
     "existingAccount": "You already have an account — sign in with your password. The gym was added to your account.",
-    "toSignIn": "You already have an account — sign in"
+    "toSignIn": "You already have an account — sign in",
+    "existingNeedsPassword": "This email already has an account. Enter that account's password."
   },
   "verify": {
     "title": "Confirm email",

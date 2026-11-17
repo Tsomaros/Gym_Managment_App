@@ -396,4 +396,39 @@ describe('selling memberships, payments and voiding (gym in Europe/Athens)', () 
   it('voiding an unknown payment is 404', async () => {
     expect((await voidPayment(randomUUID())).status).toBe(404);
   });
+
+  it('moves a queued renewal to today when the current membership is voided', async () => {
+    const [u] = await systemDb
+      .insert(users)
+      .values({ email: `chain-${run}@x.gr`, firstName: 'Αλυσίδα', lastName: 'Μέλος' })
+      .returning({ id: users.id });
+    await systemDb.insert(gymRoles).values({ gymId, userId: u!.id, role: 'member' });
+    const chainType = await createType({
+      name: 'Μηνιαία αλυσίδα',
+      kind: 'time',
+      durationMonths: 1,
+      priceCents: 4000,
+    });
+    const current = (await sell(u!.id, { typeId: chainType.id, amountCents: 4000 }))
+      .body as Membership;
+    const next = (await sell(u!.id, { typeId: chainType.id, amountCents: 4000 }))
+      .body as Membership;
+    expect(next.startsOn).toBe('2027-03-01');
+
+    const [p] = await systemDb.select().from(payments).where(eq(payments.membershipId, current.id));
+    expect((await voidPayment(p!.id)).status).toBe(204);
+
+    const [moved] = await systemDb.select().from(memberships).where(eq(memberships.id, next.id));
+    // Paid length kept: 1–31 March is 31 days, so 31 January – 2 March.
+    expect(moved).toMatchObject({ startsOn: '2027-01-31', baseEndsOn: '2027-03-02' });
+  });
+
+  it('refuses a chosen start more than a year ahead (a typo)', async () => {
+    const res = await sell(id.member2, {
+      typeId: type.dayPass.id,
+      amountCents: 800,
+      startsOn: '2207-01-31',
+    });
+    expect(res.status).toBe(400);
+  });
 });

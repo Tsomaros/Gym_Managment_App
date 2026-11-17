@@ -166,6 +166,18 @@ describe('JoinPage', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent(/Ζήτα νέο κωδικό από την υποδοχή/);
   });
 
+  it('asks for the existing account password when the email already has an account (401)', async () => {
+    fetchMock.mockResolvedValue(
+      json(401, { message: 'This email already has an account: use its password' }),
+    );
+    renderAt('/join');
+    await fillValid();
+    await userEvent.click(screen.getByRole('button', { name: 'Εγγραφή' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Αυτό το email έχει ήδη λογαριασμό. Γράψε τον κωδικό εκείνου του λογαριασμού.',
+    );
+  });
+
   it('sends an existing account to sign in', async () => {
     fetchMock.mockResolvedValue(json(201, { signInRequired: true }));
     renderAt('/join');

@@ -6,7 +6,8 @@ import { Clock } from '../common/clock';
 import { namesOf, person } from '../common/names';
 import { gyms, memberships, payments } from '../db/schema';
 import { withGym } from '../db/tenant';
-import { lockMember } from './memberships.service';
+import { addDays } from './dates';
+import { gymToday, lockMember, shiftFollowers } from './memberships.service';
 
 @Injectable()
 export class PaymentsService {
@@ -65,10 +66,24 @@ export class PaymentsService {
         .where(and(eq(payments.id, paymentId), isNull(payments.voidedAt)))
         .returning({ membershipId: payments.membershipId, amountCents: payments.amountCents });
       if (!voided) throw new ConflictException({ message: 'Payment already voided' });
-      await tx
+      const [cancelled] = await tx
         .update(memberships)
         .set({ voidedAt: now })
-        .where(and(eq(memberships.id, voided.membershipId), isNull(memberships.voidedAt)));
+        .where(and(eq(memberships.id, voided.membershipId), isNull(memberships.voidedAt)))
+        .returning();
+      if (cancelled?.kind === 'time') {
+        // Its time is gone: a renewal queued after it starts when it would have (or today).
+        const today = await gymToday(tx, gymId, now);
+        const before = addDays(cancelled.startsOn, -1);
+        const yesterday = addDays(today, -1);
+        await shiftFollowers(
+          tx,
+          cancelled.memberId,
+          cancelled.endsOn,
+          before > yesterday ? before : yesterday,
+          today,
+        );
+      }
       await this.audit.record(tx, {
         gymId,
         actorId,

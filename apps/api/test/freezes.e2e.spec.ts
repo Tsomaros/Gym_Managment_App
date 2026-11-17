@@ -48,6 +48,7 @@ describe('freezes (gym in Europe/Athens)', () => {
   let monthly: MembershipType;
   let membership: Membership;
   let freeze: Freeze;
+  let renewal: Membership;
 
   const server = () => app.getHttpServer();
   const createFreeze = (membershipId: string, startsOn: string, endsOn: string) =>
@@ -179,6 +180,7 @@ describe('freezes (gym in Europe/Athens)', () => {
     const res = await sell(monthly.id, 4000);
     expect(res.status).toBe(201);
     expect(res.body).toMatchObject({ startsOn: '2027-06-08', endsOn: '2027-07-07' });
+    renewal = res.body as Membership;
   });
 
   it('ending the running freeze on 12 May keeps 10–11 May frozen and moves the end to 2 June', async () => {
@@ -195,6 +197,11 @@ describe('freezes (gym in Europe/Athens)', () => {
       status: 'active',
       effectiveEndsOn: '2027-06-02',
     });
+    // The renewal booked for "the day after" follows: no gap from 3 to 7 June.
+    expect(await stateOn(renewal.id, '2027-05-12')).toMatchObject({
+      startsOn: '2027-06-03',
+      effectiveEndsOn: '2027-07-02',
+    });
     // 10–11 May is now over, so it can't be ended again.
     expect((await endFreeze(freeze.id)).status).toBe(409);
   });
@@ -203,6 +210,8 @@ describe('freezes (gym in Europe/Athens)', () => {
     clock.setDay('2027-05-12');
     const later = (await createFreeze(membership.id, '2027-05-20', '2027-05-21')).body as Freeze;
     expect((await stateOn(membership.id, '2027-05-12')).effectiveEndsOn).toBe('2027-06-04');
+    // The renewal moves with it, so the two never overlap.
+    expect((await stateOn(renewal.id, '2027-05-12')).startsOn).toBe('2027-06-05');
 
     expect((await endFreeze(later.id)).status).toBe(204);
     const rows = await systemDb
@@ -211,6 +220,7 @@ describe('freezes (gym in Europe/Athens)', () => {
       .where(eq(membershipFreezes.id, later.id));
     expect(rows).toHaveLength(0);
     expect((await stateOn(membership.id, '2027-05-12')).effectiveEndsOn).toBe('2027-06-02');
+    expect((await stateOn(renewal.id, '2027-05-12')).startsOn).toBe('2027-06-03');
   });
 
   it('deletes a freeze that started today when it is ended', async () => {

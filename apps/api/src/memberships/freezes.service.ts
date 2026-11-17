@@ -11,7 +11,7 @@ import { Clock } from '../common/clock';
 import { membershipFreezes, memberships } from '../db/schema';
 import { type Tx, withGym } from '../db/tenant';
 import { addDays, daysBetweenInclusive, effectiveEnd, frozenDays } from './dates';
-import { gymToday, lockMember } from './memberships.service';
+import { gymToday, lockMember, shiftFollowers } from './memberships.service';
 
 type FreezeRow = typeof membershipFreezes.$inferSelect;
 
@@ -26,16 +26,19 @@ export function toFreeze(f: FreezeRow): Freeze {
   };
 }
 
-/** Recomputes the membership's effective end from its base end and its freezes. */
-async function refreshEnd(tx: Tx, membershipId: string, baseEndsOn: string | null): Promise<void> {
+/** Recomputes the membership's effective end from its base end and its freezes; returns it. */
+async function refreshEnd(
+  tx: Tx,
+  membershipId: string,
+  baseEndsOn: string | null,
+): Promise<string | null> {
   const freezes = await tx
     .select()
     .from(membershipFreezes)
     .where(eq(membershipFreezes.membershipId, membershipId));
-  await tx
-    .update(memberships)
-    .set({ endsOn: effectiveEnd(baseEndsOn, freezes) })
-    .where(eq(memberships.id, membershipId));
+  const endsOn = effectiveEnd(baseEndsOn, freezes);
+  await tx.update(memberships).set({ endsOn }).where(eq(memberships.id, membershipId));
+  return endsOn;
 }
 
 @Injectable()
@@ -92,7 +95,8 @@ export class FreezesService {
         .insert(membershipFreezes)
         .values({ gymId, membershipId, ...body, createdBy: actorId })
         .returning();
-      await refreshEnd(tx, membershipId, m.baseEndsOn);
+      const newEnd = await refreshEnd(tx, membershipId, m.baseEndsOn);
+      await shiftFollowers(tx, m.memberId, m.endsOn, newEnd, today);
       await this.audit.record(tx, {
         gymId,
         actorId,
@@ -138,7 +142,8 @@ export class FreezesService {
       } else {
         throw new ConflictException({ message: 'The freeze is already over' });
       }
-      await refreshEnd(tx, m.id, m.baseEndsOn);
+      const newEnd = await refreshEnd(tx, m.id, m.baseEndsOn);
+      await shiftFollowers(tx, m.memberId, m.endsOn, newEnd, today);
       await this.audit.record(tx, {
         gymId,
         actorId,

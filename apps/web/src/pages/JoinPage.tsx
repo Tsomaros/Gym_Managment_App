@@ -126,11 +126,13 @@ export function JoinPage() {
         t(
           status === 410
             ? 'signup.codeGone'
-            : status === 409
-              ? 'signup.alreadyMember'
-              : status === 429
-                ? 'signup.tooMany'
-                : 'common.genericError',
+            : status === 401
+              ? 'signup.existingNeedsPassword'
+              : status === 409
+                ? 'signup.alreadyMember'
+                : status === 429
+                  ? 'signup.tooMany'
+                  : 'common.genericError',
         ),
       );
     } finally {

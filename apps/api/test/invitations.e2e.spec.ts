@@ -397,12 +397,71 @@ describe('gyms and invitations', () => {
     });
   });
 
+  it('takes over an unconfirmed account through the emailed invite: new password, old sessions gone', async () => {
+    const email = `squat-${run}@x.gr`;
+    // Someone registered this email (never confirmed) with a password the owner of the email doesn't know.
+    const [squatter] = await systemDb
+      .insert(users)
+      .values({
+        email,
+        firstName: 'Άγνωστος',
+        lastName: 'Test',
+        passwordHash: await hashPassword('squatter password'),
+      })
+      .returning({ id: users.id });
+    await systemDb.insert(refreshTokens).values({
+      userId: squatter!.id,
+      familyId: randomUUID(),
+      tokenHash: `squat-${randomUUID()}`,
+      expiresAt: new Date(Date.now() + 3600_000),
+    });
+    const gym = await gymWithOwner(`Squat ${run}`);
+
+    mail.sent = [];
+    await request(server())
+      .post(`/gyms/${gym.gymId}/invitations`)
+      .auth(gym.ownerToken, { type: 'bearer' })
+      .send({ email, firstName: 'Ελένη', lastName: 'Αληθινή', roles: ['reception'] })
+      .expect(201);
+    const token = tokenFrom(mail.sent[0]);
+
+    // The invite page treats it as a new account: choose a password.
+    const preview = await request(server()).get(`/auth/invitations/${token}`);
+    expect(preview.body.accountExists).toBe(false);
+
+    const accepted = await accept(token, 'the real owner password');
+    expect(accepted.status).toBe(200);
+    expect(typeof accepted.body.accessToken).toBe('string');
+
+    const [row] = await systemDb.select().from(users).where(eq(users.email, email));
+    expect(row!.emailVerifiedAt).not.toBeNull();
+    const live = await systemDb
+      .select()
+      .from(refreshTokens)
+      .where(sql`${refreshTokens.userId} = ${squatter!.id} and ${refreshTokens.revokedAt} is null`);
+    // Only the session just opened by the invite remains.
+    expect(live).toHaveLength(1);
+    expect(live[0]!.tokenHash.startsWith('squat-')).toBe(false);
+
+    const login = (password: string) =>
+      request(server()).post('/auth/login').send({ email, password });
+    expect((await login('squatter password')).status).toBe(401);
+    expect((await login('the real owner password')).status).toBe(200);
+  });
+
   it('adds a gym to an existing account instead of creating a second one', async () => {
     const email = `maria-${run}@x.gr`;
     const originalHash = await hashPassword('maria original password');
     const [maria] = await systemDb
       .insert(users)
-      .values({ email, firstName: 'Μαρία', lastName: 'Test', passwordHash: originalHash })
+      .values({
+        email,
+        firstName: 'Μαρία',
+        lastName: 'Test',
+        passwordHash: originalHash,
+        // An established account: its email was confirmed long ago.
+        emailVerifiedAt: new Date(),
+      })
       .returning({ id: users.id });
     const gymA = await gymWithOwner(`Maria A ${run}`);
     await systemDb

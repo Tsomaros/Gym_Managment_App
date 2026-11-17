@@ -244,7 +244,7 @@ describe('members list, member detail and my memberships', () => {
     expect((await list('?status=expired')).map((m) => m.userId)).toEqual([id.giorgos]);
     clock.setDay('2027-05-12');
     expect((await list('?status=expiring')).map((m) => m.userId)).toEqual([id.nikos]);
-    expect((await list('?status=new'))).toEqual([]);
+    expect(await list('?status=new')).toEqual([]);
     expect((await get('/members?status=bogus', token.reception)).status).toBe(400);
     clock.setDay('2027-05-01');
   });

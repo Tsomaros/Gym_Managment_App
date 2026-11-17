@@ -256,13 +256,35 @@ describe('sign-up codes and member self sign-up', () => {
       expect(roles).toHaveLength(1);
     });
 
-    it('links an existing account of another gym instead of creating a second one', async () => {
+    it('refuses to link an existing account without its password, and uses up nothing', async () => {
       const code = await newCode('B');
       const res = await signup(
-        person(code, { email: existingA.email.toUpperCase(), password: 'some other password' }),
+        person(code, { email: existingA.email.toUpperCase(), password: 'not the real password' }),
+      );
+      expect(res.status).toBe(401);
+      expect(res.body).toEqual({ message: 'This email already has an account: use its password' });
+
+      // No role in gym B, so gym B can't see the person; the code is still unused.
+      const rolesInB = await systemDb
+        .select()
+        .from(gymRoles)
+        .innerJoin(users, eq(users.id, gymRoles.userId))
+        .where(sql`${gymRoles.gymId} = ${gymB} and ${users.email} = ${existingA.email}`);
+      expect(rolesInB).toHaveLength(0);
+      const [row] = await systemDb
+        .select({ usedAt: signupCodes.usedAt })
+        .from(signupCodes)
+        .where(eq(signupCodes.codeHash, hashToken(code.replace('-', ''))));
+      expect(row?.usedAt).toBeNull();
+    });
+
+    it('links an existing account of another gym with its own password and signs it in', async () => {
+      const code = await newCode('B');
+      const res = await signup(
+        person(code, { email: existingA.email.toUpperCase(), password: 'existing password' }),
       );
       expect(res.status).toBe(201);
-      expect(res.body).toEqual({ signInRequired: true });
+      expect(typeof res.body.accessToken).toBe('string');
 
       const rows = await systemDb.select().from(users).where(eq(users.email, existingA.email));
       expect(rows).toHaveLength(1);
@@ -270,17 +292,16 @@ describe('sign-up codes and member self sign-up', () => {
       // Details typed at sign-up don't overwrite the existing account.
       expect(rows[0]!.firstName).toBe('Μαρία');
 
-      const login = await request(server())
-        .post('/auth/login')
-        .send({ email: existingA.email, password: 'existing password' });
-      const profile = MeResponseSchema.parse((await me(login.body.accessToken as string)).body);
+      const profile = MeResponseSchema.parse((await me(res.body.accessToken as string)).body);
       expect(profile.gyms.map((g) => g.gymId).sort()).toEqual([gymA, gymB].sort());
       expect(mail.sent).toHaveLength(0);
     });
 
     it('answers an existing member of the gym with 409 and leaves the code usable', async () => {
       const code = await newCode();
-      const res = await signup(person(code, { email: existingA.email }));
+      const res = await signup(
+        person(code, { email: existingA.email, password: 'existing password' }),
+      );
       expect(res.status).toBe(409);
 
       const [row] = await systemDb

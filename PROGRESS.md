@@ -14,8 +14,8 @@
 - 2026-11-15: Design approved, plan for phases 0–1 written, Claude Code agents/hooks/skills adapted from LLM_Movies_Prediction_Model.
 
 ## In progress
-- Plan 2a, still to do: (1) run ui-ux-reviewer, test-auditor and code-reviewer on Task 11 (web members/selling/freezes/my membership/payments/history); (2) final whole-branch review (executing-plans); (3) push to GitHub (Task 1 Step 6) — ask the user first; (4) merge.
-- Open questions for the user (from plan 2a): someone with a valid desk code can register another person's email (accepted risk?); freezing a membership that already has an early renewal pushes its end into the renewal (shift renewals or forbid?).
+- 2026-11-17: Plan 2a reviews done: Task 11 reviewers and the final whole-branch review (fresh reviewer). Fixed: an existing account joins a gym only with its own password; an invite takes over an unconfirmed account; renewals move with their predecessor after freezes/voids; start date ≤ 1 year ahead; migrations verified on an empty database. 60 shared + 259 API + 98 web tests and 3 e2e pass. Next: push to GitHub (approved), check CI, then merge into main.
+- Open questions: none blocking. Deferred minors are listed in the plan 2a ledger.
 - 2026-11-16: Spec updated (§6.0): members self-sign-up with a one-time reception code; required first/last name, email, mobile, date of birth. Plan 2a written: `docs/superpowers/plans/2026-11-16-phase2a-memberships.md` (hardening + GitHub push, sign-up, history, membership types, selling/payments/void, freezes, members API, web). Phase 0–1 open questions are handled in its Task 1. Next: execute plan 2a natively in Claude Code on a new branch `phase2a-memberships`.
 - 2026-11-15: phase 0–1 merged into `main` (merge f29a541); lint, typecheck, 152 unit/integration tests and the e2e pass on the merged result. Next: plan Phase 2 (memberships, payments, check-in) after deciding the open questions below. Decisions and rulings: `docs/superpowers/plans/2026-11-15-phase0-1-foundation.ledger.md`.
 

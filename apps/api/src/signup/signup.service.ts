@@ -1,9 +1,15 @@
-import { ConflictException, GoneException, Injectable, Logger } from '@nestjs/common';
+import {
+  ConflictException,
+  GoneException,
+  Injectable,
+  Logger,
+  UnauthorizedException,
+} from '@nestjs/common';
 import type { Locale, Signup, SignupCodeResponse } from '@gym/shared';
 import { and, eq, gt, isNull, sql } from 'drizzle-orm';
 import { AuditService } from '../audit/audit.service';
 import { hashToken, randomToken } from '../auth/opaque-token';
-import { hashPassword } from '../auth/password';
+import { hashPassword, verifyPassword } from '../auth/password';
 import { getEnv } from '../config/env';
 import { systemDb } from '../db/client';
 import { emailVerifications, gymRoles, signupCodes, users } from '../db/schema';
@@ -20,7 +26,7 @@ const linkGone = () => new GoneException({ message: 'Link invalid or expired' })
 export interface SignupResult {
   userId: string;
   isPlatformAdmin: boolean;
-  /** True when this sign-up created the account (and set its password). */
+  /** True when this sign-up created the account; false when it linked an existing one. */
   created: boolean;
 }
 
@@ -111,8 +117,21 @@ export class SignupService {
           .onConflictDoNothing({ target: users.email })
           .returning(cols);
         created = !!user;
-        // Lost a race with a sign-up for the same email: link to the account it created.
+        // Lost a race with a sign-up for the same email: treat it as the existing account below.
         user ??= (await tx.select(cols).from(users).where(eq(users.email, body.email)))[0];
+      }
+      if (!created) {
+        // An existing account joins this gym only with its own password: otherwise anyone with
+        // a desk code could attach someone else's account, and their details, to a gym.
+        const [owner] = await tx
+          .select({ passwordHash: users.passwordHash })
+          .from(users)
+          .where(eq(users.id, user!.id));
+        if (!owner?.passwordHash || !(await verifyPassword(owner.passwordHash, body.password))) {
+          throw new UnauthorizedException({
+            message: 'This email already has an account: use its password',
+          });
+        }
       }
 
       const [role] = await tx

@@ -13,7 +13,7 @@ import { hashToken, randomToken } from '../auth/opaque-token';
 import { hashPassword } from '../auth/password';
 import { getEnv } from '../config/env';
 import { systemDb } from '../db/client';
-import { gymRoles, gyms, invitations, users } from '../db/schema';
+import { gymRoles, gyms, invitations, refreshTokens, users } from '../db/schema';
 import { type Tx, withGym } from '../db/tenant';
 import { MailService } from '../mail/mail.service';
 import { inviteMail } from '../mail/templates/invite';
@@ -172,10 +172,11 @@ export class InvitationsService {
       );
     if (!inv) throw new GoneException('Invitation is invalid or has expired');
     const [account] = await systemDb
-      .select({ id: users.id })
+      .select({ verifiedAt: users.emailVerifiedAt })
       .from(users)
       .where(eq(users.email, inv.email));
-    return { ...inv, accountExists: !!account };
+    // An unconfirmed account counts as new: accepting sets its password (see accept()).
+    return { ...inv, accountExists: !!account?.verifiedAt };
   }
 
   /**
@@ -210,7 +211,11 @@ export class InvitationsService {
         });
       if (!inv) return undefined;
 
-      const userCols = { id: users.id, isPlatformAdmin: users.isPlatformAdmin };
+      const userCols = {
+        id: users.id,
+        isPlatformAdmin: users.isPlatformAdmin,
+        emailVerifiedAt: users.emailVerifiedAt,
+      };
       let created = false;
       let [user] = await tx.select(userCols).from(users).where(eq(users.email, inv.email));
       if (!user) {
@@ -229,6 +234,19 @@ export class InvitationsService {
         created = !!user;
         // Lost a race with another acceptance for the same email: use the account it created.
         user ??= (await tx.select(userCols).from(users).where(eq(users.email, inv.email)))[0];
+      } else if (!user.emailVerifiedAt) {
+        // Nobody ever proved this address, so whoever registered it may not own it. The emailed
+        // link does prove it: its holder sets the password, every earlier session ends, and the
+        // account is theirs.
+        await tx
+          .update(users)
+          .set({ passwordHash: await hashPassword(password), emailVerifiedAt: sql`now()` })
+          .where(eq(users.id, user.id));
+        await tx
+          .update(refreshTokens)
+          .set({ revokedAt: sql`now()` })
+          .where(and(eq(refreshTokens.userId, user.id), isNull(refreshTokens.revokedAt)));
+        created = true;
       }
 
       await tx
