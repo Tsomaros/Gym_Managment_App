@@ -14,6 +14,7 @@
 - 2026-11-15: Design approved, plan for phases 0–1 written, Claude Code agents/hooks/skills adapted from LLM_Movies_Prediction_Model.
 
 ## In progress
+- 2026-11-17: Phase 2a merged into main and pushed to GitHub. Plan 2b written: `docs/superpowers/plans/2026-11-17-phase2b-front-desk.md` (gym settings + rotating QR token, kiosk devices, check-in rules, who's in + live SSE stream, member photos in MinIO, member QR screen, kiosk tablet, reception desk + renewals). Next: execute plan 2b natively in Claude Code on a new branch `phase2b-front-desk`.
 - 2026-11-17: Plan 2a reviews done: Task 11 reviewers and the final whole-branch review (fresh reviewer). Fixed: an existing account joins a gym only with its own password; an invite takes over an unconfirmed account; renewals move with their predecessor after freezes/voids; start date ≤ 1 year ahead; migrations verified on an empty database. 60 shared + 259 API + 98 web tests and 3 e2e pass. Next: push to GitHub (approved), check CI, then merge into main.
 - Open questions: none blocking. Deferred minors are listed in the plan 2a ledger.
 - 2026-11-16: Spec updated (§6.0): members self-sign-up with a one-time reception code; required first/last name, email, mobile, date of birth. Plan 2a written: `docs/superpowers/plans/2026-11-16-phase2a-memberships.md` (hardening + GitHub push, sign-up, history, membership types, selling/payments/void, freezes, members API, web). Phase 0–1 open questions are handled in its Task 1. Next: execute plan 2a natively in Claude Code on a new branch `phase2a-memberships`.
