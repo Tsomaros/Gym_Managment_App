@@ -229,6 +229,7 @@ export function DeskPage({ reloadMs = RELOAD_MS }: { reloadMs?: number } = {}) {
           memberName={`${covering.member.firstName} ${covering.member.lastName}`}
           primaryTrainerId={covering.trainer?.userId ?? null}
           onClose={() => setCovering(null)}
+          returnFocusTo={() => document.querySelector<HTMLElement>('[data-testid="cover-line"]')}
           onDone={(cover) => {
             const id = covering.checkInId;
             setFeed((prev) => prev.map((r) => (r.checkInId === id ? { ...r, cover } : r)));

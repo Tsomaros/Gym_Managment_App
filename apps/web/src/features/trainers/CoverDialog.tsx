@@ -1,5 +1,5 @@
 import type { OnDutyPerson } from '@gym/shared';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ApiError, apiFetch } from '../../api/client';
 import { Dialog } from '../../components/Dialog';
@@ -15,6 +15,7 @@ export function CoverDialog({
   primaryTrainerId,
   onClose,
   onDone,
+  returnFocusTo,
 }: {
   gymId: string;
   memberId: string;
@@ -22,6 +23,7 @@ export function CoverDialog({
   primaryTrainerId: string | null;
   onClose: () => void;
   onDone: (cover: { trainerId: string; firstName: string }) => void;
+  returnFocusTo?: () => HTMLElement | null;
 }) {
   const { t } = useTranslation();
   const [people, setPeople] = useState<OnDutyPerson[] | null>(null);
@@ -29,11 +31,15 @@ export function CoverDialog({
     'idle',
   );
 
-  useEffect(() => {
+  const load = useCallback(() => {
     apiFetch<OnDutyPerson[]>(`/gyms/${gymId}/on-duty`)
-      .then(setPeople)
+      .then((list) => {
+        setPeople(list);
+        setState((s) => (s === 'loadFailed' ? 'idle' : s));
+      })
       .catch(() => setState('loadFailed'));
   }, [gymId]);
+  useEffect(load, [load]);
 
   const trainers = people?.filter(
     (p) => p.roles.includes('trainer') && p.userId !== primaryTrainerId,
@@ -49,7 +55,9 @@ export function CoverDialog({
       });
       onDone({ trainerId: p.userId, firstName: p.firstName });
     } catch (err) {
-      setState(err instanceof ApiError && err.status === 409 ? 'notOnDuty' : 'failed');
+      const offShift = err instanceof ApiError && err.status === 409;
+      setState(offShift ? 'notOnDuty' : 'failed');
+      if (offShift) load(); // the list was out of date: show who is on shift now
     }
   }
 
@@ -58,6 +66,7 @@ export function CoverDialog({
       title={t('trainers.coverTitle', { name: memberName })}
       closeLabel={t('common.close')}
       onClose={onClose}
+      returnFocusTo={returnFocusTo}
     >
       {!people && state !== 'loadFailed' && (
         <p role="status" className="text-slate-600">
@@ -88,15 +97,25 @@ export function CoverDialog({
           ))}
         </ul>
       )}
+      {state === 'busy' && (
+        <p role="status" className="mt-3 text-slate-600">
+          {t('common.working')}
+        </p>
+      )}
       {state === 'notOnDuty' && (
         <p role="alert" className="mt-3 text-red-700">
           {t('trainers.notOnDuty')}
         </p>
       )}
       {(state === 'failed' || state === 'loadFailed') && (
-        <p role="alert" className="mt-3 text-red-700">
+        <div role="alert" className="mt-3 flex items-center gap-3 text-red-700">
           {t('common.genericError')}
-        </p>
+          {state === 'loadFailed' && (
+            <button type="button" onClick={load} className="min-h-11 underline">
+              {t('app.retry')}
+            </button>
+          )}
+        </div>
       )}
     </Dialog>
   );

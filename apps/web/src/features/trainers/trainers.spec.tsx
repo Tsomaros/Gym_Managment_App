@@ -120,7 +120,10 @@ describe('AssignTrainerDialog', () => {
     renderDialog();
     await screen.findByRole('radio', { name: /Νίκος Γυμναστής/ });
     await user.click(screen.getByRole('button', { name: 'Ανάθεση' }));
+    // Let any (wrongly) started request reach fetch before checking that none did.
+    await new Promise((r) => setTimeout(r, 20));
     expect(fetchMock.mock.calls.some(([, i]) => i?.method === 'PUT')).toBe(false);
+    expect(onDone).not.toHaveBeenCalled();
   });
 
   it('explains that a personal-training membership is needed and offers to sell one', async () => {
@@ -152,7 +155,21 @@ describe('AssignTrainerDialog', () => {
     expect(await screen.findByRole('radio', { name: /Νίκος Γυμναστής/ })).toBeChecked();
     await user.click(screen.getByRole('button', { name: 'Αφαίρεση γυμναστή' }));
     await waitFor(() => expect(onDone).toHaveBeenCalledTimes(1));
-    expect(fetchMock.mock.calls.some(([, i]) => i?.method === 'DELETE')).toBe(true);
+    const del = fetchMock.mock.calls.find(([, i]) => i?.method === 'DELETE')!;
+    expect(String(del[0])).toBe(`/api/gyms/${GYM}/members/${MEMBER}/trainer`);
+    expect(fetchMock.mock.calls.some(([, i]) => i?.method === 'PUT')).toBe(false);
+  });
+
+  it('does not claim anyone is off shift when the on-duty lookup fails', async () => {
+    fetchMock.mockImplementation(async (input) => {
+      const url = String(input);
+      if (url.endsWith('/staff')) return json(200, staff);
+      return json(500, {});
+    });
+    renderDialog();
+    expect(await screen.findByRole('radio', { name: /Νίκος Γυμναστής/ })).toBeInTheDocument();
+    expect(screen.queryByText('Εκτός βάρδιας')).not.toBeInTheDocument();
+    expect(screen.queryByText('Σε βάρδια')).not.toBeInTheDocument();
   });
 });
 
@@ -224,6 +241,33 @@ describe('CoverDialog', () => {
     expect(
       await screen.findByText('Κανένας άλλος γυμναστής δεν είναι σε βάρδια αυτή τη στιγμή.'),
     ).toBeInTheDocument();
+  });
+
+  it('loads the on-duty list again after a 409 and offers a retry when the list cannot be loaded', async () => {
+    putStatus = 409;
+    const user = userEvent.setup();
+    renderDialog();
+    await user.click(await screen.findByRole('button', { name: /Ελένη Τεστ/ }));
+    await screen.findByText(/δεν είναι πια σε βάρδια/);
+    const loads = fetchMock.mock.calls.filter(([u]) => String(u).endsWith('/on-duty'));
+    expect(loads).toHaveLength(2);
+  });
+
+  it('can retry when the on-duty list fails to load', async () => {
+    let first = true;
+    fetchMock.mockImplementation(async () => {
+      if (first) {
+        first = false;
+        return json(500, {});
+      }
+      return json(200, [duty(ELENI, 'Ελένη')]);
+    });
+    const user = userEvent.setup();
+    renderDialog();
+    expect(await screen.findByRole('alert')).toHaveTextContent('Κάτι πήγε στραβά');
+    await user.click(screen.getByRole('button', { name: 'Δοκίμασε ξανά' }));
+    expect(await screen.findByRole('button', { name: /Ελένη Τεστ/ })).toBeInTheDocument();
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
   });
 });
 

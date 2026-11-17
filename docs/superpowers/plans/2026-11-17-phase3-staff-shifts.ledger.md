@@ -25,3 +25,9 @@ Task 6: complete (tests: pnpm --filter web test → 322 passed incl. Task 7; lin
 Task 7: Ruling: POST /shift-series/:id/end with lastDate before validFrom deletes the series (and its overrides) when it has not produced a past day (validFrom ≥ today), else 400 — plan said 400; needed so "from this day on" works on a series' first day — cost: a series starting today loses today's occurrence even if the shift is in progress.
 Task 7: Ruling: MySchedulePage takes "today" from the device calendar (trainers cannot read the gym settings, which hold the time zone) — cost: a trainer whose device is in another time zone sees the window shifted by a day near midnight.
 Task 7: Ruling: reception's schedule section shows the week schedule, their own shifts and a read-only staff list; the owner's schedule is the week schedule only — cost: none.
+Task 7: complete (tests: pnpm --filter web test → 361 passed incl. Task 8)
+Task 7: minor (deferred): "from this day on" re-creates an ended series open-ended when restoring after a partial failure (the series' validUntil is not in the schedule response); ShiftDialog defaults to 06:00–14:00.
+Task 8: Ruling: the check-in card's cover button also appears on a member's own check-in verdict (member detail page), not only on the desk — same component — cost: none.
+Task 8: Ruling: after "needs a personal-training membership → sell", the assignment dialog reopens once the sale is done (and not when the sale is abandoned) — UX review — cost: none.
+Task 8: Ruling: e2e signs in and waits for the redirect before navigating (the first run raced the login) — cost: none.
+Task 8: complete (tests: pnpm --filter web test → 361 passed; pnpm e2e → 5 passed; lint, typecheck clean)

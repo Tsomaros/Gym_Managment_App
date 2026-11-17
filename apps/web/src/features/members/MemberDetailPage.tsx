@@ -25,6 +25,8 @@ export function MemberDetailPage() {
   const [freezing, setFreezing] = useState<Membership | null>(null);
   const [verdict, setVerdict] = useState<CheckInResult | null>(null);
   const [assigning, setAssigning] = useState(false);
+  // The assignment was refused for lack of a trainer membership: after the sale, offer it again.
+  const [resumeAssign, setResumeAssign] = useState<{ sold: boolean } | null>(null);
   const [covering, setCovering] = useState(false);
   const [checkInFailed, setCheckInFailed] = useState(false);
 
@@ -267,10 +269,12 @@ export function MemberDetailPage() {
           onClose={() => setAssigning(false)}
           onDone={() => {
             setAssigning(false);
+            setVerdict(null); // its trainer line is out of date now
             void load();
           }}
           onSell={() => {
             setAssigning(false);
+            setResumeAssign({ sold: false });
             setSelling(true);
           }}
         />
@@ -282,6 +286,7 @@ export function MemberDetailPage() {
           memberName={fullName}
           primaryTrainerId={verdict.trainer?.userId ?? null}
           onClose={() => setCovering(false)}
+          returnFocusTo={() => document.querySelector<HTMLElement>('[data-testid="cover-line"]')}
           onDone={(cover) => {
             setVerdict({ ...verdict, cover });
             setCovering(false);
@@ -293,8 +298,15 @@ export function MemberDetailPage() {
           gymId={gymId}
           memberId={memberId}
           memberName={fullName}
-          onClose={() => setSelling(false)}
-          onSold={() => void load()}
+          onClose={() => {
+            setSelling(false);
+            if (resumeAssign?.sold) setAssigning(true);
+            setResumeAssign(null);
+          }}
+          onSold={() => {
+            setResumeAssign((r) => r && { sold: true });
+            void load();
+          }}
         />
       )}
       {freezing && (

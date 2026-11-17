@@ -261,6 +261,15 @@ describe('SchedulePage', () => {
     expect(await screen.findByText('06:00–14:00')).toBeInTheDocument();
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
   });
+
+  it('keeps the grid when "this week" is pressed on the week already shown', async () => {
+    const user = userEvent.setup();
+    inGym(<SchedulePage isOwner now={() => NOW} />);
+    await screen.findByText('06:00–14:00');
+    await user.click(screen.getByRole('button', { name: 'Αυτή η εβδομάδα' }));
+    expect(screen.getByText('06:00–14:00')).toBeInTheDocument();
+    expect(screen.getByRole('table')).toBeInTheDocument();
+  });
 });
 
 describe('MySchedulePage', () => {

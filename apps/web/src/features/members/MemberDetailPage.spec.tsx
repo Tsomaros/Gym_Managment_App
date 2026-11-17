@@ -177,13 +177,16 @@ describe('MemberDetailPage', () => {
     expect(within(section).getByRole('button', { name: 'Αλλαγή γυμναστή' })).toBeInTheDocument();
   });
 
-  it('shows no pause badge for a running link, and offers to assign when there is none', async () => {
+  it('shows no pause badge for a running link', async () => {
     setup(
       detail({
         trainer: { userId: 't1', firstName: 'Νίκος', lastName: 'Γυμναστής', paused: false },
       }),
     );
     const section = (await screen.findByRole('heading', { name: 'Γυμναστής' })).closest('section')!;
+    // The trainer is rendered, so the absent badge is not just an unrendered section.
+    expect(within(section).getByText(/Νίκος Γυμναστής/)).toBeInTheDocument();
+    expect(within(section).getByRole('button', { name: 'Αλλαγή γυμναστή' })).toBeInTheDocument();
     expect(within(section).queryByText('Σε παύση')).not.toBeInTheDocument();
   });
 
@@ -191,7 +194,71 @@ describe('MemberDetailPage', () => {
     setup(detail({ trainer: null }));
     const section = (await screen.findByRole('heading', { name: 'Γυμναστής' })).closest('section')!;
     expect(within(section).getByText('Δεν έχει γυμναστή.')).toBeInTheDocument();
+    expect(within(section).queryByRole('button', { name: 'Αλλαγή γυμναστή' })).toBeNull();
     await userEvent.click(within(section).getByRole('button', { name: 'Ανάθεση γυμναστή' }));
     expect(await screen.findByRole('dialog', { name: /Γυμναστής για/ })).toBeInTheDocument();
+  });
+
+  it('offers the trainer assignment again after the sale it asked for', async () => {
+    fetchMock = vi.fn<typeof fetch>(async (input, init) => {
+      const url = String(input);
+      if (url.endsWith('/staff'))
+        return json(200, {
+          staff: [
+            {
+              userId: 't1',
+              firstName: 'Νίκος',
+              lastName: 'Γυμναστής',
+              email: 'n@x.gr',
+              phone: null,
+              roles: ['trainer'],
+              since: '2027-05-01T00:00:00.000Z',
+            },
+          ],
+          pending: [],
+        });
+      if (url.endsWith('/on-duty')) return json(200, []);
+      if (url.endsWith('/trainer') && init?.method === 'PUT') return json(409, {});
+      if (url.includes('membership-types')) return json(200, [monthlyType]);
+      if (init?.method === 'POST') return json(201, membership({ id: 'new' }));
+      return json(200, detail({ trainer: null }));
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    render(
+      <MemoryRouter initialEntries={[`/g/${GYM}/members/${MEMBER}`]}>
+        <Routes>
+          <Route path="/g/:gymId/members/:memberId" element={<MemberDetailPage />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+    await userEvent.click(await screen.findByRole('button', { name: 'Ανάθεση γυμναστή' }));
+    await userEvent.click(await screen.findByRole('radio', { name: /Νίκος Γυμναστής/ }));
+    await userEvent.click(screen.getByRole('button', { name: 'Ανάθεση' }));
+    await userEvent.click(await screen.findByRole('button', { name: 'Πώληση συνδρομής' }));
+    await userEvent.click(await screen.findByRole('radio', { name: /Μηνιαία/ }));
+    await userEvent.click(screen.getByRole('button', { name: 'Πώληση' }));
+    await userEvent.click(await screen.findByRole('button', { name: 'Κλείσιμο' }));
+    expect(await screen.findByRole('dialog', { name: /Γυμναστής για/ })).toBeInTheDocument();
+  });
+
+  it('does not reopen the assignment when the sale was abandoned', async () => {
+    fetchMock = vi.fn<typeof fetch>(async (input, init) => {
+      const url = String(input);
+      if (url.endsWith('/staff')) return json(200, { staff: [], pending: [] });
+      if (url.endsWith('/on-duty')) return json(200, []);
+      if (url.includes('membership-types')) return json(200, [monthlyType]);
+      return init?.method ? json(409, {}) : json(200, detail({ trainer: null }));
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    render(
+      <MemoryRouter initialEntries={[`/g/${GYM}/members/${MEMBER}`]}>
+        <Routes>
+          <Route path="/g/:gymId/members/:memberId" element={<MemberDetailPage />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+    await userEvent.click(await screen.findByRole('button', { name: 'Νέα συνδρομή' }));
+    await userEvent.click(await screen.findByRole('button', { name: 'Κλείσιμο' }));
+    expect(screen.queryByRole('dialog', { name: /Γυμναστής για/ })).not.toBeInTheDocument();
   });
 });

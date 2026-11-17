@@ -97,14 +97,22 @@ export function CheckInCard({
         </div>
       )}
       {result.trainer && (
-        <p className="text-lg text-slate-800">
+        <p
+          className={`text-lg ${result.trainer.onDuty ? 'text-slate-800' : 'font-semibold text-amber-950'}`}
+        >
+          {!result.trainer.onDuty && <span aria-hidden="true">⚠ </span>}
           {t(result.trainer.onDuty ? 'trainers.trainerLine' : 'trainers.trainerLineOff', {
             name: result.trainer.firstName,
           })}
         </p>
       )}
       {result.cover && (
-        <p className="text-lg font-semibold text-slate-900">
+        <p
+          data-testid="cover-line"
+          role="status"
+          tabIndex={-1}
+          className="text-lg font-semibold text-slate-900 focus:outline-none"
+        >
           {t('trainers.coverLine', { name: result.cover.firstName })}
         </p>
       )}

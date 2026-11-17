@@ -35,6 +35,7 @@ export function AssignTrainerDialog({
   const { t } = useTranslation();
   const [trainers, setTrainers] = useState<StaffMember[] | null>(null);
   const [onDuty, setOnDuty] = useState<Set<string>>(new Set());
+  const [dutyKnown, setDutyKnown] = useState(true);
   const [chosen, setChosen] = useState(current?.userId ?? '');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<'none' | 'noMembership' | 'failed' | 'loadFailed'>('none');
@@ -42,7 +43,10 @@ export function AssignTrainerDialog({
   useEffect(() => {
     Promise.all([
       apiFetch<StaffList>(`/gyms/${gymId}/staff`),
-      apiFetch<OnDutyPerson[]>(`/gyms/${gymId}/on-duty`).catch(() => [] as OnDutyPerson[]),
+      apiFetch<OnDutyPerson[]>(`/gyms/${gymId}/on-duty`).catch(() => {
+        setDutyKnown(false);
+        return [] as OnDutyPerson[];
+      }),
     ])
       .then(([staff, duty]) => {
         setTrainers(staff.staff.filter((s) => s.roles.includes('trainer')));
@@ -112,19 +116,21 @@ export function AssignTrainerDialog({
                   onChange={() => setChosen(s.userId)}
                   className="size-5"
                 />
-                <span className="mr-auto">
+                <span className="mr-auto min-w-0 break-words">
                   {s.firstName} {s.lastName}
                 </span>
-                <span
-                  className={`rounded-full px-2.5 py-0.5 text-sm font-medium ${
-                    onDuty.has(s.userId)
-                      ? 'bg-green-100 text-green-900'
-                      : 'bg-slate-100 text-slate-700'
-                  }`}
-                >
-                  <span aria-hidden="true">{onDuty.has(s.userId) ? '● ' : '○ '}</span>
-                  {onDuty.has(s.userId) ? t('trainers.onDuty') : t('trainers.offDuty')}
-                </span>
+                {dutyKnown && (
+                  <span
+                    className={`shrink-0 rounded-full px-2.5 py-0.5 text-sm font-medium whitespace-nowrap ${
+                      onDuty.has(s.userId)
+                        ? 'bg-green-100 text-green-900'
+                        : 'bg-slate-100 text-slate-700'
+                    }`}
+                  >
+                    <span aria-hidden="true">{onDuty.has(s.userId) ? '● ' : '○ '}</span>
+                    {onDuty.has(s.userId) ? t('trainers.onDuty') : t('trainers.offDuty')}
+                  </span>
+                )}
               </label>
             ))}
           </fieldset>

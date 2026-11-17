@@ -74,7 +74,7 @@ export function ShiftDialog({
 
   /** Runs the requests of one action; on failure shows the error and stays open. */
   async function run(requests: () => Promise<unknown>) {
-    if (busy) return;
+    if (busy || failure === 'partial') return;
     setBusy(true);
     setFailure('none');
     setConfirming(null);

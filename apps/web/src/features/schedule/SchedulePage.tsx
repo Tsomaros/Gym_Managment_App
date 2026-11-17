@@ -60,6 +60,7 @@ export function SchedulePage({
   const load = () => setReloadKey((k) => k + 1);
   /** Moving to another week: forget the old one (its shifts would sit under the new dates). */
   const go = (m: string) => {
+    if (m === monday) return;
     setData(null);
     setNotice(null);
     setMonday(m);
