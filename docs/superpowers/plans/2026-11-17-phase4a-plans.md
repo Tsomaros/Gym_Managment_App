@@ -102,14 +102,14 @@
   - `Plan { id, memberId, authorId, author: { firstName, lastName } | null, isTemplate, kind, title, notes, status, pdfUrl: string | null, activatedAt, days: PlanDay[] }`, where each exercise also carries `exercise: { nameEl, nameEn, muscleGroup, measure, archived }`.
   - `PlanSummary { id, title, kind, status, activatedAt, archivedAt, authorName }`.
 
-- [ ] **Step 1: Write the failing tests:**
+- [x] **Step 1: Write the failing tests:**
   - Shared: `repsMin 12, repsMax 8` rejects; `toFailure: true` with `repsMin` rejects; `weightKg 20.3` rejects and `20.25` accepts; 15 days rejects; a 31-exercise day rejects; a 1-character title accepts and an 81-character title rejects.
   - DB: a template with a `member_id` rejects (CHECK); two `active` plans for one member reject (unique index); swapping the positions of two days inside one transaction succeeds (deferred unique).
   - Two-gym isolation for all three tables.
-- [ ] **Step 2: Run** `pnpm --filter shared test plans && pnpm --filter api test plans-schema` → FAIL.
-- [ ] **Step 3: Implement.** Consult database-expert.
-- [ ] **Step 4: Run** → PASS.
-- [ ] **Step 5: Commit** `feat: workout plan schema and validation`.
+- [x] **Step 2: Run** `pnpm --filter shared test plans && pnpm --filter api test plans-schema` → FAIL.
+- [x] **Step 3: Implement.** Consult database-expert.
+- [x] **Step 4: Run** → PASS.
+- [x] **Step 5: Commit** `feat: workout plan schema and validation`.
 
 ---
 

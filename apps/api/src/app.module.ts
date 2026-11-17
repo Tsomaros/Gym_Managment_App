@@ -8,6 +8,7 @@ import { THROTTLERS } from './auth/throttle';
 import { closeDb } from './db/client';
 import { DevicesModule } from './devices/devices.module';
 import { ExercisesModule } from './exercises/exercises.module';
+import { PlansModule } from './plans/plans.module';
 import { GymsModule } from './gyms/gyms.module';
 import { InvitationsModule } from './invitations/invitations.module';
 import { ShiftsModule } from './shifts/shifts.module';
@@ -39,6 +40,7 @@ import { HealthController } from './health/health.controller';
     StaffModule,
     TrainersModule,
     ExercisesModule,
+    PlansModule,
   ],
   controllers: [HealthController],
 })

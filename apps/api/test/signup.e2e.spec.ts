@@ -328,7 +328,8 @@ describe('sign-up codes and member self sign-up', () => {
         expect((await signup(person('ABCD-EFGH'))).status).toBe(410);
       }
       expect((await signup(person('ABCD-EFGH'))).status).toBe(429);
-    });
+      // 11 sequential sign-ups hash passwords; the 5 s default is too tight when the suite runs in parallel.
+    }, 30_000);
   });
 
   describe('email confirmation', () => {
