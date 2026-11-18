@@ -49,10 +49,11 @@ export class PdfPlansService {
 
     const planId = randomUUID();
     const key = `gyms/${gymId}/plans/${planId}/${randomUUID()}.pdf`;
+    let created: Plan;
     try {
       // Inside the try: a put that timed out may still have stored the object.
       await this.storage.put(key, file, 'application/pdf');
-      return await withGym(gymId, async (tx) => {
+      const plan = await withGym(gymId, async (tx) => {
         await this.assertWrite(tx, gymId, caller, memberId); // access may have changed meanwhile
         const [row] = await tx
           .insert(plans)
@@ -81,10 +82,13 @@ export class PdfPlansService {
           : row!;
         return this.plans.load(tx, current);
       });
+      created = plan;
     } catch (err) {
       await this.removeQuietly(key); // do not leave an orphan
       throw err;
     }
+    this.plans.announce(gymId, created); // after the try: the plan is committed, never remove its file
+    return created;
   }
 
   async replace(gymId: string, caller: Caller, planId: string, file: Buffer): Promise<Plan> {

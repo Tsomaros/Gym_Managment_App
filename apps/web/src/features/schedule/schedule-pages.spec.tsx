@@ -18,6 +18,7 @@ const settings = (over: Partial<GymSettings> = {}): GymSettings => ({
   timezone: 'Europe/Athens',
   autoCheckoutMinutes: 120,
   receptionCanEditShifts: false,
+  reminderDays: 5,
   ...over,
 });
 const week = (monday: string): ScheduleResponse => ({

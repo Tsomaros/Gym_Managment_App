@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { type BeforeApplicationShutdown, Injectable } from '@nestjs/common';
 import {
   groupOfEvent,
   type Locale,
@@ -33,11 +33,36 @@ export interface NotifyInput {
 export type NotifyResult = 'sent' | 'duplicate' | 'opted_out' | 'failed';
 
 @Injectable()
-export class NotificationService {
+export class NotificationService implements BeforeApplicationShutdown {
+  private readonly pending = new Set<Promise<unknown>>();
+
   constructor(
     private readonly mail: MailService,
     private readonly push: PushService,
   ) {}
+
+  /**
+   * Fire and forget for events raised inside a request (a check-in must not wait for SMTP): runs
+   * `notify` in the background and logs a failure. `idle()` waits for those that are still running.
+   */
+  dispatch(input: NotifyInput): void {
+    const task = this.notify(input)
+      .catch((err: Error) => {
+        console.error(`[notify] ${input.event} for ${input.userId} failed: ${err.message}`);
+      })
+      .finally(() => this.pending.delete(task));
+    this.pending.add(task);
+  }
+
+  /** Resolves when every dispatched notification has finished (shutdown, tests). */
+  async idle(): Promise<void> {
+    while (this.pending.size) await Promise.all([...this.pending]);
+  }
+
+  /** A deploy or restart lets the sends that are already running finish first. */
+  async beforeApplicationShutdown(): Promise<void> {
+    await this.idle();
+  }
 
   /**
    * Sends one event to one member over email and web push, at most once per dedupe key.

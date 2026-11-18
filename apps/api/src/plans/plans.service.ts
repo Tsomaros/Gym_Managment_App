@@ -27,6 +27,7 @@ import { gymToday } from '../memberships/memberships.service';
 import { type PlanAccess, planAccess } from './plan-access';
 import { copyPlanTree } from './copy-plan';
 import { savePlanTree } from './save-plan';
+import { NotificationService } from '../notifications/notification.service';
 import { StorageService } from '../storage/storage.service';
 
 export interface Caller {
@@ -62,6 +63,7 @@ export class PlansService {
     private readonly audit: AuditService,
     private readonly clock: Clock,
     private readonly storage: StorageService,
+    private readonly notifications: NotificationService,
   ) {}
 
   /** A member's plans: active first, then drafts (staff only), then archived, newest first. */
@@ -106,8 +108,8 @@ export class PlansService {
     });
   }
 
-  create(gymId: string, caller: Caller, memberId: string, input: CreatePlan): Promise<Plan> {
-    return withGym(gymId, async (tx) => {
+  async create(gymId: string, caller: Caller, memberId: string, input: CreatePlan): Promise<Plan> {
+    const plan = await withGym(gymId, async (tx) => {
       const access = await this.accessTo(tx, gymId, caller, memberId);
       if (!access) throw new NotFoundException();
       if (access !== 'write') throw new ForbiddenException();
@@ -136,6 +138,8 @@ export class PlansService {
       const current = input.activate ? await this.activateIn(tx, gymId, caller, row!) : row!;
       return this.load(tx, current);
     });
+    this.announce(gymId, plan); // a new plan is active only if it was just activated
+    return plan;
   }
 
   update(gymId: string, caller: Caller, planId: string, input: PlanInput): Promise<Plan> {
@@ -198,13 +202,13 @@ export class PlansService {
   }
 
   /** A client's plan from a template (deep copy, new ids, no link back); needs write access. */
-  createFromTemplate(
+  async createFromTemplate(
     gymId: string,
     caller: Caller,
     memberId: string,
     input: FromTemplate,
   ): Promise<Plan> {
-    return withGym(gymId, async (tx) => {
+    const plan = await withGym(gymId, async (tx) => {
       const access = await this.accessTo(tx, gymId, caller, memberId);
       if (!access) throw new NotFoundException();
       if (access !== 'write') throw new ForbiddenException();
@@ -240,17 +244,39 @@ export class PlansService {
       const current = input.activate ? await this.activateIn(tx, gymId, caller, row!) : row!;
       return current === row ? copied : this.load(tx, current);
     });
+    this.announce(gymId, plan);
+    return plan;
   }
 
-  activate(gymId: string, caller: Caller, planId: string): Promise<Plan> {
-    return withGym(gymId, async (tx) => {
+  async activate(gymId: string, caller: Caller, planId: string): Promise<Plan> {
+    let wasActive = true;
+    const plan = await withGym(gymId, async (tx) => {
       const first = await this.open(tx, gymId, caller, planId, 'write');
       // Serialise activations per member, then look again: the plan may have changed meanwhile.
       await lockMemberPlans(tx, first.row.memberId!);
       const [row] = await tx.select().from(plans).where(eq(plans.id, planId)).for('update');
       if (!row) throw new NotFoundException();
       if (row.status === 'archived') throw new ConflictException('An archived plan stays archived');
+      wasActive = row.status === 'active';
       return this.load(tx, await this.activateIn(tx, gymId, caller, row));
+    });
+    if (!wasActive) this.announce(gymId, plan);
+    return plan;
+  }
+
+  /**
+   * Tells the member their plan is active, after the commit. Only call it for a plan that was just
+   * activated (not for edits or a repeat). The key includes the activation time, so a plan that is
+   * archived and activated again later is announced again, but a retry of one request is not.
+   */
+  announce(gymId: string, plan: Plan): void {
+    if (plan.status !== 'active' || !plan.memberId || !plan.activatedAt) return;
+    this.notifications.dispatch({
+      gymId,
+      userId: plan.memberId,
+      event: 'plan.assigned',
+      dedupeKey: `plan:${plan.id}:${new Date(plan.activatedAt).getTime()}`,
+      params: { planName: plan.title },
     });
   }
 

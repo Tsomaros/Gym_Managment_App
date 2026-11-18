@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { isoDateSchema } from './common.js';
+import { REMINDER_DAYS_MAX, REMINDER_DAYS_MIN } from './notifications.js';
 import type { MemberStatus } from './members.js';
 import type { Membership } from './memberships.js';
 
@@ -21,10 +22,15 @@ export const UpdateGymSettingsSchema = z
   .object({
     autoCheckoutMinutes: z.number().int().min(AUTO_CHECKOUT_MIN).max(AUTO_CHECKOUT_MAX).optional(),
     receptionCanEditShifts: z.boolean().optional(),
+    reminderDays: z.number().int().min(REMINDER_DAYS_MIN).max(REMINDER_DAYS_MAX).optional(),
   })
-  .refine((s) => s.autoCheckoutMinutes !== undefined || s.receptionCanEditShifts !== undefined, {
-    message: 'Nothing to change',
-  });
+  .refine(
+    (s) =>
+      s.autoCheckoutMinutes !== undefined ||
+      s.receptionCanEditShifts !== undefined ||
+      s.reminderDays !== undefined,
+    { message: 'Nothing to change' },
+  );
 export type UpdateGymSettings = z.infer<typeof UpdateGymSettingsSchema>;
 
 export interface GymSettings {
@@ -33,6 +39,8 @@ export interface GymSettings {
   autoCheckoutMinutes: number;
   /** Whether reception may edit shifts too; the owner always may. */
   receptionCanEditShifts: boolean;
+  /** Days before the end that the "expiring" reminder is sent. */
+  reminderDays: number;
 }
 
 /** The member's rotating QR payload and when it stops being accepted. */

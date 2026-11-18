@@ -10,6 +10,7 @@ const settingsColumns = {
   timezone: gyms.timezone,
   autoCheckoutMinutes: gyms.autoCheckoutMinutes,
   receptionCanEditShifts: gyms.receptionCanEditShifts,
+  reminderDays: gyms.reminderDays,
 };
 
 @Injectable()
@@ -38,6 +39,7 @@ export class GymSettingsService {
           ...(body.autoCheckoutMinutes !== undefined && {
             autoCheckoutMinutes: body.autoCheckoutMinutes,
           }),
+          ...(body.reminderDays !== undefined && { reminderDays: body.reminderDays }),
           ...(body.receptionCanEditShifts !== undefined && {
             receptionCanEditShifts: body.receptionCanEditShifts,
           }),
@@ -61,6 +63,13 @@ export class GymSettingsService {
           setting: 'receptionCanEditShifts',
           from: before.receptionCanEditShifts,
           to: body.receptionCanEditShifts,
+        });
+      }
+      if (body.reminderDays !== undefined) {
+        await record({
+          setting: 'reminderDays',
+          from: before.reminderDays,
+          to: body.reminderDays,
         });
       }
       return g!;
