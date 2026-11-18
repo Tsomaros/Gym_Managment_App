@@ -19,7 +19,10 @@ import {
   memberships,
   membershipTypes,
   payments,
+  notificationPrefs,
+  notificationsSent,
   progressPhotos,
+  pushSubscriptions,
   planDays,
   planExercises,
   plans,
@@ -2280,5 +2283,135 @@ describe('row-level security and privileges: progress_photos', () => {
       );
     expect(await insert('')).toMatch(/check constraint/);
     expect(await insert(`k-a-${run}`)).toMatch(/duplicate key/);
+  });
+});
+
+describe('row-level security and privileges: notifications', () => {
+  const run = randomUUID().slice(0, 8);
+  let gymA: string;
+  let gymB: string;
+  let memberA: string;
+  let memberB: string;
+
+  beforeAll(async () => {
+    const g = await systemDb
+      .insert(gyms)
+      .values([{ name: `Nt A ${run}` }, { name: `Nt B ${run}` }])
+      .returning({ id: gyms.id });
+    gymA = g[0]!.id;
+    gymB = g[1]!.id;
+    const u = await systemDb
+      .insert(users)
+      .values([
+        { email: `na-${run}@x.gr`, firstName: 'A', lastName: 'A' },
+        { email: `nb-${run}@x.gr`, firstName: 'B', lastName: 'B' },
+      ])
+      .returning({ id: users.id });
+    memberA = u[0]!.id;
+    memberB = u[1]!.id;
+    await systemDb.insert(notificationPrefs).values([
+      { gymId: gymA, userId: memberA, group: 'membership', email: false },
+      { gymId: gymB, userId: memberB, group: 'membership' },
+    ]);
+    await systemDb.insert(notificationsSent).values([
+      {
+        gymId: gymA,
+        userId: memberA,
+        event: 'plan.assigned',
+        dedupeKey: `k-${run}`,
+        channels: ['email'],
+      },
+      {
+        gymId: gymB,
+        userId: memberB,
+        event: 'plan.assigned',
+        dedupeKey: `k-${run}`,
+        channels: ['push'],
+      },
+    ]);
+  });
+
+  afterAll(async () => {
+    // Deleting the gyms and users cascades to prefs, sent records and subscriptions.
+    const gymIds = [gymA, gymB].filter(Boolean);
+    if (gymIds.length) await systemDb.delete(gyms).where(inArray(gyms.id, gymIds));
+    await systemDb.delete(users).where(sql`${users.email} like ${`n_-${run}@x.gr`}`);
+  });
+
+  it('withGym(A) sees only gym A prefs and sent records; without a gym nothing is visible', async () => {
+    const prefs = await withGym(gymA, (tx) => tx.select().from(notificationPrefs));
+    expect(prefs.map((p) => p.userId)).toEqual([memberA]);
+    const sent = await withGym(gymA, (tx) => tx.select().from(notificationsSent));
+    expect(sent.map((p) => p.userId)).toEqual([memberA]);
+    expect(await db.select().from(notificationPrefs)).toEqual([]);
+    expect(await db.select().from(notificationsSent)).toEqual([]);
+  });
+
+  it('the same dedupe key is allowed in two gyms but not twice in one', async () => {
+    expect(
+      await rejectionMessage(
+        withGym(gymA, (tx) =>
+          tx.insert(notificationsSent).values({
+            gymId: gymA,
+            userId: memberA,
+            event: 'plan.assigned',
+            dedupeKey: `k-${run}`,
+            channels: ['push'],
+          }),
+        ),
+      ),
+    ).toMatch(/unique/);
+  });
+
+  it('withGym(A) cannot write gym B rows, and sent records cannot be edited or deleted', async () => {
+    expect(
+      await rejectionMessage(
+        withGym(gymA, (tx) =>
+          tx.insert(notificationPrefs).values({ gymId: gymB, userId: memberB, group: 'plans' }),
+        ),
+      ),
+    ).toMatch(RLS_VIOLATION);
+    expect(
+      await rejectionMessage(
+        withGym(gymA, (tx) =>
+          tx.insert(notificationsSent).values({
+            gymId: gymB,
+            userId: memberB,
+            event: 'plan.assigned',
+            dedupeKey: `z-${run}`,
+            channels: ['push'],
+          }),
+        ),
+      ),
+    ).toMatch(RLS_VIOLATION);
+    const changed = await withGym(gymA, (tx) =>
+      tx
+        .update(notificationPrefs)
+        .set({ email: false })
+        .where(eq(notificationPrefs.gymId, gymB))
+        .returning({ u: notificationPrefs.userId }),
+    );
+    expect(changed).toEqual([]);
+    expect(
+      await rejectionMessage(
+        withGym(gymA, (tx) => tx.update(notificationsSent).set({ channels: ['push'] })),
+      ),
+    ).toMatch(/permission denied/);
+    expect(await rejectionMessage(withGym(gymA, (tx) => tx.delete(notificationsSent)))).toMatch(
+      /permission denied/,
+    );
+  });
+
+  it('push subscriptions are global: gym_app cannot touch them, and deleting the user removes them', async () => {
+    await systemDb
+      .insert(pushSubscriptions)
+      .values({ userId: memberA, endpoint: `https://push.example/${run}`, p256dh: 'p', auth: 'a' });
+    expect(
+      await rejectionMessage(withGym(gymA, (tx) => tx.select().from(pushSubscriptions))),
+    ).toMatch(/permission denied/);
+    await systemDb.delete(users).where(eq(users.id, memberA));
+    expect(
+      await systemDb.select().from(pushSubscriptions).where(eq(pushSubscriptions.userId, memberA)),
+    ).toEqual([]);
   });
 });

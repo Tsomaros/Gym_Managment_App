@@ -18,6 +18,10 @@ const envSchema = z.object({
   S3_ACCESS_KEY: z.string().min(1),
   S3_SECRET_KEY: z.string().min(1),
   S3_BUCKET: z.string().min(3),
+  /** Web push (VAPID): generate with `pnpm --filter api vapid:keys`. The subject is a mailto: or https: contact. */
+  VAPID_PUBLIC_KEY: z.string().min(1),
+  VAPID_PRIVATE_KEY: z.string().min(1),
+  VAPID_SUBJECT: z.string().regex(/^(mailto:|https:\/\/)\S+$/),
   COOKIE_PATH: z.string().startsWith('/').default('/auth'),
 });
 

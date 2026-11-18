@@ -15,6 +15,9 @@ const valid = {
   S3_ACCESS_KEY: 'key',
   S3_SECRET_KEY: 'secret',
   S3_BUCKET: 'gym-files',
+  VAPID_PUBLIC_KEY: 'public-key',
+  VAPID_PRIVATE_KEY: 'private-key',
+  VAPID_SUBJECT: 'mailto:ops@example.com',
 };
 
 describe('loadEnv', () => {
@@ -26,6 +29,21 @@ describe('loadEnv', () => {
     expect(loadEnv({ ...valid, COOKIE_PATH: '/api/auth' }).COOKIE_PATH).toBe('/api/auth');
     expect(() => loadEnv({ ...valid, COOKIE_PATH: 'auth' })).toThrow('COOKIE_PATH');
   });
+
+  it('rejects a VAPID_SUBJECT that is not a mailto: or https: address', () => {
+    expect(() => loadEnv({ ...valid, VAPID_SUBJECT: 'ops@example.com' })).toThrow('VAPID_SUBJECT');
+    expect(loadEnv({ ...valid, VAPID_SUBJECT: 'https://gym.example.com' }).VAPID_SUBJECT).toBe(
+      'https://gym.example.com',
+    );
+  });
+
+  it.each(['VAPID_PUBLIC_KEY', 'VAPID_PRIVATE_KEY', 'VAPID_SUBJECT'] as const)(
+    'refuses to start without %s, or with it empty',
+    (key) => {
+      expect(() => loadEnv({ ...valid, [key]: undefined })).toThrow(key);
+      expect(() => loadEnv({ ...valid, [key]: '' })).toThrow(key);
+    },
+  );
 
   it('normalises the platform admin email with trim and lowercase', () => {
     const env = loadEnv({ ...valid, PLATFORM_ADMIN_EMAIL: '  Admin@Example.COM ' });

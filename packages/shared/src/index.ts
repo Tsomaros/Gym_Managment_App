@@ -15,3 +15,4 @@ export * from './schemas/shifts.js';
 export * from './schemas/staff.js';
 export * from './schemas/trainers.js';
 export * from './schemas/members.js';
+export * from './schemas/notifications.js';

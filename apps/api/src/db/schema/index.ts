@@ -27,3 +27,6 @@ export * from './workout-sets';
 export * from './health-consents';
 export * from './body-measurements';
 export * from './progress-photos';
+export * from './push-subscriptions';
+export * from './notification-prefs';
+export * from './notifications-sent';
