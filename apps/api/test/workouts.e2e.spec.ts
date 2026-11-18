@@ -558,7 +558,7 @@ describe('workout sessions and sets: client ids, idempotent replays, access', ()
         .send({ nameEl: 'Χ', muscleGroup: 'core', measure: 'reps' })
         .expect(403);
       await fx.req('post', `/exercises/${archivedId}/archive`, 'm').expect(403);
-      // an archived exercise cannot be newly logged
+      // archiving only hides it from the pickers: a set logged while offline is still kept
       const s = randomUUID();
       await putMine('m', s).expect(200);
       await putSet(
@@ -571,7 +571,7 @@ describe('workout sessions and sets: client ids, idempotent replays, access', ()
           weightKg: undefined,
           durationSeconds: 30,
         }),
-      ).expect(404);
+      ).expect(200);
     });
   });
 });

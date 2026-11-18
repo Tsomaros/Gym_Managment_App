@@ -1,16 +1,11 @@
-import type {
-  Exercise,
-  LastPerformance,
-  Plan,
-  PlanDay,
-  WorkoutSession,
-  WorkoutSet,
-} from '@gym/shared';
-import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
+import type { Exercise, LastPerformance, Plan, PlanDay, WorkoutSession } from '@gym/shared';
+import { useCallback, useContext, useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { useTranslation } from 'react-i18next';
 import { apiFetch } from '../../api/client';
+import { AuthContext } from '../../auth/AuthProvider';
 import { viewerLanguage } from '../exercises/exerciseName';
-import { enqueue, flush, pending, type QueuedOp, size, subscribe } from './workoutQueue';
+import { enqueue, flush, type QueuedOp, setQueueOwner, size, subscribe } from './workoutQueue';
+import { resumableFromQueue } from './resumeFromQueue';
 import {
   applyStored,
   canBeDone,
@@ -36,62 +31,6 @@ const send = (op: QueuedOp): Promise<void> =>
 export type WorkoutStatus = 'loading' | 'ready' | 'finished' | 'error';
 
 /**
- * Sets queued for a session this phone started but could not send yet (it went offline, then the
- * page was reloaded): the same session is picked up again instead of starting a second one.
- */
-function fromQueue(
-  base: string,
-  dayId: string | undefined,
-): { id: string; startedAt: string; sets: WorkoutSet[] } | null {
-  const ops = pending();
-  let found: { id: string; startedAt: string } | null = null;
-  for (const op of ops) {
-    if (op.method !== 'PUT' || !op.path.startsWith(`${base}/`) || op.path.includes('/sets/'))
-      continue;
-    const body = op.body as { startedAt: string; planDayId?: string; finishedAt?: string };
-    // a finished session is over; one for another day is another workout
-    if (body.finishedAt || (body.planDayId ?? undefined) !== dayId) continue;
-    found = { id: op.path.slice(base.length + 1), startedAt: body.startedAt };
-  }
-  if (!found) return null;
-  const sets = new Map<string, WorkoutSet>();
-  for (const op of ops) {
-    const m = new RegExp(`^${base}/${found.id}/sets/([^/]+)$`).exec(op.path);
-    if (!m) continue;
-    if (op.method === 'DELETE') sets.delete(m[1]!);
-    else if (op.method === 'PUT') {
-      const b = op.body as Omit<
-        WorkoutSet,
-        'id' | 'measure' | 'reps' | 'weightKg' | 'durationSeconds' | 'planExerciseId'
-      > & {
-        reps?: number;
-        weightKg?: number;
-        durationSeconds?: number;
-        planExerciseId?: string | null;
-      };
-      sets.set(m[1]!, {
-        id: m[1]!,
-        exerciseId: b.exerciseId,
-        planExerciseId: b.planExerciseId ?? null,
-        measure:
-          b.weightKg !== undefined
-            ? 'weight_reps'
-            : b.durationSeconds !== undefined
-              ? 'duration'
-              : 'reps',
-        setIndex: b.setIndex,
-        reps: b.reps ?? null,
-        weightKg: b.weightKg ?? null,
-        durationSeconds: b.durationSeconds ?? null,
-        done: b.done,
-        loggedAt: b.loggedAt,
-      });
-    }
-  }
-  return { ...found, sets: [...sets.values()] };
-}
-
-/**
  * A workout in progress, from a plan day or free. Every change goes through the offline queue
  * and shows at once (optimistic); the queue is sent whenever it can be. A session this phone or
  * the server still holds open is resumed, so closing the app mid-workout loses nothing. The
@@ -107,6 +46,8 @@ export function useWorkoutSession({
   day?: PlanDay;
 }) {
   const { i18n } = useTranslation();
+  // The queue belongs to whoever is signed in; set before anything reads it.
+  setQueueOwner(useContext(AuthContext)?.me?.id ?? null);
   const lang = viewerLanguage(i18n.language);
   const [status, setStatus] = useState<WorkoutStatus>('loading');
   const [cards, setCards] = useState<LogCard[]>([]);
@@ -172,7 +113,7 @@ export function useWorkoutSession({
       if (cancelled) return;
       const last = new Map(lastList.map((l) => [l.exerciseId, l]));
       const newest = sessions?.[0];
-      const queuedSession = fromQueue(base, dayId);
+      const queuedSession = resumableFromQueue(base, dayId);
       const open =
         !queuedSession &&
         newest &&

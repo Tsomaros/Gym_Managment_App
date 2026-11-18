@@ -82,7 +82,10 @@ export const MAX_PROGRESS_PHOTOS = 200;
 /** The text fields sent next to the photo (multipart). */
 export const ProgressPhotoFieldsSchema = z.object({
   /** Left out, it is the gym's today. */
-  takenOn: z.iso.date().optional(),
+  takenOn: z.iso
+    .date()
+    .refine((d) => d >= '1900-01-01', 'Too long ago')
+    .optional(),
 });
 export type ProgressPhotoFields = z.infer<typeof ProgressPhotoFieldsSchema>;
 

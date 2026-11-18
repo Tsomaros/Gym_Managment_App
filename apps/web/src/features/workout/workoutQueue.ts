@@ -17,9 +17,20 @@ export interface QueuedOp {
 
 interface Entry extends QueuedOp {
   id: string;
+  /** Whose workout it is: the phone may be shared, and `/me/...` means "whoever is signed in". */
+  owner?: string | null;
 }
 
 let memory: Entry[] = [];
+/** The signed-in person: the queue only shows and sends their operations. */
+let owner: string | null = null;
+
+export function setQueueOwner(userId: string | null): void {
+  if (owner === userId) return;
+  owner = userId;
+  for (const l of listeners) l();
+}
+const isMine = (e: Entry): boolean => (e.owner ?? null) === owner;
 let flushing: Promise<void> | null = null;
 const listeners = new Set<() => void>();
 
@@ -28,7 +39,7 @@ const newId = (): string =>
     ? crypto.randomUUID()
     : `${Date.now()}-${Math.random()}`;
 
-function read(): Entry[] {
+function readAll(): Entry[] {
   try {
     const raw = localStorage.getItem(QUEUE_KEY);
     if (!raw) return [];
@@ -52,10 +63,12 @@ function write(entries: Entry[]): void {
   for (const l of listeners) l();
 }
 
+const read = (): Entry[] => readAll().filter(isMine);
+
 export const size = (): number => read().length;
 
-/** The operations still waiting, oldest first. */
-export const pending = (): QueuedOp[] => read().map(({ id: _id, ...op }) => op);
+/** The signed-in person's operations still waiting, oldest first. */
+export const pending = (): QueuedOp[] => read().map(({ id: _id, owner: _owner, ...op }) => op);
 
 /** Calls `listener` whenever the queue grows or shrinks. */
 export function subscribe(listener: () => void): () => void {
@@ -64,7 +77,7 @@ export function subscribe(listener: () => void): () => void {
 }
 
 export function enqueue(op: QueuedOp): void {
-  write([...read(), { ...op, id: newId() }]);
+  write([...readAll(), { ...op, id: newId(), owner }]);
 }
 
 /** A 4xx other than "sign in again", "not allowed (yet)" or "slow down" is final: sending it again cannot help. */
@@ -85,11 +98,14 @@ export function flush(
 ): Promise<void> {
   // The guard is released by .finally on the promise itself: an empty queue finishes the async
   // body before this line has assigned it, and a `finally` inside the body would run too early.
-  flushing ??= (async () => {
+  const run = async (): Promise<void> => {
     for (;;) {
       const [next] = read();
       if (!next) return;
-      const { id, ...op } = next;
+      const { id } = next;
+      // only what the server is sent: the entry's id and owner stay on this phone
+      const op: QueuedOp = { method: next.method, path: next.path, body: next.body };
+      if (next.body === undefined) delete op.body;
       try {
         await send(op);
       } catch (err) {
@@ -97,9 +113,14 @@ export function flush(
         onDropped?.(op, err);
       }
       // By id: another tab may have sent and removed operations meanwhile.
-      write(read().filter((e) => e.id !== id));
+      write(readAll().filter((e) => e.id !== id));
     }
-  })().finally(() => {
+  };
+  // One sender at a time across every open tab: two tabs sending the same head operation could
+  // deliver an older copy of a set after a newer one. The lock, like the page's own guard,
+  // is released by .finally on the promise itself (an empty queue finishes before assignment).
+  const locks = typeof navigator !== 'undefined' ? navigator.locks : undefined;
+  flushing ??= (locks ? locks.request('gym-workout-flush', run) : run()).finally(() => {
     flushing = null;
   });
   return flushing;
@@ -108,6 +129,7 @@ export function flush(
 /** Test helper: a fresh page over the same storage. */
 export function resetQueueForTests(): void {
   memory = [];
+  owner = null;
   flushing = null;
   listeners.clear();
 }

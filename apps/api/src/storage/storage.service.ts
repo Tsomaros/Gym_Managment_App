@@ -87,12 +87,18 @@ export class StorageService implements OnModuleInit {
   async removePrefix(prefix: string): Promise<void> {
     const keys = await this.listPrefix(prefix);
     for (let i = 0; i < keys.length; i += 1000) {
-      await this.client.send(
+      const res = await this.client.send(
         new DeleteObjectsCommand({
           Bucket: this.bucket,
           Delete: { Objects: keys.slice(i, i + 1000).map((Key) => ({ Key })), Quiet: true },
         }),
       );
+      // DeleteObjects reports a key it could not delete instead of throwing: the caller must know.
+      if (res.Errors?.length) {
+        throw new Error(
+          `Could not delete ${res.Errors.length} object(s), e.g. ${res.Errors[0]!.Key}`,
+        );
+      }
     }
   }
 

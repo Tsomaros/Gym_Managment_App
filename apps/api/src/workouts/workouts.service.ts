@@ -269,11 +269,12 @@ export class WorkoutsService {
       }
 
       const [exercise] = await tx
-        .select({ id: exercises.id, measure: exercises.measure, archivedAt: exercises.archivedAt })
+        .select({ id: exercises.id, measure: exercises.measure })
         .from(exercises)
         .where(eq(exercises.id, body.exerciseId));
-      // An exercise archived meanwhile can still receive sets already started (the offline queue).
-      if (!exercise || (exercise.archivedAt && !existing)) throw new NotFoundException();
+      // Archiving only hides an exercise from the pickers: a set logged while the phone was
+      // offline (before or after the archive) is still the member's workout and is kept.
+      if (!exercise) throw new NotFoundException();
 
       const measure = (existing?.measure ?? exercise.measure) as Measure;
       this.checkValues(measure, body);
@@ -292,6 +293,9 @@ export class WorkoutsService {
         loggedAt: new Date(body.loggedAt),
       };
       if (existing) {
+        // Two tabs (or a slow retry) can deliver an older copy after a newer one: the latest
+        // logged_at wins, an older copy changes nothing. An equal one is a harmless rewrite.
+        if (values.loggedAt < existing.loggedAt) return;
         await tx
           .update(workoutSets)
           .set({ ...values, updatedAt: this.clock.now() })
