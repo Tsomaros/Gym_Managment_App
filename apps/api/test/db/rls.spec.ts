@@ -2671,13 +2671,13 @@ describe('row-level security and privileges: class_bookings', () => {
     expect(
       await rejectionMessage(
         withGym(gymA, (tx) =>
-          tx.insert(classBookings).values({ gymId: gymB, sessionId: sessionB, memberId: personB, bookedBy: personB, status: 'cancelled' }),
+          tx.insert(classBookings).values({ gymId: gymB, sessionId: sessionB, memberId: personB, bookedBy: personB, status: 'cancelled', cancelledAt: new Date() }),
         ),
       ),
     ).toMatch(RLS_VIOLATION);
     expect(
       await rejectionMessage(
-        withGym(gymA, (tx) => tx.insert(classBookings).values({ gymId: gymA, sessionId: sessionB, memberId: personA, bookedBy: personA, status: 'cancelled' })),
+        withGym(gymA, (tx) => tx.insert(classBookings).values({ gymId: gymA, sessionId: sessionB, memberId: personA, bookedBy: personA, status: 'cancelled', cancelledAt: new Date() })),
       ),
     ).toMatch(/class_bookings_session_same_gym_fk/);
     expect(

@@ -16,7 +16,16 @@ export function classEligibility(
   ms: readonly Membership[],
   reservedByMembership: Readonly<Record<string, number>>,
 ): ClassEligibility {
-  const open = ms.filter((m) => m.status === 'active' && m.includesClasses);
+  // Soonest end first (no end last), then the older sale: the one about to run out is used first.
+  const byEndThenSale = (a: Membership, b: Membership): number => {
+    const ea = a.effectiveEndsOn;
+    const eb = b.effectiveEndsOn;
+    if (ea !== eb) return ea === null ? 1 : eb === null ? -1 : ea < eb ? -1 : 1;
+    return a.createdAt < b.createdAt ? -1 : a.createdAt > b.createdAt ? 1 : a.id < b.id ? -1 : 1;
+  };
+  const open = ms
+    .filter((m) => m.status === 'active' && m.includesClasses)
+    .sort(byEndThenSale);
   const included = open.find((m) => m.kind !== 'classes');
   if (included) return { ok: true, membershipId: included.id, usesEntry: false };
   const pack = open.find(

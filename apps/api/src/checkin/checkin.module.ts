@@ -1,3 +1,4 @@
+import { ClassesModule } from '../classes/classes.module';
 import { Module } from '@nestjs/common';
 import { MembersModule } from '../members/members.module';
 import { ShiftsModule } from '../shifts/shifts.module';
@@ -13,7 +14,7 @@ import { PresenceService } from './presence.service';
 import { StaffCheckInController } from './staff-checkin.controller';
 
 @Module({
-  imports: [MembersModule, ShiftsModule],
+  imports: [MembersModule, ShiftsModule, ClassesModule],
   controllers: [
     MemberCheckInController,
     KioskCheckInController,

@@ -7,7 +7,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import type { Attendee, BookingStatus, BookingView, Membership } from '@gym/shared';
-import { and, asc, desc, eq, gt, inArray, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, gt, inArray, isNull, sql } from 'drizzle-orm';
 import { AuditService } from '../audit/audit.service';
 import { Clock } from '../common/clock';
 import {
@@ -51,6 +51,7 @@ export async function consumeEntry(tx: Tx, booking: BookingRow): Promise<boolean
       and(
         eq(memberships.id, booking.membershipId),
         eq(memberships.kind, 'classes'),
+        isNull(memberships.voidedAt),
         sql`${memberships.visitsUsed} < ${memberships.visitsTotal}`,
       ),
     )
@@ -181,7 +182,7 @@ export class BookingsService {
   }
 
   /** The booking's session row, locked, then the booking itself (same order everywhere). */
-  private async lockBooking(
+  async lockBooking(
     tx: Tx,
     bookingId: string,
     only?: { memberId: string },

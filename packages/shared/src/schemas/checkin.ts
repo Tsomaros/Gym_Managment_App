@@ -98,6 +98,8 @@ export interface CheckInResult {
   trainer: { userId: string; firstName: string; onDuty: boolean } | null;
   /** Today's cover trainer, if reception assigned one. */
   cover: { trainerId: string; firstName: string } | null;
+  /** Set when this check-in was for (or also covered) a booked class, which is now marked attended. */
+  classBooking?: { sessionId: string; typeName: string; startsAt: string };
 }
 
 /** What the tablet gets: a first name and pass/fail, nothing else about the member. */

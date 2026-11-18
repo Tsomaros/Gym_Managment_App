@@ -73,6 +73,29 @@ describe('classEligibility (memberships evaluated for the session date)', () => 
     }
   });
 
+  it('a class pack that does not include classes does not pay for one', () => {
+    expect(classEligibility([pack('p', 5, 0, { includesClasses: false })], {})).toEqual({ ok: false });
+  });
+
+  it('a pack fully reserved or used up is skipped for the next pack with an entry', () => {
+    // p1: 2 total, 1 used, 1 reserved = 0 left. p2: 2 total, 0 used, 0 reserved = 2 left.
+    expect(classEligibility([pack('p1', 2, 1), pack('p2', 2)], { p1: 1 })).toEqual({
+      ok: true,
+      membershipId: 'p2',
+      usesEntry: true,
+    });
+    // The reservation of one pack must not be charged to another.
+    expect(classEligibility([pack('p1', 1), pack('p2', 1)], { p2: 1 })).toMatchObject({ membershipId: 'p1' });
+  });
+
+  it('uses the pack that ends first, whatever the input order', () => {
+    const later = pack('later', 5, 0, { effectiveEndsOn: '2027-09-01', endsOn: '2027-09-01' });
+    const sooner = pack('sooner', 5, 0, { effectiveEndsOn: '2027-06-01', endsOn: '2027-06-01' });
+    const noEnd = pack('noEnd', 5);
+    expect(classEligibility([noEnd, later, sooner], {})).toMatchObject({ membershipId: 'sooner' });
+    expect(classEligibility([noEnd, later], {})).toMatchObject({ membershipId: 'later' });
+  });
+
   it('a visits pack that includes classes counts as a time-like membership, no entry used', () => {
     const visits = ms({ id: 'v', kind: 'visits', includesClasses: true, visitsTotal: 10 });
     expect(classEligibility([visits], {})).toEqual({

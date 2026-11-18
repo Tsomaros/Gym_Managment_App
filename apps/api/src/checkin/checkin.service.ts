@@ -5,6 +5,8 @@ import { AuditService } from '../audit/audit.service';
 import { Clock } from '../common/clock';
 import {
   checkIns,
+  classBookings,
+  classTypes,
   gymRoles,
   memberTrainers,
   memberships,
@@ -12,6 +14,7 @@ import {
   users,
 } from '../db/schema';
 import { type Tx, withGym } from '../db/tenant';
+import { AttendanceService } from '../classes/attendance.service';
 import { ShiftsService } from '../shifts/shifts.service';
 import { NotificationService } from '../notifications/notification.service';
 import { PhotosService } from '../members/photos.service';
@@ -52,6 +55,7 @@ export class CheckInService {
     private readonly notifications: NotificationService,
     private readonly photos: PhotosService,
     private readonly shifts: ShiftsService,
+    private readonly attendance: AttendanceService,
   ) {}
 
   /**
@@ -82,6 +86,8 @@ export class CheckInService {
       const today = await gymToday(tx, gymId, now);
       const ms = (await membershipsOf(tx, [memberId], today)).get(memberId) ?? [];
       const trainers = await this.trainersOf(tx, gymId, memberId, today, ms);
+      // Booked classes whose check-in window (60 min before .. 15 min after the start) is open.
+      const windowBookings = await this.attendance.openWindowBookings(tx, memberId, now);
 
       const [latest] = await tx
         .select()
@@ -96,13 +102,13 @@ export class CheckInService {
       ) {
         // A repeat of a valid check-in never spends a second visit. A refusal is repeated only
         // while it is still the verdict: a sale or an ended freeze in between must be honoured.
-        const again = decideCheckIn(ms);
+        const again = decideCheckIn(ms, windowBookings);
         if (latest.valid || (!again.valid && again.reason === latest.reason)) {
           return this.result(latest, member, photoUrl, ms, true, trainers);
         }
       }
 
-      let decision = decideCheckIn(ms);
+      let decision = decideCheckIn(ms, windowBookings);
       let consumed = false;
       if (decision.valid && decision.consumeVisit) {
         // The WHERE is the last word on a race: zero rows means the pack was just used up.
@@ -119,6 +125,32 @@ export class CheckInService {
           .returning({ id: memberships.id });
         if (updated.length) consumed = true;
         else decision = { valid: false, reason: 'used_up' };
+      }
+
+      // A valid check-in inside a booked class's window marks that booking attended (and spends
+      // the pack entry once). The class the decision used comes first, else the earliest one.
+      let classBooking: CheckInResult['classBooking'];
+      const attending = decision.valid
+        ? (windowBookings.find((w) => w.bookingId === decision.bookingId) ?? windowBookings[0])
+        : undefined;
+      if (attending) {
+        const [b] = await tx
+          .select()
+          .from(classBookings)
+          .where(eq(classBookings.id, attending.bookingId))
+          .for('update');
+        if (b && b.status === 'booked') {
+          await this.attendance.markInTx(tx, b, 'attended', input.byUserId ?? null);
+        }
+        const [type] = await tx
+          .select({ name: classTypes.name })
+          .from(classTypes)
+          .where(eq(classTypes.id, attending.typeId));
+        classBooking = {
+          sessionId: attending.sessionId,
+          typeName: type?.name ?? '',
+          startsAt: attending.startsAt,
+        };
       }
 
       const [row] = await tx
@@ -164,7 +196,7 @@ export class CheckInService {
           lowRef.value = { membershipId: pack.id, membershipName: pack.name, left };
         }
       }
-      return this.result(row!, member, photoUrl, fresh, false, trainers);
+      return this.result(row!, member, photoUrl, fresh, false, trainers, classBooking);
     });
     // After commit, and not for a repeat: the screens already show the first one.
     if (!result.duplicate) this.events.publish(gymId, { type: 'check_in', result });
@@ -217,6 +249,7 @@ export class CheckInService {
     ms: readonly Membership[],
     duplicate: boolean,
     trainers: Pick<CheckInResult, 'trainer' | 'cover'>,
+    classBooking?: CheckInResult['classBooking'],
   ): CheckInResult {
     const reason = row.reason as CheckInReason | null;
     const membership =
@@ -238,6 +271,7 @@ export class CheckInService {
       membership: membership ? withoutPrice(membership) : null,
       at: row.at.toISOString(),
       ...trainers,
+      ...(classBooking && { classBooking }),
     };
   }
 }

@@ -60,7 +60,22 @@ export const classBookings = pgTable(
       .where(sql`${t.status} in ('booked', 'attended')`),
     index('class_bookings_gym_member_status_idx').on(t.gymId, t.memberId, t.status),
     index('class_bookings_session_idx').on(t.sessionId),
-    index('class_bookings_membership_idx').on(t.membershipId),
+    // Counts of reserved entries per pack, and the index the same-gym foreign key needs.
+    index('class_bookings_membership_idx')
+      .on(t.membershipId, t.gymId)
+      .where(sql`${t.status} = 'booked'`),
+    check(
+      'class_bookings_cancelled_at_set',
+      sql`${t.status} not in ('cancelled', 'late_cancelled') or ${t.cancelledAt} is not null`,
+    ),
+    check(
+      'class_bookings_attended_at_set',
+      sql`${t.status} <> 'attended' or ${t.attendedAt} is not null`,
+    ),
+    check(
+      'class_bookings_consumed_has_membership',
+      sql`not ${t.entryConsumed} or ${t.membershipId} is not null`,
+    ),
     check(
       'class_bookings_status_valid',
       sql`${t.status} in ('booked', 'attended', 'no_show', 'cancelled', 'late_cancelled')`,

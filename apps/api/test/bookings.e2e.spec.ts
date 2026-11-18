@@ -255,10 +255,51 @@ describe('class bookings: capacity, reservations, cancellation rules', () => {
     expect(list.every((x) => x.status === 'booked')).toBe(true);
     const theirs = (await bookings(s))[0]!;
     await f.req('delete', `/me/bookings/${theirs.id}`, 'p').expect(404);
+    // The refused cancel changed nothing.
+    expect((await bookings(s))[0]).toMatchObject({ status: 'booked', entryConsumed: false });
     const seen = (await f.req('get', `/class-sessions?from=2027-05-14&to=2027-05-14`, 'n').expect(200))
       .body as ClassSessionView[];
     expect(seen.find((x) => x.id === s)!.myBooking).toMatchObject({ id: theirs.id, status: 'booked' });
-    expect(seen.find((x) => x.id !== s)?.myBooking).toBeUndefined();
+    // Other sessions that day (09:00 cancelled by staff, 18:00 cancelled session) are not shown as booked.
+    const others = seen.filter((x) => x.id !== s);
+    expect(others.length).toBeGreaterThanOrEqual(2);
+    expect(others.every((x) => x.myBooking?.status !== 'booked')).toBe(true);
+  });
+
+  it('the cancel cut-off is 120 min: exactly at it is late, a minute earlier is free', async () => {
+    await newMember('x');
+    await newMember('y');
+    await sell('x', packType.id);
+    await sell('y', packType.id);
+    const sx = await mk('2027-05-12', '21:00'); // cut-off moment 19:00 local
+    const sy = await mk('2027-05-12', '22:00'); // cut-off moment 20:00 local
+    await book('x', sx).expect(201);
+    await book('y', sy).expect(201);
+    f.clock.current = local('2027-05-12', '19:00');
+    expect((await f.req('delete', `/me/bookings/${(await bookings(sx))[0]!.id}`, 'x').expect(200)).body).toEqual({
+      status: 'late_cancelled',
+    });
+    expect(await used('x')).toEqual([1]);
+    f.clock.current = local('2027-05-12', '19:59'); // 121 min before 22:00
+    expect((await f.req('delete', `/me/bookings/${(await bookings(sy))[0]!.id}`, 'y').expect(200)).body).toEqual({
+      status: 'cancelled',
+    });
+    expect(await used('y')).toEqual([0]);
+    f.clock.setDay(DAY);
+  });
+
+  it('staff cancelling inside the late window never consumes the member’s class-pack entry', async () => {
+    await newMember('z');
+    await sell('z', packType.id);
+    const s = await mk('2027-05-12', '14:00');
+    await book('z', s).expect(201);
+    f.clock.current = local('2027-05-12', '13:30'); // 30 min before: a member's own cancel would be late
+    await f.req('delete', `/bookings/${(await bookings(s))[0]!.id}`, 'rec').expect(204);
+    f.clock.setDay(DAY);
+    expect((await bookings(s))[0]).toMatchObject({ status: 'cancelled', entryConsumed: false });
+    expect(await used('z')).toEqual([0]);
+    // The reservation was released: the pack can pay for another class.
+    await book('z', await mk('2027-05-13', '15:00')).expect(201);
   });
 
   it('a pack’s remaining visits subtract its booked classes', async () => {

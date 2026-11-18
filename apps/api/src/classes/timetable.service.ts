@@ -381,6 +381,14 @@ export class TimetableService {
     reason: string,
   ): Promise<CancelledBooking[]> {
     if (!sessionIds.length) return [];
+    // Lock the sessions (in id order) so a booking in flight finishes before we look for bookings:
+    // otherwise deleting a session it just filled would fail on the foreign key.
+    await tx
+      .select({ id: classSessions.id })
+      .from(classSessions)
+      .where(inArray(classSessions.id, sessionIds))
+      .orderBy(asc(classSessions.id))
+      .for('update');
     const withBookings = await tx
       .selectDistinct({ id: classBookings.sessionId })
       .from(classBookings)
@@ -389,7 +397,7 @@ export class TimetableService {
     const empty = sessionIds.filter((id) => !keep.has(id));
     if (empty.length) await tx.delete(classSessions).where(inArray(classSessions.id, empty));
     const cancelled: CancelledBooking[] = [];
-    for (const id of keep) {
+    for (const id of [...keep].sort()) {
       cancelled.push(...(await this.cancelInTx(tx, gymId, actorId, id, reason)));
     }
     return cancelled;

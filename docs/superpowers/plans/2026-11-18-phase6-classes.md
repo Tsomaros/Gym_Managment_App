@@ -139,7 +139,7 @@
 - Routes: `POST /gyms/:gymId/bookings/:id/attendance` `{ status }` (the class's trainer or reception) → `204` + `attendance.marked`.
 - No-show pass: for sessions with `ends_at_utc + 30 min ≤ now` and not cancelled → `booked` → `no_show`, consuming entries.
 
-- [ ] **Step 1: Write the failing tests:**
+- [x] **Step 1: Write the failing tests:**
   - `decideCheckIn`: only a class pack with a booking in the window → valid with no visit consumed; the same without a booking → `classes_only`; a time membership still wins.
   - Kiosk check-in by a class-pack-only member 30 min before their booked class → green; the booking is `attended` with `entry_consumed`; `visits_used + 1`. *(Review Focus 4)*
   - 2 hours before → `classes_only`, booking still `booked`. *(Review Focus 4)*
@@ -147,10 +147,10 @@
   - The no-show pass at end + 30 min marks the rest `no_show` and consumes; running it twice → consumed once. *(Review Focus 5)*
   - DST day: a 09:00 session of 45 min is processed by the pass at 10:15 local (07:15Z), not at 09:45 local. *(Review Focus 5)*
   - Reception marks `no_show` → `204`; a member → `403`.
-- [ ] **Step 2: Run** `pnpm --filter api test attendance decide checkin` → FAIL.
-- [ ] **Step 3: Implement.**
-- [ ] **Step 4: Run** `pnpm --filter api test` → PASS.
-- [ ] **Step 5: Commit** `feat: class attendance, no-shows and door access for booked classes`.
+- [x] **Step 2: Run** `pnpm --filter api test attendance decide checkin` → FAIL.
+- [x] **Step 3: Implement.**
+- [x] **Step 4: Run** `pnpm --filter api test` → PASS.
+- [x] **Step 5: Commit** `feat: class attendance, no-shows and door access for booked classes`.
 
 ---
 

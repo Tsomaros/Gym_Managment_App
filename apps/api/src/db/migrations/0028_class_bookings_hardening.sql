@@ -1,0 +1,5 @@
+DROP INDEX "class_bookings_membership_idx";--> statement-breakpoint
+CREATE INDEX "class_bookings_membership_idx" ON "class_bookings" USING btree ("membership_id","gym_id") WHERE "class_bookings"."status" = 'booked';--> statement-breakpoint
+ALTER TABLE "class_bookings" ADD CONSTRAINT "class_bookings_cancelled_at_set" CHECK ("class_bookings"."status" not in ('cancelled', 'late_cancelled') or "class_bookings"."cancelled_at" is not null);--> statement-breakpoint
+ALTER TABLE "class_bookings" ADD CONSTRAINT "class_bookings_attended_at_set" CHECK ("class_bookings"."status" <> 'attended' or "class_bookings"."attended_at" is not null);--> statement-breakpoint
+ALTER TABLE "class_bookings" ADD CONSTRAINT "class_bookings_consumed_has_membership" CHECK (not "class_bookings"."entry_consumed" or "class_bookings"."membership_id" is not null);

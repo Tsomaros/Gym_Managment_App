@@ -197,6 +197,13 @@
       "when": 1795019152053,
       "tag": "0027_class_bookings",
       "breakpoints": true
+    },
+    {
+      "idx": 28,
+      "version": "7",
+      "when": 1795019544037,
+      "tag": "0028_class_bookings_hardening",
+      "breakpoints": true
     }
   ]
 }
