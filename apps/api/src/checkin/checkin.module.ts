@@ -27,6 +27,6 @@ import { StaffCheckInController } from './staff-checkin.controller';
     PresenceService,
     { provide: LIVE_STREAM_MAX_MS, useValue: DEFAULT_LIVE_STREAM_MAX_MS },
   ],
-  exports: [CheckInService, CheckInEvents],
+  exports: [CheckInService, CheckInEvents, PresenceService],
 })
 export class CheckInModule {}

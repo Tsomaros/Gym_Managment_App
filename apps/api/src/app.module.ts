@@ -9,6 +9,7 @@ import { closeDb } from './db/client';
 import { DevicesModule } from './devices/devices.module';
 import { ExercisesModule } from './exercises/exercises.module';
 import { NotificationsModule } from './notifications/notifications.module';
+import { DashboardModule } from './dashboard/dashboard.module';
 import { PlansModule } from './plans/plans.module';
 import { WorkoutsModule } from './workouts/workouts.module';
 import { ProgressModule } from './progress/progress.module';
@@ -48,6 +49,7 @@ import { HealthController } from './health/health.controller';
     WorkoutsModule,
     ProgressModule,
     NotificationsModule,
+    DashboardModule,
     HealthDataModule,
   ],
   controllers: [HealthController],
