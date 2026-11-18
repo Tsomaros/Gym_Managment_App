@@ -61,4 +61,17 @@ jobs:
       - run: pnpm typecheck
       - run: pnpm -r test
       - run: pnpm exec playwright install --with-deps chromium
+      # The plans e2e uploads a PDF to object storage. MinIO needs a start command, which a service
+      # container cannot take, so it runs as a plain container (same image as docker-compose.yml).
+      - name: Start MinIO
+        run: |
+          docker run -d --name minio -p 9000:9000 \
+            -e MINIO_ROOT_USER="$S3_ACCESS_KEY" -e MINIO_ROOT_PASSWORD="$S3_SECRET_KEY" \
+            cgr.dev/chainguard/minio:latest server /data
+          for i in $(seq 1 30); do
+            curl -fs http://localhost:9000/minio/health/live && exit 0
+            sleep 2
+          done
+          docker logs minio
+          exit 1
       - run: pnpm e2e
