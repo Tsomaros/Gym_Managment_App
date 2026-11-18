@@ -4,6 +4,9 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { closeDb, db, systemDb } from '../../src/db/client';
 import {
   auditLog,
+  classSeries,
+  classSessions,
+  classTypes,
   bodyMeasurements,
   healthConsents,
   checkIns,
@@ -2413,5 +2416,174 @@ describe('row-level security and privileges: notifications', () => {
     expect(
       await systemDb.select().from(pushSubscriptions).where(eq(pushSubscriptions.userId, memberA)),
     ).toEqual([]);
+  });
+});
+
+describe('row-level security and privileges: class_types, class_series and class_sessions', () => {
+  const run = randomUUID().slice(0, 8);
+  let gymA: string;
+  let gymB: string;
+  let typeA: string;
+  let typeB: string;
+  let seriesA: string;
+  let seriesB: string;
+  let sessionA: string;
+  let sessionB: string;
+  const sessionValues = (gymId: string, classTypeId: string, seriesId: string | null, date: string) => ({
+    gymId,
+    classTypeId,
+    seriesId,
+    date,
+    startsAt: '18:00',
+    endsAt: '18:45',
+    startsAtUtc: new Date(`${date}T15:00:00Z`),
+    endsAtUtc: new Date(`${date}T15:45:00Z`),
+    capacity: 10,
+  });
+
+  beforeAll(async () => {
+    const g = await systemDb
+      .insert(gyms)
+      .values([{ name: `Class A ${run}` }, { name: `Class B ${run}` }])
+      .returning({ id: gyms.id });
+    gymA = g[0]!.id;
+    gymB = g[1]!.id;
+    const t = await systemDb
+      .insert(classTypes)
+      .values([
+        { gymId: gymA, name: 'Spinning', defaultCapacity: 10, defaultDurationMinutes: 45 },
+        { gymId: gymB, name: 'Spinning', defaultCapacity: 10, defaultDurationMinutes: 45 },
+      ])
+      .returning({ id: classTypes.id });
+    typeA = t[0]!.id;
+    typeB = t[1]!.id;
+    const s = await systemDb
+      .insert(classSeries)
+      .values([
+        { gymId: gymA, classTypeId: typeA, weekday: 3, startsAt: '18:00', durationMinutes: 45, capacity: 10, validFrom: '2027-05-05' },
+        { gymId: gymB, classTypeId: typeB, weekday: 3, startsAt: '18:00', durationMinutes: 45, capacity: 10, validFrom: '2027-05-05' },
+      ])
+      .returning({ id: classSeries.id });
+    seriesA = s[0]!.id;
+    seriesB = s[1]!.id;
+    const ss = await systemDb
+      .insert(classSessions)
+      .values([
+        sessionValues(gymA, typeA, seriesA, '2027-05-05'),
+        sessionValues(gymB, typeB, seriesB, '2027-05-05'),
+      ])
+      .returning({ id: classSessions.id });
+    sessionA = ss[0]!.id;
+    sessionB = ss[1]!.id;
+  });
+
+  afterAll(async () => {
+    const gymIds = [gymA, gymB].filter(Boolean);
+    if (gymIds.length) {
+      await systemDb.delete(classSessions).where(inArray(classSessions.gymId, gymIds));
+      await systemDb.delete(classSeries).where(inArray(classSeries.gymId, gymIds));
+      await systemDb.delete(classTypes).where(inArray(classTypes.gymId, gymIds));
+      await systemDb.delete(gyms).where(inArray(gyms.id, gymIds));
+    }
+  });
+
+  it('each gym sees only its own rows; without a gym nothing is visible', async () => {
+    expect((await withGym(gymA, (tx) => tx.select().from(classTypes))).map((r) => r.id)).toEqual([typeA]);
+    expect((await withGym(gymA, (tx) => tx.select().from(classSeries))).map((r) => r.id)).toEqual([seriesA]);
+    expect((await withGym(gymA, (tx) => tx.select().from(classSessions))).map((r) => r.id)).toEqual([sessionA]);
+    expect((await withGym(gymB, (tx) => tx.select().from(classSessions))).map((r) => r.id)).toEqual([sessionB]);
+    expect(await db.select().from(classTypes)).toEqual([]);
+    expect(await db.select().from(classSeries)).toEqual([]);
+    expect(await db.select().from(classSessions)).toEqual([]);
+  });
+
+  it('gym A cannot insert, change or delete gym B rows', async () => {
+    expect(
+      await rejectionMessage(
+        withGym(gymA, (tx) =>
+          tx.insert(classTypes).values({ gymId: gymB, name: 'X', defaultCapacity: 5, defaultDurationMinutes: 30 }),
+        ),
+      ),
+    ).toMatch(RLS_VIOLATION);
+    expect(
+      await rejectionMessage(
+        withGym(gymA, (tx) => tx.insert(classSessions).values(sessionValues(gymB, typeB, null, '2027-05-06'))),
+      ),
+    ).toMatch(RLS_VIOLATION);
+    expect(
+      await rejectionMessage(
+        withGym(gymA, (tx) =>
+          tx.insert(classSeries).values({ gymId: gymB, classTypeId: typeB, weekday: 1, startsAt: '10:00', durationMinutes: 45, capacity: 5, validFrom: '2027-05-03' }),
+        ),
+      ),
+    ).toMatch(RLS_VIOLATION);
+    expect(
+      await withGym(gymA, (tx) =>
+        tx.update(classSessions).set({ cancelledAt: new Date() }).where(eq(classSessions.id, sessionB)).returning({ id: classSessions.id }),
+      ),
+    ).toEqual([]);
+    expect(
+      await withGym(gymA, (tx) =>
+        tx.update(classTypes).set({ name: 'Hacked' }).where(eq(classTypes.id, typeB)).returning({ id: classTypes.id }),
+      ),
+    ).toEqual([]);
+    expect(
+      await withGym(gymA, (tx) =>
+        tx.update(classSeries).set({ validUntil: '2027-05-09' }).where(eq(classSeries.id, seriesB)).returning({ id: classSeries.id }),
+      ),
+    ).toEqual([]);
+    expect(
+      await withGym(gymA, (tx) => tx.delete(classSessions).where(eq(classSessions.id, sessionB)).returning({ id: classSessions.id })),
+    ).toEqual([]);
+    // Gym B's rows are untouched.
+    const [b] = await withGym(gymB, (tx) => tx.select().from(classSessions).where(eq(classSessions.id, sessionB)));
+    expect(b!.cancelledAt).toBeNull();
+    expect((await withGym(gymB, (tx) => tx.select().from(classTypes))).map((r) => r.name)).toEqual(['Spinning']);
+    expect((await withGym(gymB, (tx) => tx.select().from(classSeries))).map((r) => r.validUntil)).toEqual([null]);
+  });
+
+  it('a session or series cannot point at another gym’s type or series', async () => {
+    expect(
+      await rejectionMessage(withGym(gymA, (tx) => tx.insert(classSessions).values(sessionValues(gymA, typeB, null, '2027-05-07')))),
+    ).toMatch(/class_sessions_type_same_gym_fk/);
+    expect(
+      await rejectionMessage(withGym(gymA, (tx) => tx.insert(classSessions).values(sessionValues(gymA, typeA, seriesB, '2027-05-07')))),
+    ).toMatch(/class_sessions_series_same_gym_fk/);
+  });
+
+  it('one session per series and date', async () => {
+    expect(
+      await rejectionMessage(withGym(gymA, (tx) => tx.insert(classSessions).values(sessionValues(gymA, typeA, seriesA, '2027-05-05')))),
+    ).toMatch(/class_sessions_series_date_uq/);
+  });
+
+  it('gym_app can end a series and cancel a session but not rewrite their pattern or delete a type', async () => {
+    await withGym(gymA, (tx) => tx.update(classSeries).set({ validUntil: '2027-06-01' }).where(eq(classSeries.id, seriesA)));
+    await withGym(gymA, (tx) => tx.update(classSessions).set({ cancelledAt: new Date(), cancelReason: 'x' }).where(eq(classSessions.id, sessionA)));
+    // The allowed writes really happened.
+    const [ended] = await withGym(gymA, (tx) => tx.select().from(classSeries).where(eq(classSeries.id, seriesA)));
+    expect(ended!.validUntil).toBe('2027-06-01');
+    const [cancelled] = await withGym(gymA, (tx) => tx.select().from(classSessions).where(eq(classSessions.id, sessionA)));
+    expect(cancelled!.cancelledAt).not.toBeNull();
+    expect(cancelled!.cancelReason).toBe('x');
+    expect(
+      await rejectionMessage(withGym(gymA, (tx) => tx.update(classSeries).set({ capacity: 99 }).where(eq(classSeries.id, seriesA)))),
+    ).toMatch(/permission denied/);
+    expect(
+      await rejectionMessage(withGym(gymA, (tx) => tx.update(classSessions).set({ startsAtUtc: new Date() }).where(eq(classSessions.id, sessionA)))),
+    ).toMatch(/permission denied/);
+    expect(
+      await rejectionMessage(withGym(gymA, (tx) => tx.delete(classTypes).where(eq(classTypes.id, typeA)))),
+    ).toMatch(/permission denied/);
+  });
+
+  it('a class cannot cross midnight', async () => {
+    expect(
+      await rejectionMessage(
+        withGym(gymA, (tx) =>
+          tx.insert(classSeries).values({ gymId: gymA, classTypeId: typeA, weekday: 1, startsAt: '23:30', durationMinutes: 45, capacity: 5, validFrom: '2027-05-03' }),
+        ),
+      ),
+    ).toMatch(/class_series_ends_before_midnight/);
   });
 });

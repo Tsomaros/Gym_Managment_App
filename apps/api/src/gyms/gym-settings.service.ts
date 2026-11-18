@@ -13,6 +13,7 @@ const settingsColumns = {
   reminderDays: gyms.reminderDays,
   capacity: gyms.capacity,
   showOccupancyCount: gyms.showOccupancyCount,
+  classCancelCutoffMinutes: gyms.classCancelCutoffMinutes,
 };
 
 @Injectable()
@@ -45,6 +46,9 @@ export class GymSettingsService {
           ...(body.capacity !== undefined && { capacity: body.capacity }),
           ...(body.showOccupancyCount !== undefined && {
             showOccupancyCount: body.showOccupancyCount,
+          }),
+          ...(body.classCancelCutoffMinutes !== undefined && {
+            classCancelCutoffMinutes: body.classCancelCutoffMinutes,
           }),
           ...(body.receptionCanEditShifts !== undefined && {
             receptionCanEditShifts: body.receptionCanEditShifts,
@@ -86,6 +90,13 @@ export class GymSettingsService {
           setting: 'showOccupancyCount',
           from: before.showOccupancyCount,
           to: body.showOccupancyCount,
+        });
+      }
+      if (body.classCancelCutoffMinutes !== undefined) {
+        await record({
+          setting: 'classCancelCutoffMinutes',
+          from: before.classCancelCutoffMinutes,
+          to: body.classCancelCutoffMinutes,
         });
       }
       return g!;

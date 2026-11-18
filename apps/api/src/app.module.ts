@@ -16,6 +16,7 @@ import { ProgressModule } from './progress/progress.module';
 import { HealthDataModule } from './health/health.module';
 import { GymsModule } from './gyms/gyms.module';
 import { InvitationsModule } from './invitations/invitations.module';
+import { ClassesModule } from './classes/classes.module';
 import { ShiftsModule } from './shifts/shifts.module';
 import { TrainersModule } from './trainers/trainers.module';
 import { StaffModule } from './staff/staff.module';
@@ -42,6 +43,7 @@ import { HealthController } from './health/health.controller';
     CheckInModule,
     DevicesModule,
     ShiftsModule,
+    ClassesModule,
     StaffModule,
     TrainersModule,
     ExercisesModule,

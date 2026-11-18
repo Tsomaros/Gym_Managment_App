@@ -21,6 +21,7 @@ describe('GymSettingsPage', () => {
       reminderDays: 5,
       capacity: null,
       showOccupancyCount: false,
+      classCancelCutoffMinutes: 120,
     };
     fetchMock = vi.fn<typeof fetch>(async (_input, init) => {
       if (init?.method === 'PATCH') {

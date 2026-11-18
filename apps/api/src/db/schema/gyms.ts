@@ -18,11 +18,14 @@ export const gyms = pgTable(
     capacity: integer('capacity'),
     /** Whether members see the number inside, not just quiet / moderate / busy. */
     showOccupancyCount: boolean('show_occupancy_count').notNull().default(false),
+    /** A member may cancel a class booking without charge until this many minutes before it starts. */
+    classCancelCutoffMinutes: integer('class_cancel_cutoff_minutes').notNull().default(120),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [
     check('gyms_auto_checkout_valid', sql`${t.autoCheckoutMinutes} between 30 and 600`),
     check('gyms_capacity_valid', sql`${t.capacity} is null or ${t.capacity} between 1 and 2000`),
+    check('gyms_class_cutoff_valid', sql`${t.classCancelCutoffMinutes} between 0 and 1440`),
     check('gyms_reminder_days_valid', sql`${t.reminderDays} between 1 and 14`),
   ],
 );

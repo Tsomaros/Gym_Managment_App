@@ -12,6 +12,7 @@ export * from './schemas/progress.js';
 export * from './schemas/workouts.js';
 export * from './schemas/memberships.js';
 export * from './schemas/shifts.js';
+export * from './schemas/classes.js';
 export * from './schemas/staff.js';
 export * from './schemas/trainers.js';
 export * from './schemas/members.js';

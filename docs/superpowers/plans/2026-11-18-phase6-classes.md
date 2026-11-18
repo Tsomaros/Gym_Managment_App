@@ -73,7 +73,7 @@
 - `ClassesJob`: hourly → materialise for every gym. After a series change, the service materialises immediately for that gym.
 - Cancelling a session or ending a series cancels the affected bookings (Task 2 adds the booking table; leave a hook, and Task 2 extends these tests).
 
-- [ ] **Step 1: Write the failing tests:**
+- [x] **Step 1: Write the failing tests:**
   - `materialiseSeries`: a Wednesday 18:00 series from `2027-05-05`, range `2027-05-01..2027-05-28` → 05-05, 05-12, 05-19, 05-26; with 05-12 already existing → three new.
   - `localToUtc('2027-03-28', '09:00', 'Europe/Athens')` = `2027-03-28T06:00:00Z` (UTC+3 after the switch); `localToUtc('2027-03-27', '09:00', …)` = `07:00Z`. *(Review Focus 5)*
   - API: the owner creates a type and a series → sessions exist for 28 days; running the job again creates none.
@@ -81,10 +81,10 @@
   - A one-off session appears in the list. Reception can cancel, a trainer can't (`403`). Members can list (`200`).
   - Range over 31 days → `400`; capacity 0 → `400`; a non-trainer as `trainer_id` → `404`.
   - Two-gym isolation for the three tables.
-- [ ] **Step 2: Run** `pnpm --filter api test classes timetable` → FAIL.
-- [ ] **Step 3: Implement.** Consult database-expert (UTC columns, indexes).
-- [ ] **Step 4: Run** `pnpm --filter api test` → PASS.
-- [ ] **Step 5: Commit** `feat: class types, timetable series and materialised sessions`.
+- [x] **Step 2: Run** `pnpm --filter api test classes timetable` → FAIL.
+- [x] **Step 3: Implement.** Consult database-expert (UTC columns, indexes).
+- [x] **Step 4: Run** `pnpm --filter api test` → PASS.
+- [x] **Step 5: Commit** `feat: class types, timetable series and materialised sessions`.
 
 ---
 

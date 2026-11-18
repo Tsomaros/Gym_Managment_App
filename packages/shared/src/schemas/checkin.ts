@@ -29,6 +29,8 @@ export const UpdateGymSettingsSchema = z
     /** null clears it: members then see no occupancy. */
     capacity: z.number().int().min(CAPACITY_MIN).max(CAPACITY_MAX).nullable().optional(),
     showOccupancyCount: z.boolean().optional(),
+    /** Minutes before a class that a member can still cancel without losing a class-pack entry. */
+    classCancelCutoffMinutes: z.number().int().min(0).max(1440).optional(),
   })
   .refine(
     (s) =>
@@ -36,7 +38,8 @@ export const UpdateGymSettingsSchema = z
       s.receptionCanEditShifts !== undefined ||
       s.reminderDays !== undefined ||
       s.capacity !== undefined ||
-      s.showOccupancyCount !== undefined,
+      s.showOccupancyCount !== undefined ||
+      s.classCancelCutoffMinutes !== undefined,
     { message: 'Nothing to change' },
   );
 export type UpdateGymSettings = z.infer<typeof UpdateGymSettingsSchema>;
@@ -53,6 +56,8 @@ export interface GymSettings {
   capacity: number | null;
   /** Whether members see the number inside, not only the level. */
   showOccupancyCount: boolean;
+  /** Cancelling later than this before a class start counts as a late cancellation. */
+  classCancelCutoffMinutes: number;
 }
 
 export type OccupancyLevel = 'quiet' | 'moderate' | 'busy';

@@ -12,6 +12,7 @@ import { withGym } from '../db/tenant';
 import { lockTrainer } from '../trainers/trainer-access';
 import { CoversService } from '../trainers/covers.service';
 import { TrainersService } from '../trainers/trainers.service';
+import { TimetableService } from '../classes/timetable.service';
 import { ShiftsService } from '../shifts/shifts.service';
 
 const STAFF: StaffRole[] = ['owner', 'reception', 'trainer'];
@@ -21,6 +22,7 @@ export class StaffService {
   constructor(
     private readonly audit: AuditService,
     private readonly shifts: ShiftsService,
+    private readonly timetable: TimetableService,
     private readonly trainers: TrainersService,
     private readonly covers: CoversService,
   ) {}
@@ -118,6 +120,7 @@ export class StaffService {
       // and covers (Task 5).
       if (role === 'trainer') await this.trainers.removeLinksOf(tx, gymId, actorId, userId);
       if (role === 'trainer') await this.covers.removeCoversOf(tx, gymId, actorId, userId);
+      if (role === 'trainer') await this.timetable.removeTrainerFrom(tx, gymId, userId);
       // Shifts go when the trainer role is removed, or when the person is left with no staff role.
       const [stillStaff] = await tx
         .select({ role: gymRoles.role })
