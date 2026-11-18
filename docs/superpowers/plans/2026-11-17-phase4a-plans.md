@@ -249,11 +249,11 @@
   - Older plans are listed under a collapsed "Προηγούμενα προγράμματα".
   - The "Καταγραφή" (log) button is reserved for phase 4b; it isn't rendered yet.
 
-- [ ] **Step 1: Write the failing tests:** the target formatting for a range, a single number and max; English names in English; the PDF button opens the signed URL; the empty state text depends on having a trainer; the layout is a single column at 375 px.
-- [ ] **Step 2: Run** `pnpm --filter web test my-plan && pnpm e2e` → FAIL.
-- [ ] **Step 3: Implement.** Run ui-ux-reviewer (phone, one-handed, Greek, dark mode).
-- [ ] **Step 4: Run** `pnpm lint && pnpm typecheck && pnpm -r test && pnpm e2e` → PASS.
-- [ ] **Step 5: Commit** `feat(web): member's workout plan`.
+- [x] **Step 1: Write the failing tests:** the target formatting for a range, a single number and max; English names in English; the PDF button opens the signed URL; the empty state text depends on having a trainer; the layout is a single column at 375 px.
+- [x] **Step 2: Run** `pnpm --filter web test my-plan && pnpm e2e` → FAIL.
+- [x] **Step 3: Implement.** Run ui-ux-reviewer (phone, one-handed, Greek, dark mode).
+- [x] **Step 4: Run** `pnpm lint && pnpm typecheck && pnpm -r test && pnpm e2e` → PASS.
+- [x] **Step 5: Commit** `feat(web): member's workout plan`.
 
 ---
 

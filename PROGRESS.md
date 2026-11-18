@@ -1,6 +1,7 @@
 # Progress
 
 ## Last finished
+- 2026-11-18: Plan 4a Tasks 1–7 implemented and committed on `phase4a-plans` (exercise library with 57 default exercises, plan schema, interactive plans with trainerAccess rules and stable ids, templates, PDF plans, web: library, plan editor, templates page, PDF upload, member's plan). Migrations 0018–0019. lint, typecheck, 72 shared + 529 API + 508 web tests and 6 e2e pass. Ledger with every ruling: `docs/superpowers/plans/2026-11-17-phase4a-plans.ledger.md`. Whole-branch review done (1 Important fixed, 3 minors deferred).
 - 2026-11-16: Plan 2a Tasks 1–11 implemented and committed on `phase2a-memberships` (sign-up codes, self sign-up, email confirmation, change history, membership types, selling/payments/void, freezes, members API, web screens). lint, typecheck, 60 shared + 255 API + 89 web tests and 3 e2e pass. Ledger with every ruling: `docs/superpowers/plans/2026-11-16-phase2a-memberships.ledger.md`.
 - 2026-11-16: Plan 2a Task 1 (hardening) on branch `phase2a-memberships`: new DB role `gym_system` (systemDb: BYPASSRLS, DML only, no DDL; `DATABASE_SYSTEM_URL`), RLS on `users` for gym_app (read-only, only people with a role in the current gym), all `users` writes through systemDb, login throttling (5 per 60 s per IP + email → 429). GitHub push (Task 1 Step 6) is held until the end of the plan, to be confirmed.
 - 2026-11-15: Task 8 (web app shell): bilingual PWA (el default, en), sign-in, invite page, gym picker, one area per role, platform "Create gym" form. Playwright e2e (`pnpm e2e`) covers admin → create gym → Mailpit invite → owner in Greek → English. All 8 tasks of phase 0–1 are done and the whole-branch review is closed (25 shared + 28 web + 99 API tests + 1 e2e).
@@ -14,6 +15,8 @@
 - 2026-11-15: Design approved, plan for phases 0–1 written, Claude Code agents/hooks/skills adapted from LLM_Movies_Prediction_Model.
 
 ## In progress
+- 2026-11-18: Plan 4a is finished on branch `phase4a-plans` (not merged, not pushed). Next: decide the merge into `main`, then write plan 4b (workout logging, progress charts, measurements and photos with consent; logs point at `plan_exercises.id` and `exercises.id`, and `plan_exercises` already has `UNIQUE (id, gym_id)` for the composite foreign key). Deferred minors are in the plan 4a ledger.
+- Gyms that exist before the exercise library get the default exercises when the API starts (`seedGymsWithoutExercises` in `main.ts`); a gym created from now on gets them in the same transaction. After pulling this phase: run `pnpm --filter api db:migrate` and restart the API once.
 - 2026-11-17: Phase 3 merged into main (not yet pushed). Plan 4a written: `docs/superpowers/plans/2026-11-17-phase4a-plans.md` (exercise library with default seed, plan schema, interactive plans with trainerAccess rules and stable ids, templates, PDF plans, web: library, plan editor, member's plan). Phase 4b (logging, charts, measurements) follows. Next: push main, then execute plan 4a natively in Claude Code on a new branch `phase4a-plans`.
 - 2026-11-17: Plan 3 Tasks 1–8 implemented and committed on `phase3-staff-shifts` (staff list + role removal + invitation cancel, shift series/overrides/schedules/on-duty now, primary trainer with paused links, same-day cover, `trainerAccess` helper for phase 4, web: staff page, schedules, on-duty panel on the desk, trainer assignment, trainer clients, cover from the desk; trainers see today's visitors). Migrations 0015–0017. Ledger with every ruling: `docs/superpowers/plans/2026-11-17-phase3-staff-shifts.ledger.md`. Final whole-branch review done (1 Important fixed); merge decision is next.
 - 2026-11-17: Phase 2b merged into main and pushed. Plan 3 written: `docs/superpowers/plans/2026-11-17-phase3-staff-shifts.md` (staff list/role removal, shift series + overrides, schedules, on-duty now, primary trainer with paused links, same-day cover, trainerAccess helper for phase 4; trainers now see today's visitors). Next: execute plan 3 natively in Claude Code on a new branch `phase3-staff-shifts`.
@@ -35,6 +38,7 @@
 - API: `pnpm --filter api start:dev`, health at http://localhost:3000/health. Web: `pnpm --filter web dev` → http://localhost:5173 (calls the API through the /api proxy). E2E: `pnpm e2e` (uses gym_test; run `pnpm exec playwright install chromium` once).
 
 ## Execution
+- E2E: `pnpm e2e` runs the specs in parallel workers; the platform admin signs in once in `e2e/global-setup.ts` (the login route allows 5 attempts a minute). A run longer than 15 minutes would outlive that token.
 - Phase 0–1 ran natively (superpowers:executing-plans) and is merged. Ledger copy (committed): `docs/superpowers/plans/2026-11-15-phase0-1-foundation.ledger.md`. CLAUDE.md hard rules (code-reviewer, test-auditor, ui-ux-reviewer, database-expert) apply per task; one whole-branch review at the end of the plan.
 
 ## Environment (Windows PC)

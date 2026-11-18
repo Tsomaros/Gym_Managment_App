@@ -339,7 +339,7 @@ describe('plan templates', () => {
     expect(rows.find((r) => r.id === first.id)!.status).toBe('archived');
   });
 
-  it('access: a cover trainer may save a template from the plan they can read but cannot create a plan from one; others get 404', async () => {
+  it('access: a cover trainer can read the plan but can neither copy it into a template nor create a plan from one; others get 404', async () => {
     const plan = await planFor('m', { title: 'Για κάλυψη' });
     const tpl = (
       await req('post', '/plan-templates', 't')
@@ -351,7 +351,10 @@ describe('plan templates', () => {
       .insert(trainerCovers)
       .values({ gymId, memberId: id.m!, trainerId: id.u!, date: DAY });
     try {
-      await saveAsTemplate(plan.id, 'Από κάλυψη', 'u');
+      // Templates are readable by every trainer of the gym: a cover (read-only) must not feed them.
+      await req('post', `/plans/${plan.id}/save-as-template`, 'u')
+        .send({ title: 'Από κάλυψη' })
+        .expect(403);
       await req('post', `/members/${id.m}/plans/from-template`, 'u')
         .send({ templateId: tpl.id })
         .expect(403);

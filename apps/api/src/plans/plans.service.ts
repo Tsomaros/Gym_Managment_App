@@ -161,11 +161,14 @@ export class PlansService {
     });
   }
 
-  /** A deep copy of a plan the caller can read (also as a cover) into a new template of their own. */
+  /**
+   * A deep copy of a plan into a new template of the caller's own. Needs write access: templates are
+   * readable by every trainer of the gym, so a cover (who only reads) must not feed them.
+   */
   saveAsTemplate(gymId: string, caller: Caller, planId: string, title: string): Promise<Plan> {
     return withGym(gymId, async (tx) => {
       // Locked, so a concurrent edit of the source cannot tear the copy.
-      const { row } = await this.open(tx, gymId, caller, planId, 'read', true);
+      const { row } = await this.open(tx, gymId, caller, planId, 'write', true);
       if (row.kind !== 'interactive') throw new ConflictException('Only interactive plans');
       const [template] = await tx
         .insert(plans)
