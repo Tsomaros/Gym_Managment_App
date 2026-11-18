@@ -428,7 +428,8 @@ describe('PlanEditor', () => {
     await user.click(screen.getByRole('button', { name: 'Αποθήκευση' }));
     const alert = await screen.findByRole('alert');
     expect(alert).toHaveTextContent('Έλεγξε τα στοιχεία των ασκήσεων');
-    expect(alert).toHaveFocus();
+    // Focus moves in the next animation frame, after the message is on screen.
+    await waitFor(() => expect(alert).toHaveFocus());
     expect(writes()).toEqual([]);
   });
 
