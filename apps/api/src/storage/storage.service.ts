@@ -2,8 +2,10 @@ import { Injectable, Logger, type OnModuleInit } from '@nestjs/common';
 import {
   CreateBucketCommand,
   DeleteObjectCommand,
+  DeleteObjectsCommand,
   GetObjectCommand,
   HeadBucketCommand,
+  ListObjectsV2Command,
   PutObjectCommand,
   S3Client,
 } from '@aws-sdk/client-s3';
@@ -63,6 +65,41 @@ export class StorageService implements OnModuleInit {
   /** Deleting a missing object is not an error. */
   async remove(key: string): Promise<void> {
     await this.client.send(new DeleteObjectCommand({ Bucket: this.bucket, Key: key }));
+  }
+
+  /** Every key under `prefix` (a folder: it must end with "/"). */
+  async listPrefix(prefix: string): Promise<string[]> {
+    if (!prefix.endsWith('/')) throw new Error('A prefix must end with "/"');
+    await this.ensureBucket();
+    const keys: string[] = [];
+    let token: string | undefined;
+    do {
+      const page = await this.client.send(
+        new ListObjectsV2Command({ Bucket: this.bucket, Prefix: prefix, ContinuationToken: token }),
+      );
+      keys.push(...(page.Contents ?? []).flatMap((o) => (o.Key ? [o.Key] : [])));
+      token = page.IsTruncated ? page.NextContinuationToken : undefined;
+    } while (token);
+    return keys;
+  }
+
+  /** Deletes everything under `prefix` (a folder): the sweep that also catches orphans. */
+  async removePrefix(prefix: string): Promise<void> {
+    const keys = await this.listPrefix(prefix);
+    for (let i = 0; i < keys.length; i += 1000) {
+      const res = await this.client.send(
+        new DeleteObjectsCommand({
+          Bucket: this.bucket,
+          Delete: { Objects: keys.slice(i, i + 1000).map((Key) => ({ Key })), Quiet: true },
+        }),
+      );
+      // DeleteObjects reports a key it could not delete instead of throwing: the caller must know.
+      if (res.Errors?.length) {
+        throw new Error(
+          `Could not delete ${res.Errors.length} object(s), e.g. ${res.Errors[0]!.Key}`,
+        );
+      }
+    }
   }
 
   /** A link that works for `seconds` (default 5 minutes), computed locally. */

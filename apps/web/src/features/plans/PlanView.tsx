@@ -4,39 +4,51 @@ import { useTranslation } from 'react-i18next';
 import { exerciseName, viewerLanguage } from '../exercises/exerciseName';
 import { formatTarget } from './planFormat';
 
-function DayExercises({ day }: { day: PlanDay }) {
+function DayExercises({ day, onStart }: { day: PlanDay; onStart?: (day: PlanDay) => void }) {
   const { t, i18n } = useTranslation();
   const lang = viewerLanguage(i18n.language);
   if (!day.exercises.length) return <p className="text-slate-700">{t('plans.view.noExercises')}</p>;
   return (
-    <ol className="flex flex-col gap-2">
-      {day.exercises.map((e) => (
-        <li key={e.id} className="rounded-xl border border-slate-300 bg-white p-3">
-          <p className="text-lg font-semibold break-words text-slate-900">
-            {exerciseName(e.exercise, lang)}
-            {e.exercise.archived && (
-              <span className="ml-2 text-sm font-normal text-slate-600">
-                {t('plans.view.archivedExercise')}
-              </span>
-            )}
-          </p>
-          <p className="mt-1 flex flex-wrap items-baseline gap-x-4 text-xl font-semibold text-slate-900">
-            <span className="whitespace-nowrap tabular-nums">{formatTarget(e, lang)}</span>
-            {e.restSeconds != null && (
-              <span className="text-slate-700">
-                {t('plans.view.rest', { seconds: e.restSeconds })}
-              </span>
-            )}
-          </p>
-          {e.notes && <p className="mt-1 break-words text-slate-700">{e.notes}</p>}
-        </li>
-      ))}
-    </ol>
+    <>
+      {onStart && (
+        <button
+          type="button"
+          onClick={() => onStart(day)}
+          aria-label={t('workout.startDayNamed', { day: day.title })}
+          className="mb-3 min-h-14 w-full rounded-md bg-slate-900 px-6 text-lg font-semibold text-white hover:bg-slate-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-900"
+        >
+          {t('workout.startDay')}
+        </button>
+      )}
+      <ol className="flex flex-col gap-2">
+        {day.exercises.map((e) => (
+          <li key={e.id} className="rounded-xl border border-slate-300 bg-white p-3">
+            <p className="text-lg font-semibold break-words text-slate-900">
+              {exerciseName(e.exercise, lang)}
+              {e.exercise.archived && (
+                <span className="ml-2 text-sm font-normal text-slate-600">
+                  {t('plans.view.archivedExercise')}
+                </span>
+              )}
+            </p>
+            <p className="mt-1 flex flex-wrap items-baseline gap-x-4 text-xl font-semibold text-slate-900">
+              <span className="whitespace-nowrap tabular-nums">{formatTarget(e, lang)}</span>
+              {e.restSeconds != null && (
+                <span className="text-slate-700">
+                  {t('plans.view.rest', { seconds: e.restSeconds })}
+                </span>
+              )}
+            </p>
+            {e.notes && <p className="mt-1 break-words text-slate-700">{e.notes}</p>}
+          </li>
+        ))}
+      </ol>
+    </>
   );
 }
 
 /** The days as tabs, one panel at a time: the member's layout on a phone. */
-function DayTabs({ days }: { days: PlanDay[] }) {
+function DayTabs({ days, onStart }: { days: PlanDay[]; onStart?: (day: PlanDay) => void }) {
   const { t } = useTranslation();
   const base = useId();
   const [selected, setSelected] = useState(0);
@@ -60,7 +72,7 @@ function DayTabs({ days }: { days: PlanDay[] }) {
 
   if (!days.length) return null;
   // One day needs no choosing.
-  if (days.length === 1) return <DayExercises day={days[0]!} />;
+  if (days.length === 1) return <DayExercises day={days[0]!} onStart={onStart} />;
   return (
     <div className="flex flex-col gap-3">
       <div
@@ -100,7 +112,7 @@ function DayTabs({ days }: { days: PlanDay[] }) {
         tabIndex={0}
         className="focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-900"
       >
-        <DayExercises day={days[current]!} />
+        <DayExercises day={days[current]!} onStart={onStart} />
       </div>
     </div>
   );
@@ -113,9 +125,12 @@ function DayTabs({ days }: { days: PlanDay[] }) {
 export function PlanView({
   plan,
   layout = 'sections',
+  onStartDay,
 }: {
   plan: Plan;
   layout?: 'sections' | 'tabs';
+  /** Shows "Start workout" on every day (the member's current plan). */
+  onStartDay?: (day: PlanDay) => void;
 }) {
   const { t } = useTranslation();
   return (
@@ -148,7 +163,7 @@ export function PlanView({
           )}
         </div>
       ) : layout === 'tabs' ? (
-        <DayTabs days={plan.days} />
+        <DayTabs days={plan.days} onStart={onStartDay} />
       ) : (
         plan.days.map((d) => (
           <section key={d.id} aria-labelledby={`day-${d.id}`} className="flex flex-col gap-2">

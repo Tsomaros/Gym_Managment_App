@@ -4,6 +4,8 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { closeDb, db, systemDb } from '../../src/db/client';
 import {
   auditLog,
+  bodyMeasurements,
+  healthConsents,
   checkIns,
   devicePairingCodes,
   devices,
@@ -17,10 +19,16 @@ import {
   memberships,
   membershipTypes,
   payments,
+  progressPhotos,
+  planDays,
+  planExercises,
+  plans,
   shiftSeries,
   trainerCovers,
   shifts,
   signupCodes,
+  workoutSessions,
+  workoutSets,
   users,
 } from '../../src/db/schema';
 import { withGym } from '../../src/db/tenant';
@@ -1758,5 +1766,519 @@ describe('row-level security and privileges: exercises', () => {
         ),
       ),
     ).toMatch(/check constraint/);
+  });
+});
+
+describe('row-level security and privileges: workout_sessions and workout_sets', () => {
+  const run = randomUUID().slice(0, 8);
+  let gymA: string;
+  let gymB: string;
+  let memberA: string;
+  let memberB: string;
+  let sessA: string;
+  let sessB: string;
+  let setA: string;
+  let exA: string;
+  let exB: string;
+  const started = new Date('2027-05-12T08:00:00Z');
+  const set = (gymId: string, sessionId: string, exerciseId: string, setIndex: number) => ({
+    gymId,
+    sessionId,
+    exerciseId,
+    measure: 'weight_reps',
+    setIndex,
+    reps: 5,
+    weightKg: '50',
+    done: true,
+    loggedAt: started,
+  });
+
+  beforeAll(async () => {
+    const g = await systemDb
+      .insert(gyms)
+      .values([{ name: `Wo A ${run}` }, { name: `Wo B ${run}` }])
+      .returning({ id: gyms.id });
+    gymA = g[0]!.id;
+    gymB = g[1]!.id;
+    const u = await systemDb
+      .insert(users)
+      .values([
+        { email: `wa-${run}@x.gr`, firstName: 'A', lastName: 'A' },
+        { email: `wb-${run}@x.gr`, firstName: 'B', lastName: 'B' },
+      ])
+      .returning({ id: users.id });
+    memberA = u[0]!.id;
+    memberB = u[1]!.id;
+    const ex = await systemDb
+      .insert(exercises)
+      .values([
+        { gymId: gymA, nameEl: 'Πιέσεις', muscleGroup: 'chest', measure: 'weight_reps' },
+        { gymId: gymB, nameEl: 'Πιέσεις', muscleGroup: 'chest', measure: 'weight_reps' },
+      ])
+      .returning({ id: exercises.id });
+    exA = ex[0]!.id;
+    exB = ex[1]!.id;
+    const s = await systemDb
+      .insert(workoutSessions)
+      .values([
+        { gymId: gymA, memberId: memberA, startedAt: started },
+        { gymId: gymB, memberId: memberB, startedAt: started },
+      ])
+      .returning({ id: workoutSessions.id });
+    sessA = s[0]!.id;
+    sessB = s[1]!.id;
+    const st = await systemDb
+      .insert(workoutSets)
+      .values([set(gymA, sessA, exA, 0), set(gymB, sessB, exB, 0)])
+      .returning({ id: workoutSets.id });
+    setA = st[0]!.id;
+  });
+
+  afterAll(async () => {
+    const gymIds = [gymA, gymB].filter(Boolean);
+    if (gymIds.length) {
+      await systemDb.delete(workoutSets).where(inArray(workoutSets.gymId, gymIds));
+      await systemDb.delete(workoutSessions).where(inArray(workoutSessions.gymId, gymIds));
+      await systemDb.delete(plans).where(inArray(plans.gymId, gymIds));
+      await systemDb.delete(exercises).where(inArray(exercises.gymId, gymIds));
+      await systemDb.delete(gyms).where(inArray(gyms.id, gymIds));
+    }
+    await systemDb.delete(users).where(sql`${users.email} like ${`w_-${run}@x.gr`}`);
+  });
+
+  it('withGym(A) sees only gym A sessions and sets; without a gym nothing is visible', async () => {
+    const sessions = (g: string) => withGym(g, (tx) => tx.select().from(workoutSessions));
+    expect((await sessions(gymA)).map((r) => r.id)).toEqual([sessA]);
+    expect((await sessions(gymB)).map((r) => r.id)).toEqual([sessB]);
+    expect((await withGym(gymA, (tx) => tx.select().from(workoutSets))).map((r) => r.id)).toEqual([
+      setA,
+    ]);
+    expect(await db.select().from(workoutSessions)).toEqual([]);
+    expect(await db.select().from(workoutSets)).toEqual([]);
+  });
+
+  it('withGym(A) cannot write a gym B row, nor change or delete one', async () => {
+    expect(
+      await rejectionMessage(
+        withGym(gymA, (tx) =>
+          tx.insert(workoutSessions).values({ gymId: gymB, memberId: memberB, startedAt: started }),
+        ),
+      ),
+    ).toMatch(RLS_VIOLATION);
+    expect(
+      await rejectionMessage(
+        withGym(gymA, (tx) => tx.insert(workoutSets).values(set(gymB, sessB, exB, 1))),
+      ),
+    ).toMatch(RLS_VIOLATION);
+    const changed = await withGym(gymA, (tx) =>
+      tx
+        .update(workoutSets)
+        .set({ reps: 99 })
+        .where(eq(workoutSets.gymId, gymB))
+        .returning({ id: workoutSets.id }),
+    );
+    expect(changed).toEqual([]);
+    const removed = await withGym(gymA, (tx) =>
+      tx.delete(workoutSets).where(eq(workoutSets.gymId, gymB)).returning({ id: workoutSets.id }),
+    );
+    expect(removed).toEqual([]);
+    const [intact] = await systemDb.select().from(workoutSets).where(eq(workoutSets.gymId, gymB));
+    expect(intact!.reps).toBe(5);
+  });
+
+  it('a set cannot point at a session or exercise of another gym (composite foreign keys)', async () => {
+    expect(
+      await rejectionMessage(systemDb.insert(workoutSets).values(set(gymA, sessB, exA, 7))),
+    ).toMatch(/foreign key/);
+    expect(
+      await rejectionMessage(systemDb.insert(workoutSets).values(set(gymA, sessA, exB, 7))),
+    ).toMatch(/foreign key/);
+  });
+
+  it('gym_app cannot delete sessions, change identity columns, or break the value checks', async () => {
+    const as = (fn: Parameters<typeof withGym>[1]) => rejectionMessage(withGym(gymA, fn));
+    expect(
+      await as((tx) => tx.delete(workoutSessions).where(eq(workoutSessions.id, sessA))),
+    ).toMatch(/permission denied/);
+    expect(
+      await as((tx) =>
+        tx.update(workoutSessions).set({ memberId: memberB }).where(eq(workoutSessions.id, sessA)),
+      ),
+    ).toMatch(/permission denied/);
+    expect(
+      await as((tx) =>
+        tx.update(workoutSets).set({ exerciseId: exA }).where(eq(workoutSets.id, setA)),
+      ),
+    ).toMatch(/permission denied/);
+    // weight off the 0.25 grid, a done set with 0 reps, and a weight_reps set carrying a duration
+    for (const bad of [{ weightKg: '20.30' }, { reps: 0 }, { durationSeconds: 30 }]) {
+      expect(
+        await as((tx) => tx.update(workoutSets).set(bad).where(eq(workoutSets.id, setA))),
+      ).toMatch(/check constraint/);
+    }
+  });
+
+  it('deleting a plan keeps the session and its sets and nulls only the link, never the gym', async () => {
+    const [plan] = await systemDb
+      .insert(plans)
+      .values({ gymId: gymA, memberId: memberA, kind: 'interactive', title: 'P', status: 'draft' })
+      .returning({ id: plans.id });
+    const [day] = await systemDb
+      .insert(planDays)
+      .values({ gymId: gymA, planId: plan!.id, position: 0, title: 'D' })
+      .returning({ id: planDays.id });
+    const [pe] = await systemDb
+      .insert(planExercises)
+      .values({ gymId: gymA, planDayId: day!.id, exerciseId: exA, position: 0, sets: 3 })
+      .returning({ id: planExercises.id });
+    const [sess] = await systemDb
+      .insert(workoutSessions)
+      .values({
+        gymId: gymA,
+        memberId: memberA,
+        startedAt: started,
+        planId: plan!.id,
+        planDayId: day!.id,
+      })
+      .returning({ id: workoutSessions.id });
+    const [row] = await systemDb
+      .insert(workoutSets)
+      .values({ ...set(gymA, sess!.id, exA, 3), planExerciseId: pe!.id })
+      .returning({ id: workoutSets.id });
+    await systemDb.delete(plans).where(eq(plans.id, plan!.id));
+    const [s2] = await systemDb
+      .select()
+      .from(workoutSessions)
+      .where(eq(workoutSessions.id, sess!.id));
+    expect(s2).toMatchObject({ gymId: gymA, planId: null, planDayId: null });
+    const [t2] = await systemDb.select().from(workoutSets).where(eq(workoutSets.id, row!.id));
+    expect(t2).toMatchObject({ gymId: gymA, planExerciseId: null });
+  });
+});
+
+describe('row-level security and privileges: health_consents and body_measurements', () => {
+  const run = randomUUID().slice(0, 8);
+  let gymA: string;
+  let gymB: string;
+  let memberA: string;
+  let memberB: string;
+  let consentA: string;
+  let consentB: string;
+  let measA: string;
+  let measB: string;
+
+  beforeAll(async () => {
+    const g = await systemDb
+      .insert(gyms)
+      .values([{ name: `He A ${run}` }, { name: `He B ${run}` }])
+      .returning({ id: gyms.id });
+    gymA = g[0]!.id;
+    gymB = g[1]!.id;
+    const u = await systemDb
+      .insert(users)
+      .values([
+        { email: `ha-${run}@x.gr`, firstName: 'A', lastName: 'A' },
+        { email: `hb-${run}@x.gr`, firstName: 'B', lastName: 'B' },
+      ])
+      .returning({ id: users.id });
+    memberA = u[0]!.id;
+    memberB = u[1]!.id;
+    const c = await systemDb
+      .insert(healthConsents)
+      .values([
+        { gymId: gymA, memberId: memberA, kind: 'measurements', textVersion: 'v1' },
+        { gymId: gymB, memberId: memberB, kind: 'measurements', textVersion: 'v1' },
+      ])
+      .returning({ id: healthConsents.id });
+    consentA = c[0]!.id;
+    consentB = c[1]!.id;
+    const m = await systemDb
+      .insert(bodyMeasurements)
+      .values([
+        { gymId: gymA, memberId: memberA, measuredOn: '2027-05-12', weightKg: '80' },
+        { gymId: gymB, memberId: memberB, measuredOn: '2027-05-12', weightKg: '70' },
+      ])
+      .returning({ id: bodyMeasurements.id });
+    measA = m[0]!.id;
+    measB = m[1]!.id;
+  });
+
+  afterAll(async () => {
+    const gymIds = [gymA, gymB].filter(Boolean);
+    if (gymIds.length) {
+      await systemDb.delete(bodyMeasurements).where(inArray(bodyMeasurements.gymId, gymIds));
+      await systemDb.delete(healthConsents).where(inArray(healthConsents.gymId, gymIds));
+      await systemDb.delete(gyms).where(inArray(gyms.id, gymIds));
+    }
+    await systemDb.delete(users).where(sql`${users.email} like ${`h_-${run}@x.gr`}`);
+  });
+
+  it('withGym(A) sees only gym A rows in both tables; without a gym nothing is visible', async () => {
+    const ids = <T extends { id: string }>(rows: T[]) => rows.map((r) => r.id);
+    expect(ids(await withGym(gymA, (tx) => tx.select().from(healthConsents)))).toEqual([consentA]);
+    expect(ids(await withGym(gymB, (tx) => tx.select().from(healthConsents)))).toEqual([consentB]);
+    expect(ids(await withGym(gymA, (tx) => tx.select().from(bodyMeasurements)))).toEqual([measA]);
+    expect(ids(await withGym(gymB, (tx) => tx.select().from(bodyMeasurements)))).toEqual([measB]);
+    expect(await db.select().from(healthConsents)).toEqual([]);
+    expect(await db.select().from(bodyMeasurements)).toEqual([]);
+  });
+
+  it('withGym(A) cannot write, change or delete gym B rows', async () => {
+    expect(
+      await rejectionMessage(
+        withGym(gymA, (tx) =>
+          tx
+            .insert(healthConsents)
+            .values({ gymId: gymB, memberId: memberB, kind: 'photos', textVersion: 'v1' }),
+        ),
+      ),
+    ).toMatch(RLS_VIOLATION);
+    expect(
+      await rejectionMessage(
+        withGym(gymA, (tx) =>
+          tx
+            .insert(bodyMeasurements)
+            .values({ gymId: gymB, memberId: memberB, measuredOn: '2027-05-12', weightKg: '70' }),
+        ),
+      ),
+    ).toMatch(RLS_VIOLATION);
+    const withdrawn = await withGym(gymA, (tx) =>
+      tx
+        .update(healthConsents)
+        .set({ withdrawnAt: new Date() })
+        .where(eq(healthConsents.gymId, gymB))
+        .returning({ id: healthConsents.id }),
+    );
+    expect(withdrawn).toEqual([]);
+    const removed = await withGym(gymA, (tx) =>
+      tx
+        .delete(bodyMeasurements)
+        .where(eq(bodyMeasurements.gymId, gymB))
+        .returning({ id: bodyMeasurements.id }),
+    );
+    expect(removed).toEqual([]);
+    expect(
+      await systemDb.select().from(bodyMeasurements).where(eq(bodyMeasurements.id, measB)),
+    ).toHaveLength(1);
+  });
+
+  it('gym_app cannot delete a consent, change a measurement, or give one member two active consents', async () => {
+    const as = (fn: Parameters<typeof withGym>[1]) => rejectionMessage(withGym(gymA, fn));
+    expect(
+      await as((tx) => tx.delete(healthConsents).where(eq(healthConsents.id, consentA))),
+    ).toMatch(/permission denied/);
+    expect(
+      await as((tx) =>
+        tx.update(healthConsents).set({ kind: 'photos' }).where(eq(healthConsents.id, consentA)),
+      ),
+    ).toMatch(/permission denied/);
+    expect(
+      await as((tx) =>
+        tx.update(bodyMeasurements).set({ weightKg: '1' }).where(eq(bodyMeasurements.id, measA)),
+      ),
+    ).toMatch(/permission denied/);
+    expect(
+      await as((tx) =>
+        tx
+          .insert(healthConsents)
+          .values({ gymId: gymA, memberId: memberA, kind: 'measurements', textVersion: 'v1' }),
+      ),
+    ).toMatch(/duplicate key/);
+    // another kind is fine
+    await withGym(gymA, (tx) =>
+      tx
+        .insert(healthConsents)
+        .values({ gymId: gymA, memberId: memberA, kind: 'photos', textVersion: 'v1' }),
+    );
+  });
+
+  it('allows one active consent per gym for the same person, and a re-grant after a withdrawal', async () => {
+    // the same person in gym B: a second active 'measurements' consent is not a duplicate
+    await withGym(gymB, (tx) =>
+      tx
+        .insert(healthConsents)
+        .values({ gymId: gymB, memberId: memberA, kind: 'measurements', textVersion: 'v1' }),
+    );
+    // withdraw gym B's own consent, then grant again: the old row stays, the new one is active
+    await withGym(gymB, (tx) =>
+      tx
+        .update(healthConsents)
+        .set({ withdrawnAt: new Date() })
+        .where(eq(healthConsents.id, consentB)),
+    );
+    await withGym(gymB, (tx) =>
+      tx
+        .insert(healthConsents)
+        .values({ gymId: gymB, memberId: memberB, kind: 'measurements', textVersion: 'v1' }),
+    );
+    const rows = await withGym(gymB, (tx) =>
+      tx.select().from(healthConsents).where(eq(healthConsents.memberId, memberB)),
+    );
+    expect(rows).toHaveLength(2);
+    expect(rows.filter((r) => r.withdrawnAt === null)).toHaveLength(1);
+  });
+
+  it('rejects out-of-range values, an empty measurement, an unknown kind and a backdated withdrawal', async () => {
+    const insert = (values: Partial<typeof bodyMeasurements.$inferInsert>) =>
+      rejectionMessage(
+        withGym(gymA, (tx) =>
+          tx
+            .insert(bodyMeasurements)
+            .values({ gymId: gymA, memberId: memberA, measuredOn: '2027-05-12', ...values }),
+        ),
+      );
+    for (const bad of [
+      { weightKg: '19.99' },
+      { weightKg: '400.01' },
+      { bodyFatPct: '1.9' },
+      { bodyFatPct: '70.1' },
+      { waistCm: '9.9' },
+      { thighCm: '300.1' },
+      { weightKg: '80', notes: 'x'.repeat(301) },
+      {}, // no value at all
+    ]) {
+      expect(await insert(bad)).toMatch(/check constraint/);
+    }
+    expect(
+      await rejectionMessage(
+        withGym(gymA, (tx) =>
+          tx
+            .insert(healthConsents)
+            .values({ gymId: gymA, memberId: memberA, kind: 'dna', textVersion: 'v1' }),
+        ),
+      ),
+    ).toMatch(/check constraint/);
+    expect(
+      await rejectionMessage(
+        withGym(gymA, (tx) =>
+          tx
+            .update(healthConsents)
+            .set({ withdrawnAt: new Date('2000-01-01') })
+            .where(eq(healthConsents.id, consentA)),
+        ),
+      ),
+    ).toMatch(/check constraint/);
+  });
+});
+
+describe('row-level security and privileges: progress_photos', () => {
+  const run = randomUUID().slice(0, 8);
+  let gymA: string;
+  let gymB: string;
+  let memberA: string;
+  let memberB: string;
+  let photoA: string;
+  let photoB: string;
+
+  beforeAll(async () => {
+    const g = await systemDb
+      .insert(gyms)
+      .values([{ name: `Ph A ${run}` }, { name: `Ph B ${run}` }])
+      .returning({ id: gyms.id });
+    gymA = g[0]!.id;
+    gymB = g[1]!.id;
+    const u = await systemDb
+      .insert(users)
+      .values([
+        { email: `pa-${run}@x.gr`, firstName: 'A', lastName: 'A' },
+        { email: `pb-${run}@x.gr`, firstName: 'B', lastName: 'B' },
+      ])
+      .returning({ id: users.id });
+    memberA = u[0]!.id;
+    memberB = u[1]!.id;
+    const p = await systemDb
+      .insert(progressPhotos)
+      .values([
+        { gymId: gymA, memberId: memberA, takenOn: '2027-05-12', objectKey: `k-a-${run}` },
+        { gymId: gymB, memberId: memberB, takenOn: '2027-05-12', objectKey: `k-b-${run}` },
+      ])
+      .returning({ id: progressPhotos.id });
+    photoA = p[0]!.id;
+    photoB = p[1]!.id;
+  });
+
+  afterAll(async () => {
+    const gymIds = [gymA, gymB].filter(Boolean);
+    if (gymIds.length) {
+      await systemDb.delete(progressPhotos).where(inArray(progressPhotos.gymId, gymIds));
+      await systemDb.delete(gyms).where(inArray(gyms.id, gymIds));
+    }
+    await systemDb.delete(users).where(sql`${users.email} like ${`p_-${run}@x.gr`}`);
+  });
+
+  it('withGym(A) sees only gym A photos; without a gym nothing is visible', async () => {
+    const ids = (g: string) =>
+      withGym(g, (tx) => tx.select().from(progressPhotos)).then((r) => r.map((x) => x.id));
+    expect(await ids(gymA)).toEqual([photoA]);
+    expect(await ids(gymB)).toEqual([photoB]);
+    expect(await db.select().from(progressPhotos)).toEqual([]);
+  });
+
+  it('withGym(A) cannot add, change or delete a gym B photo, and nobody can edit a row', async () => {
+    expect(
+      await rejectionMessage(
+        withGym(gymA, (tx) =>
+          tx.insert(progressPhotos).values({
+            gymId: gymB,
+            memberId: memberB,
+            takenOn: '2027-05-12',
+            objectKey: `x-${run}`,
+          }),
+        ),
+      ),
+    ).toMatch(RLS_VIOLATION);
+    const removed = await withGym(gymA, (tx) =>
+      tx
+        .delete(progressPhotos)
+        .where(eq(progressPhotos.gymId, gymB))
+        .returning({ id: progressPhotos.id }),
+    );
+    expect(removed).toEqual([]);
+    expect(
+      await rejectionMessage(
+        withGym(gymA, (tx) =>
+          tx
+            .update(progressPhotos)
+            .set({ takenOn: '2020-01-01' })
+            .where(eq(progressPhotos.id, photoA)),
+        ),
+      ),
+    ).toMatch(/permission denied/);
+  });
+
+  it('without a gym nothing can be added, and a gym can add and delete its own photo', async () => {
+    expect(
+      await rejectionMessage(
+        db
+          .insert(progressPhotos)
+          .values({ gymId: gymA, memberId: memberA, takenOn: '2027-05-12', objectKey: `n-${run}` }),
+      ),
+    ).toMatch(RLS_VIOLATION);
+    const [own] = await withGym(gymA, (tx) =>
+      tx
+        .insert(progressPhotos)
+        .values({ gymId: gymA, memberId: memberA, takenOn: '2027-05-12', objectKey: `o-${run}` })
+        .returning({ id: progressPhotos.id }),
+    );
+    const removed = await withGym(gymA, (tx) =>
+      tx
+        .delete(progressPhotos)
+        .where(eq(progressPhotos.id, own!.id))
+        .returning({ id: progressPhotos.id }),
+    );
+    expect(removed).toEqual([{ id: own!.id }]);
+  });
+
+  it('rejects an empty or duplicate object key', async () => {
+    const insert = (objectKey: string) =>
+      rejectionMessage(
+        withGym(gymA, (tx) =>
+          tx
+            .insert(progressPhotos)
+            .values({ gymId: gymA, memberId: memberA, takenOn: '2027-05-12', objectKey }),
+        ),
+      );
+    expect(await insert('')).toMatch(/check constraint/);
+    expect(await insert(`k-a-${run}`)).toMatch(/duplicate key/);
   });
 });

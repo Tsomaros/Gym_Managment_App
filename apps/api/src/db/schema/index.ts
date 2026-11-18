@@ -22,3 +22,8 @@ export * from './exercises';
 export * from './plans';
 export * from './plan-days';
 export * from './plan-exercises';
+export * from './workout-sessions';
+export * from './workout-sets';
+export * from './health-consents';
+export * from './body-measurements';
+export * from './progress-photos';

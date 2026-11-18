@@ -1,9 +1,10 @@
-import type { MyMemberships, Plan, PlanSummary } from '@gym/shared';
+import type { MyMemberships, Plan, PlanDay, PlanSummary } from '@gym/shared';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useParams } from 'react-router';
 import { ApiError, apiFetch } from '../../api/client';
 import { PlanView } from '../plans/PlanView';
+import { WorkoutPage } from '../workout/WorkoutPage';
 
 /** A PDF link is signed for 5 minutes; refresh a little before that. */
 const LINK_MAX_AGE_MS = 4 * 60_000;
@@ -17,7 +18,7 @@ const orNone = <T,>(promise: Promise<T>): Promise<T | null> =>
 
 /**
  * The member's own workout plan: the active one day by day (or its PDF), and older plans to look
- * back at. Reading only; logging a workout comes with a later phase.
+ * back at. A day of the active plan can be started: the workout logger takes over the page.
  */
 export function MyPlanPage() {
   const { t } = useTranslation();
@@ -29,6 +30,8 @@ export function MyPlanPage() {
   const [opened, setOpened] = useState<Plan | null>(null);
   const [failed, setFailed] = useState(false);
   const [openFailed, setOpenFailed] = useState<string | null>(null);
+  // The day being logged: the workout replaces the plan until it is closed.
+  const [workout, setWorkout] = useState<{ plan: Plan; day: PlanDay } | null>(null);
   // When the plan on screen was fetched: a PDF link signed then expires 5 minutes later.
   const fetchedAt = useRef(Date.now());
   const backRef = useRef<HTMLButtonElement>(null);
@@ -100,6 +103,19 @@ export function MyPlanPage() {
     return () => document.removeEventListener('visibilitychange', onVisible);
   }, [gymId, shownId, shownIsPdf, opened]);
 
+  if (workout) {
+    return (
+      <WorkoutPage
+        plan={workout.plan}
+        day={workout.day}
+        onExit={() => {
+          setWorkout(null);
+          void load();
+        }}
+      />
+    );
+  }
+
   const others = older.filter((p) => p.id !== shown?.id);
   const problem = failed || openFailed !== null;
 
@@ -135,7 +151,18 @@ export function MyPlanPage() {
           {t('plans.my.backToCurrent')}
         </button>
       )}
-      {shown && <PlanView key={shown.id} plan={shown} layout="tabs" />}
+      {shown && (
+        <PlanView
+          key={shown.id}
+          plan={shown}
+          layout="tabs"
+          onStartDay={
+            shown.id === active?.id && shown.kind === 'interactive'
+              ? (day) => setWorkout({ plan: shown, day })
+              : undefined
+          }
+        />
+      )}
       {active === null && !opened && !failed && (
         <p className="text-lg text-slate-800">
           {hasTrainer ? t('plans.my.empty') : t('plans.my.emptyNoTrainer')}

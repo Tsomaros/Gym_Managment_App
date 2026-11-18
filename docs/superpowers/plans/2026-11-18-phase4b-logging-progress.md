@@ -80,7 +80,7 @@
   - `GET /gyms/:gymId/members/:memberId/last-performance?exerciseIds=a,b` → `LastPerformance[]` from the most recent finished session containing each exercise.
   - `/me/...` aliases for members.
 
-- [ ] **Step 1: Write the failing tests:**
+- [x] **Step 1: Write the failing tests:**
   - `health-access.spec.ts`: each table row, including a paused link → no read, and a cover tomorrow → no read.
   - Member M creates session S with a client UUID, then 3 sets → `GET` shows them in order. The same `PUT`s again → still 3 sets, and the bodies are unchanged. *(Review Focus 1)*
   - Opening a new session while S is open → S gets `finished_at` = its last set's `logged_at`.
@@ -89,10 +89,10 @@
   - `last-performance` returns the latest finished session's sets for each requested exercise.
   - Primary trainer T reads sessions → `200` and writes → `403`. Cover trainer U reads today → `200`, the next day → `404`. Owner and reception → `404`. *(Review Focus 5)*
   - Another member's session id in the path → `404`. A member `GET /exercises` → `200` (unarchived only). Two-gym isolation.
-- [ ] **Step 2: Run** `pnpm --filter api test workouts health-access` → FAIL.
-- [ ] **Step 3: Implement.** Consult database-expert (client UUID keys, composite FK with `SET NULL (column)`, indexes).
-- [ ] **Step 4: Run** `pnpm --filter api test` → PASS.
-- [ ] **Step 5: Commit** `feat: workout sessions and sets with idempotent client ids`.
+- [x] **Step 2: Run** `pnpm --filter api test workouts health-access` → FAIL.
+- [x] **Step 3: Implement.** Consult database-expert (client UUID keys, composite FK with `SET NULL (column)`, indexes).
+- [x] **Step 4: Run** `pnpm --filter api test` → PASS.
+- [x] **Step 5: Commit** `feat: workout sessions and sets with idempotent client ids`.
 
 ---
 
@@ -118,7 +118,7 @@
   - `GET …/progress/attendance?weeks=` → `AttendancePoint[]` (from `check_ins` where `valid`).
   - Plus `/me/...` aliases.
 
-- [ ] **Step 1: Write the failing tests** (values worked out by hand):
+- [x] **Step 1: Write the failing tests** (values worked out by hand):
   - `e1rm(100, 5)` = 116.5 (116.67 → nearest 0.5); `e1rm(100, 1)` = 103.5 (103.33 → 103.5); `e1rm(100, 13)` = `null`; `e1rm(0, 10)` = 0.
   - `topSet([{60,8},{70,5},{70,6}])` = `{ 70, 6 }`.
   - `isoWeekStart('2027-03-29')` = `'2027-03-29'`; `isoWeekStart('2027-03-28')` = `'2027-03-22'`.
@@ -127,10 +127,10 @@
   - After the exercise's `measure` is changed to `duration`, its old `weight_reps` sets still count (snapshot), and new duration sets don't. *(Review Focus 4)*
   - Attendance: valid check-ins on Mon, Mon (duplicate day) and Wed → 2 days; invalid check-ins aren't counted.
   - API: `weeks=3` → `400`; owner → `404`; cover trainer today → `200`.
-- [ ] **Step 2: Run** `pnpm --filter api test progress` → FAIL.
-- [ ] **Step 3: Implement.** Convert `logged_at` to the gym's local date with `todayIn(timezone, loggedAt)`.
-- [ ] **Step 4: Run** `pnpm --filter api test` → PASS.
-- [ ] **Step 5: Commit** `feat: progress maths and progress API`.
+- [x] **Step 2: Run** `pnpm --filter api test progress` → FAIL.
+- [x] **Step 3: Implement.** Convert `logged_at` to the gym's local date with `todayIn(timezone, loggedAt)`.
+- [x] **Step 4: Run** `pnpm --filter api test` → PASS.
+- [x] **Step 5: Commit** `feat: progress maths and progress API`.
 
 ---
 
@@ -155,17 +155,17 @@
   - `POST …/measurements` (`writeMeasurements` + consent) → `201` + `measurement.recorded`.
   - `DELETE …/measurements/:id` (primary trainer) → `204` + `measurement.deleted`.
 
-- [ ] **Step 1: Write the failing tests:**
+- [x] **Step 1: Write the failing tests:**
   - T records for M without consent → `409`. M grants → T records 82.5 kg / 18.0 % → `201`; M and T `GET` it.
   - `measured_on` tomorrow → `400`; no values → `400`; body fat 1 → `400`.
   - M withdraws → `204`; T's `GET` → `[]`; the rows are gone from the table; T records → `409`; the history row has the count but no values. *(Review Focus 2)*
   - Granting twice → one active row.
   - Cover trainer `POST` → `403`; the next day `GET` → `404`; owner and reception → `404`. *(Review Focus 5)*
   - Two-gym isolation for both tables.
-- [ ] **Step 2: Run** `pnpm --filter api test consents measurements` → FAIL.
-- [ ] **Step 3: Implement.**
-- [ ] **Step 4: Run** `pnpm --filter api test` → PASS.
-- [ ] **Step 5: Commit** `feat: health consent and body measurements`.
+- [x] **Step 2: Run** `pnpm --filter api test consents measurements` → FAIL.
+- [x] **Step 3: Implement.**
+- [x] **Step 4: Run** `pnpm --filter api test` → PASS.
+- [x] **Step 5: Commit** `feat: health consent and body measurements`.
 
 ---
 
@@ -184,15 +184,15 @@
   - `POST …/progress-photos` (`writePhotos` + consent; multipart `photo`, plus field `takenOn` ≤ today) → `201` + `progress_photo.added`. Validation: `415` for a wrong type, `413` over 3 MB.
   - `DELETE …/progress-photos/:id` (`writePhotos`) → `204`; the object is removed after commit; `progress_photo.deleted`.
 
-- [ ] **Step 1: Write the failing tests:**
+- [x] **Step 1: Write the failing tests:**
   - Without photo consent → `409`. With consent, M uploads → `201`; T lists it with a URL that returns the same bytes.
   - A cover trainer lists it (today) but gets `403` on upload; owner and reception → `404`.
   - M withdraws photo consent → the list is empty and the storage objects are gone. *(Review Focus 2)*
   - A wrong type → `415`; 3.1 MB → `413`; `takenOn` tomorrow → `400`. Two-gym isolation.
-- [ ] **Step 2: Run** `pnpm --filter api test progress-photos` → FAIL.
-- [ ] **Step 3: Implement.**
-- [ ] **Step 4: Run** `pnpm --filter api test` → PASS.
-- [ ] **Step 5: Commit** `feat: progress photos with consent`.
+- [x] **Step 2: Run** `pnpm --filter api test progress-photos` → FAIL.
+- [x] **Step 3: Implement.**
+- [x] **Step 4: Run** `pnpm --filter api test` → PASS.
+- [x] **Step 5: Commit** `feat: progress photos with consent`.
 
 ---
 
@@ -215,16 +215,16 @@
   - Free workout: `FreeWorkoutPicker` reuses `ExercisePicker` to add exercises on the fly.
 - `WorkoutHistoryPage`: past sessions (date, plan day or "Ελεύθερη", exercises, sets).
 
-- [ ] **Step 1: Write the failing tests:**
+- [x] **Step 1: Write the failing tests:**
   - `workoutQueue`: three enqueued `PUT`s flush in order; a network failure on the second keeps ops 2–3; a `400` drops that op and continues.
   - Logger: prefill shows plan targets and last time; ticking "done" starts the rest timer at the target seconds (fake timers); while offline (mocked `navigator.onLine` plus failing fetch), the status shows the queued count, and after `online` the queue is empty.
   - Free workout: picking an exercise adds a card.
   - At 375 px, inputs and steppers are at least 44 px.
   - E2E: a member with an active plan starts Day A → logs 2 sets → the test sets the context offline (`context.setOffline(true)`) → logs a third set → back online → finish → history shows 3 sets, and the API has exactly 3. *(Review Focus 1)*
-- [ ] **Step 2: Run** `pnpm --filter web test workout && pnpm e2e` → FAIL.
-- [ ] **Step 3: Implement.** Run ui-ux-reviewer (one-handed phone use mid-workout, Greek, dark mode, big targets).
-- [ ] **Step 4: Run** → PASS.
-- [ ] **Step 5: Commit** `feat(web): workout logger with offline queue, free workouts, history`.
+- [x] **Step 2: Run** `pnpm --filter web test workout && pnpm e2e` → FAIL.
+- [x] **Step 3: Implement.** Run ui-ux-reviewer (one-handed phone use mid-workout, Greek, dark mode, big targets).
+- [x] **Step 4: Run** → PASS.
+- [x] **Step 5: Commit** `feat(web): workout logger with offline queue, free workouts, history`.
 
 ---
 
@@ -244,11 +244,11 @@
 - Each chart has: a text summary for screen readers ("Από 60 σε 70 κιλά τους τελευταίους 3 μήνες"), axes formatted for el/en, an empty state ("Δεν υπάρχουν ακόμη καταγραφές"), and works in dark mode.
 - Follow the `dataviz` skill for colours and mark specs.
 
-- [ ] **Step 1: Write the failing tests:** an empty data set shows the empty state; the exercise selector change refetches with the new id; the summary text names the first and last values; the range switch sends `weeks=52`; the measurements chart is hidden without consent.
-- [ ] **Step 2: Run** `pnpm --filter web test progress` → FAIL.
-- [ ] **Step 3: Implement.** Run ui-ux-reviewer (contrast in both themes, readable at 375 px).
-- [ ] **Step 4: Run** → PASS.
-- [ ] **Step 5: Commit** `feat(web): progress charts for members and trainers`.
+- [x] **Step 1: Write the failing tests:** an empty data set shows the empty state; the exercise selector change refetches with the new id; the summary text names the first and last values; the range switch sends `weeks=52`; the measurements chart is hidden without consent.
+- [x] **Step 2: Run** `pnpm --filter web test progress` → FAIL.
+- [x] **Step 3: Implement.** Run ui-ux-reviewer (contrast in both themes, readable at 375 px).
+- [x] **Step 4: Run** → PASS.
+- [x] **Step 5: Commit** `feat(web): progress charts for members and trainers`.
 
 ---
 
@@ -265,15 +265,15 @@
 - `MeasurementForm` (primary trainer only): date (default today), weight, body fat, and optional circumferences under "Περισσότερα". Disabled with a "Δεν έχει δοθεί συγκατάθεση" note without consent.
 - `ProgressPhotos`: a grid of thumbnails with the date, tap for full size, delete with confirm, and "Προσθήκη φωτογραφίας" (`accept="image/*"`, `capture="environment"` optional).
 
-- [ ] **Step 1: Write the failing tests:**
+- [x] **Step 1: Write the failing tests:**
   - Without consent, the trainer's form is disabled with the note.
   - The withdraw dialog shows the count and calls `DELETE` only after confirmation.
   - Photo upload resizes a 3000×2000 image to 1200×800 (canvas mocked).
   - A cover trainer sees measurements but no form or upload.
   - E2E: a member grants measurement consent → the trainer records a measurement → the member sees it in the chart → the member withdraws → the trainer's tab shows none and the form is disabled. *(Review Focus 2)*
-- [ ] **Step 2: Run** `pnpm --filter web test health && pnpm e2e` → FAIL.
-- [ ] **Step 3: Implement.** Run ui-ux-reviewer.
-- [ ] **Step 4: Run** `pnpm lint && pnpm typecheck && pnpm -r test && pnpm e2e` → PASS.
+- [x] **Step 2: Run** `pnpm --filter web test health && pnpm e2e` → FAIL.
+- [x] **Step 3: Implement.** Run ui-ux-reviewer.
+- [x] **Step 4: Run** `pnpm lint && pnpm typecheck && pnpm -r test && pnpm e2e` → PASS.
 - [ ] **Step 5: Manual check** on the iPhone through the tunnel:
   - Log a workout with mobile data switched off mid-session, then switch it back on; the sets arrive.
   - Type a weight with a Greek comma (`22,5`) in both the plan editor and the logger (carries the phase 4a ruling).

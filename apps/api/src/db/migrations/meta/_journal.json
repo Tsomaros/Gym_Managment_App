@@ -141,6 +141,27 @@
       "when": 1794945249260,
       "tag": "0019_plans",
       "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1794990914719,
+      "tag": "0020_workouts",
+      "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1794991690531,
+      "tag": "0021_consents_measurements",
+      "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "7",
+      "when": 1794991951095,
+      "tag": "0022_progress_photos",
+      "breakpoints": true
     }
   ]
 }
