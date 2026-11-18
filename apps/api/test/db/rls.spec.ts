@@ -2218,14 +2218,12 @@ describe('row-level security and privileges: progress_photos', () => {
     expect(
       await rejectionMessage(
         withGym(gymA, (tx) =>
-          tx
-            .insert(progressPhotos)
-            .values({
-              gymId: gymB,
-              memberId: memberB,
-              takenOn: '2027-05-12',
-              objectKey: `x-${run}`,
-            }),
+          tx.insert(progressPhotos).values({
+            gymId: gymB,
+            memberId: memberB,
+            takenOn: '2027-05-12',
+            objectKey: `x-${run}`,
+          }),
         ),
       ),
     ).toMatch(RLS_VIOLATION);
@@ -2246,6 +2244,29 @@ describe('row-level security and privileges: progress_photos', () => {
         ),
       ),
     ).toMatch(/permission denied/);
+  });
+
+  it('without a gym nothing can be added, and a gym can add and delete its own photo', async () => {
+    expect(
+      await rejectionMessage(
+        db
+          .insert(progressPhotos)
+          .values({ gymId: gymA, memberId: memberA, takenOn: '2027-05-12', objectKey: `n-${run}` }),
+      ),
+    ).toMatch(RLS_VIOLATION);
+    const [own] = await withGym(gymA, (tx) =>
+      tx
+        .insert(progressPhotos)
+        .values({ gymId: gymA, memberId: memberA, takenOn: '2027-05-12', objectKey: `o-${run}` })
+        .returning({ id: progressPhotos.id }),
+    );
+    const removed = await withGym(gymA, (tx) =>
+      tx
+        .delete(progressPhotos)
+        .where(eq(progressPhotos.id, own!.id))
+        .returning({ id: progressPhotos.id }),
+    );
+    expect(removed).toEqual([{ id: own!.id }]);
   });
 
   it('rejects an empty or duplicate object key', async () => {

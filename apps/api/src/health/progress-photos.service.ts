@@ -8,8 +8,8 @@ import {
   NotFoundException,
   UnsupportedMediaTypeException,
 } from '@nestjs/common';
-import type { ProgressPhoto } from '@gym/shared';
-import { and, desc, eq } from 'drizzle-orm';
+import { MAX_PROGRESS_PHOTOS, type ProgressPhoto } from '@gym/shared';
+import { and, count, desc, eq } from 'drizzle-orm';
 import { AuditService } from '../audit/audit.service';
 import { Clock } from '../common/clock';
 import { progressPhotos } from '../db/schema';
@@ -89,11 +89,20 @@ export class ProgressPhotosService {
 
     const key = `gyms/${gymId}/progress/${memberId}/${randomUUID()}.jpg`;
     await this.storage.put(key, file, type);
+    let row: typeof progressPhotos.$inferSelect;
     try {
-      const row = await withGym(gymId, async (tx) => {
+      row = await withGym(gymId, async (tx) => {
         await lockConsent(tx, memberId);
         if (!(await activeConsent(tx, memberId, 'photos'))) {
           throw new ConflictException({ message: 'No consent' });
+        }
+        // Under the consent lock, so two uploads at once cannot both pass the cap.
+        const [{ n } = { n: 0 }] = await tx
+          .select({ n: count() })
+          .from(progressPhotos)
+          .where(eq(progressPhotos.memberId, memberId));
+        if (n >= MAX_PROGRESS_PHOTOS) {
+          throw new ConflictException({ message: 'Too many photos' });
         }
         const [inserted] = await tx
           .insert(progressPhotos)
@@ -110,16 +119,17 @@ export class ProgressPhotosService {
         });
         return inserted!;
       });
-      return {
-        id: row.id,
-        takenOn: row.takenOn,
-        url: await this.storage.signedGetUrl(key, 300),
-        uploadedBy: row.uploadedBy,
-      };
     } catch (err) {
       await this.removeQuietly(key); // do not leave an orphan
       throw err;
     }
+    // Outside the try: the row is committed, so a failure here must not delete its object.
+    return {
+      id: row.id,
+      takenOn: row.takenOn,
+      url: await this.storage.signedGetUrl(key, 300),
+      uploadedBy: row.uploadedBy,
+    };
   }
 
   async remove(gymId: string, caller: Caller, memberId: string, id: string): Promise<void> {

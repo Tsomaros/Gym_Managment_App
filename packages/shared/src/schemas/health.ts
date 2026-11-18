@@ -73,6 +73,8 @@ export interface Measurement {
 }
 
 export const MAX_PROGRESS_PHOTO_BYTES = 3 * 1024 * 1024;
+/** Photos kept per member: bounds storage and the list (each entry carries a signed link). */
+export const MAX_PROGRESS_PHOTOS = 200;
 
 /** The text fields sent next to the photo (multipart). */
 export const ProgressPhotoFieldsSchema = z.object({ takenOn: z.iso.date() });

@@ -37,7 +37,10 @@ describe('health data edges', () => {
       .select()
       .from(healthConsents)
       .where(eq(healthConsents.memberId, fx.id.m!));
-    expect(consent!.withdrawnAt!.getTime()).toBeGreaterThanOrEqual(consent!.grantedAt.getTime());
+    // greatest(now, grantedAt): the clock is behind the grant, so the grant time is used
+    expect(consent!.withdrawnAt!.getTime()).toBe(consent!.grantedAt.getTime());
+    // and the withdrawal really ended the consent
+    await record().expect(409);
   });
 
   it('refuses a NUL character in the notes and a day before 1900 instead of failing with a 500', async () => {

@@ -115,9 +115,8 @@ export class ConsentsService {
    * Withdrawing what is not granted does nothing.
    */
   async withdraw(gymId: string, memberId: string, kind: ConsentKind): Promise<void> {
-    // Storage objects go after the commit: the rows are the source of truth, and a failed object
-    // delete only leaves an unreachable file (its key is lost with the row, so it is logged).
-    const objectKeys: string[] = [];
+    // Storage objects go after the commit: the rows are the source of truth. A failed delete
+    // is logged and retried by the next withdrawal (the sweep below covers the whole folder).
     await withGym(gymId, async (tx) => {
       await lockConsent(tx, memberId);
       const existing = await activeConsent(tx, memberId, kind);
@@ -130,7 +129,7 @@ export class ConsentsService {
           withdrawnAt: sql`greatest(${this.clock.now().toISOString()}::timestamptz, ${healthConsents.grantedAt})`,
         })
         .where(eq(healthConsents.id, existing.id));
-      const deleted = await this.deleteData(tx, memberId, kind, objectKeys);
+      const deleted = await this.deleteData(tx, memberId, kind);
       await this.audit.record(tx, {
         gymId,
         actorId: memberId,
@@ -140,22 +139,18 @@ export class ConsentsService {
         data: { kind, deleted },
       });
     });
-    await Promise.all(
-      objectKeys.map((key) =>
-        this.storage
-          .remove(key)
-          .catch((err: Error) => this.log.warn(`Could not delete ${key}: ${err.message}`)),
-      ),
-    );
+    if (kind === 'photos') {
+      // The whole folder, not just the keys of the deleted rows: an object left by an earlier
+      // failed delete (or by an upload that raced a withdrawal) goes too, and a repeated
+      // withdrawal retries it. Any key lives under this prefix.
+      await this.storage
+        .removePrefix(`gyms/${gymId}/progress/${memberId}/`)
+        .catch((err: Error) => this.log.warn(`Could not sweep progress photos: ${err.message}`));
+    }
   }
 
   /** Deletes the member's data of `kind` and returns how many items went. */
-  private async deleteData(
-    tx: Tx,
-    memberId: string,
-    kind: ConsentKind,
-    objectKeys: string[],
-  ): Promise<number> {
+  private async deleteData(tx: Tx, memberId: string, kind: ConsentKind): Promise<number> {
     if (kind === 'measurements') {
       const rows = await tx
         .delete(bodyMeasurements)
@@ -166,8 +161,7 @@ export class ConsentsService {
     const rows = await tx
       .delete(progressPhotos)
       .where(eq(progressPhotos.memberId, memberId))
-      .returning({ key: progressPhotos.objectKey });
-    objectKeys.push(...rows.map((r) => r.key));
+      .returning({ id: progressPhotos.id });
     return rows.length;
   }
 }

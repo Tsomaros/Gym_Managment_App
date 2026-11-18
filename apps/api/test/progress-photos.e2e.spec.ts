@@ -2,7 +2,7 @@ import type { AuditPage, ProgressPhoto } from '@gym/shared';
 import { eq } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { systemDb } from '../src/db/client';
-import { healthConsents, progressPhotos, trainerCovers } from '../src/db/schema';
+import { bodyMeasurements, healthConsents, progressPhotos, trainerCovers } from '../src/db/schema';
 import { DAY, type HealthFixture, s3Reachable, setupHealthFixture } from './helpers/fixture';
 
 const jpeg = (size = 64, fill = 1): Buffer => {
@@ -28,6 +28,7 @@ describe('progress photos (MinIO): consent, access, withdrawal deletes the objec
   afterAll(async () =>
     fx?.cleanup(async (g) => {
       await systemDb.delete(progressPhotos).where(eq(progressPhotos.gymId, g));
+      await systemDb.delete(bodyMeasurements).where(eq(bodyMeasurements.gymId, g));
       await systemDb.delete(healthConsents).where(eq(healthConsents.gymId, g));
     }),
   );
@@ -117,11 +118,22 @@ describe('progress photos (MinIO): consent, access, withdrawal deletes the objec
       await upload(who, 'm', jpeg()).expect(404);
       await fx.req('delete', `/members/${fx.id.m}/progress-photos/${first!.id}`, who).expect(404);
     }
+    // nothing was added or removed by the refused calls
+    expect((await list('t')).map((p) => p.id)).toContain(first!.id);
+    expect(
+      await systemDb.select().from(progressPhotos).where(eq(progressPhotos.memberId, fx.id.m!)),
+    ).toHaveLength((await list('t')).length);
+  });
+
+  s3it('a malformed member or photo id is a 400, not a 404 or a 500', async () => {
+    await fx.req('get', '/members/not-a-uuid/progress-photos', 't').expect(400);
+    await fx.req('delete', `/members/${fx.id.m}/progress-photos/not-a-uuid`, 't').expect(400);
   });
 
   s3it(
     'rejects a wrong type (415), a file over 3 MB (413), a future or missing day (400) and no file (415)',
     async () => {
+      const rowsBefore = (await list('t')).length;
       await upload('m', 'm', Buffer.from('not an image at all')).expect(415);
       await upload('m', 'm', jpeg(3 * 1024 * 1024 + 1024)).expect(413);
       await upload('m', 'm', jpeg(), { takenOn: '2027-05-13' }).expect(400);
@@ -134,6 +146,8 @@ describe('progress photos (MinIO): consent, access, withdrawal deletes the objec
         .req('post', `/members/${fx.id.m}/progress-photos`, 'm')
         .field('takenOn', DAY)
         .expect(415);
+      // none of the refused uploads left a row behind
+      expect(await list('t')).toHaveLength(rowsBefore);
       // exactly 3 MB is fine
       await upload('m', 'm', jpeg(3 * 1024 * 1024)).expect(201);
     },
@@ -169,7 +183,27 @@ describe('progress photos (MinIO): consent, access, withdrawal deletes the objec
       const theirs = await list('t', 'n');
       expect(theirs).toHaveLength(1);
 
+      // a member cannot delete another member's photo through their own /me route
+      await fx.req('delete', `/me/progress-photos/${theirs[0]!.id}`, 'm').expect(404);
+      expect(await objectStatus(theirs[0]!.url)).toBe(200);
+      expect(await list('t', 'n')).toHaveLength(1);
+
+      // photo and measurement consents are independent: withdrawing one keeps the other's data
+      await fx.req('delete', '/me/consents/measurements', 'm').expect(204);
+      expect(await list('t')).toHaveLength(mine.length);
+      await grant('m', 'measurements').expect(201);
+      await fx
+        .req('post', `/members/${fx.id.m}/measurements`, 't')
+        .send({ measuredOn: DAY, weightKg: 80 })
+        .expect(201);
+
       await fx.req('delete', '/me/consents/photos', 'm').expect(204);
+      expect(
+        await systemDb
+          .select()
+          .from(bodyMeasurements)
+          .where(eq(bodyMeasurements.memberId, fx.id.m!)),
+      ).toHaveLength(1);
       expect(await list('t')).toEqual([]);
       expect(
         await systemDb.select().from(progressPhotos).where(eq(progressPhotos.memberId, fx.id.m!)),
