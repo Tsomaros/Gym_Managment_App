@@ -30,14 +30,19 @@ import { ExercisesService } from './exercises.service';
 export class ExercisesController {
   constructor(private readonly exercises: ExercisesService) {}
 
+  /** Members read the library too (free workouts), but never the archived exercises. */
   @Get()
-  @GymRoles('trainer', 'owner')
+  @GymRoles('trainer', 'owner', 'member')
   list(
     @Param('gymId', ParseUUIDPipe) _gymId: string,
     @CurrentGym() gym: GymContext,
     @Query(new ZodValidationPipe(ExerciseQuerySchema)) query: ExerciseQuery,
   ): Promise<Exercise[]> {
-    return this.exercises.list(gym.id, query);
+    const staff = gym.roles.includes('trainer') || gym.roles.includes('owner');
+    return this.exercises.list(gym.id, {
+      ...query,
+      includeArchived: staff && query.includeArchived,
+    });
   }
 
   @Post()

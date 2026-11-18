@@ -7,6 +7,7 @@ export * from './schemas/common.js';
 export * from './schemas/devices.js';
 export * from './schemas/exercises.js';
 export * from './schemas/plans.js';
+export * from './schemas/workouts.js';
 export * from './schemas/memberships.js';
 export * from './schemas/shifts.js';
 export * from './schemas/staff.js';

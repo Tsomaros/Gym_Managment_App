@@ -284,8 +284,11 @@ describe('exercise library', () => {
     await req('patch', `/exercises/${randomUUID()}`, 't1').send({ nameEn: 'x' }).expect(404);
   });
 
-  it('is closed to members and reception, and to other gyms', async () => {
-    await req('get', '/exercises', 'mem').expect(403);
+  it('members may only read it; reception and other gyms are shut out', async () => {
+    await req('get', '/exercises', 'mem').expect(200);
+    await req('post', '/exercises', 'mem')
+      .send({ nameEl: 'Χ', muscleGroup: 'core', measure: 'reps' })
+      .expect(403);
     await req('get', '/exercises', 'rec').expect(403);
     await req('post', '/exercises', 'rec')
       .send({ nameEl: 'Χ', muscleGroup: 'core', measure: 'reps' })
