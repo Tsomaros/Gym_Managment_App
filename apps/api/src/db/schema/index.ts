@@ -30,3 +30,7 @@ export * from './progress-photos';
 export * from './push-subscriptions';
 export * from './notification-prefs';
 export * from './notifications-sent';
+export * from './class-types';
+export * from './class-series';
+export * from './class-sessions';
+export * from './class-bookings';

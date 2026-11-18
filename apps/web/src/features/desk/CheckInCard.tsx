@@ -96,6 +96,14 @@ export function CheckInCard({
           </p>
         </div>
       )}
+      {result.classBooking && (
+        <p data-testid="class-line" className="text-lg font-semibold text-slate-900">
+          {t('desk.classLine', {
+            name: result.classBooking.typeName,
+            time: result.classBooking.startsAt,
+          })}
+        </p>
+      )}
       {result.trainer && (
         <p
           className={`text-lg ${result.trainer.onDuty ? 'text-slate-800' : 'font-semibold text-amber-950'}`}

@@ -21,6 +21,7 @@ describe('GymSettingsPage', () => {
       reminderDays: 5,
       capacity: null,
       showOccupancyCount: false,
+      classCancelCutoffMinutes: 120,
     };
     fetchMock = vi.fn<typeof fetch>(async (_input, init) => {
       if (init?.method === 'PATCH') {
@@ -163,6 +164,7 @@ describe('GymSettingsPage', () => {
   describe('reminders and occupancy', () => {
     const reminder = () => screen.findByLabelText(/Υπενθύμιση λήξης/);
     const capacity = () => screen.findByLabelText(/Χωρητικότητα/);
+    const cutoff = () => screen.findByLabelText(/Ακύρωση μαθήματος/);
     const countBox = () =>
       screen.findByRole('checkbox', { name: 'Τα μέλη βλέπουν και τον αριθμό των ατόμων' });
     const body = (n: number) => JSON.parse(String(patches()[n]![1]?.body)) as object;
@@ -207,6 +209,38 @@ describe('GymSettingsPage', () => {
       expect(patches()).toHaveLength(0);
       expect(input).toBeInvalid();
       expect(input).toHaveAccessibleDescription(/1–2000/);
+    });
+
+    it('saves the class cancel cut-off alone, 0 included', async () => {
+      renderPage();
+      const input = await cutoff();
+      expect(input).toHaveValue(120);
+      await userEvent.clear(input);
+      await userEvent.type(input, '0');
+      await save();
+      await waitFor(() => expect(patches()).toHaveLength(1));
+      expect(body(0)).toEqual({ classCancelCutoffMinutes: 0 });
+    });
+
+    it('accepts the upper limit of 1440 minutes (a whole day) for the class cut-off', async () => {
+      renderPage();
+      const input = await cutoff();
+      await userEvent.clear(input);
+      await userEvent.type(input, '1440');
+      await save();
+      await waitFor(() => expect(patches()).toHaveLength(1));
+      expect(body(0)).toEqual({ classCancelCutoffMinutes: 1440 });
+    });
+
+    it.each(['1441', '-1', '2.5', ''])('does not send a class cut-off of %j', async (typed) => {
+      renderPage();
+      const input = await cutoff();
+      await userEvent.clear(input);
+      if (typed) await userEvent.type(input, typed);
+      await save();
+      expect(patches()).toHaveLength(0);
+      expect(input).toBeInvalid();
+      expect(input).toHaveAccessibleDescription(/0–1440/);
     });
 
     it.each(['0', '15', '2.5', ''])('does not send a lead time of %j', async (typed) => {

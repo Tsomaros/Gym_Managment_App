@@ -1,0 +1,2 @@
+ALTER TABLE "notification_prefs" DROP CONSTRAINT "notification_prefs_group_chk";--> statement-breakpoint
+ALTER TABLE "notification_prefs" ADD CONSTRAINT "notification_prefs_group_chk" CHECK ("notification_prefs"."group" in ('membership', 'plans', 'classes'));

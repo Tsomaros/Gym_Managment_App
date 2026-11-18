@@ -73,7 +73,7 @@
 - `ClassesJob`: hourly → materialise for every gym. After a series change, the service materialises immediately for that gym.
 - Cancelling a session or ending a series cancels the affected bookings (Task 2 adds the booking table; leave a hook, and Task 2 extends these tests).
 
-- [ ] **Step 1: Write the failing tests:**
+- [x] **Step 1: Write the failing tests:**
   - `materialiseSeries`: a Wednesday 18:00 series from `2027-05-05`, range `2027-05-01..2027-05-28` → 05-05, 05-12, 05-19, 05-26; with 05-12 already existing → three new.
   - `localToUtc('2027-03-28', '09:00', 'Europe/Athens')` = `2027-03-28T06:00:00Z` (UTC+3 after the switch); `localToUtc('2027-03-27', '09:00', …)` = `07:00Z`. *(Review Focus 5)*
   - API: the owner creates a type and a series → sessions exist for 28 days; running the job again creates none.
@@ -81,10 +81,10 @@
   - A one-off session appears in the list. Reception can cancel, a trainer can't (`403`). Members can list (`200`).
   - Range over 31 days → `400`; capacity 0 → `400`; a non-trainer as `trainer_id` → `404`.
   - Two-gym isolation for the three tables.
-- [ ] **Step 2: Run** `pnpm --filter api test classes timetable` → FAIL.
-- [ ] **Step 3: Implement.** Consult database-expert (UTC columns, indexes).
-- [ ] **Step 4: Run** `pnpm --filter api test` → PASS.
-- [ ] **Step 5: Commit** `feat: class types, timetable series and materialised sessions`.
+- [x] **Step 2: Run** `pnpm --filter api test classes timetable` → FAIL.
+- [x] **Step 3: Implement.** Consult database-expert (UTC columns, indexes).
+- [x] **Step 4: Run** `pnpm --filter api test` → PASS.
+- [x] **Step 5: Commit** `feat: class types, timetable series and materialised sessions`.
 
 ---
 
@@ -105,7 +105,7 @@
   - Staff read: `GET /gyms/:gymId/class-sessions/:id/attendees` (the class's trainer or reception) → `{ bookingId, member: { id, firstName, lastName, photoUrl }, status }[]`.
 - Errors: `409 Class full`, `409 No membership for classes`, `409 Already booked`, `400` outside the 14-day window or after start, `410` for a cancelled session.
 
-- [ ] **Step 1: Write the failing tests:**
+- [x] **Step 1: Write the failing tests:**
   - `classEligibility`:
     - A time membership with classes → ok, `usesEntry: false`.
     - A class pack with 1 left and 1 reserved → not ok; with 2 left and 1 reserved → ok, `usesEntry: true`.
@@ -119,10 +119,10 @@
     - Ending a series with a booked future session → that session is cancelled and its bookings cancelled.
     - Reception books for a member → `201`, `booked_by` = reception. A trainer who doesn't run the class `GET attendees` → `403`.
     - Two-gym isolation.
-- [ ] **Step 2: Run** `pnpm --filter api test bookings class-eligibility` → FAIL.
-- [ ] **Step 3: Implement.** Lock order: the session row, then the member (`lockMember`), then the membership. Consult database-expert.
-- [ ] **Step 4: Run** `pnpm --filter api test` → PASS.
-- [ ] **Step 5: Commit** `feat: class bookings with capacity, reservations and cancellation rules`.
+- [x] **Step 2: Run** `pnpm --filter api test bookings class-eligibility` → FAIL.
+- [x] **Step 3: Implement.** Lock order: the session row, then the member (`lockMember`), then the membership. Consult database-expert.
+- [x] **Step 4: Run** `pnpm --filter api test` → PASS.
+- [x] **Step 5: Commit** `feat: class bookings with capacity, reservations and cancellation rules`.
 
 ---
 
@@ -139,7 +139,7 @@
 - Routes: `POST /gyms/:gymId/bookings/:id/attendance` `{ status }` (the class's trainer or reception) → `204` + `attendance.marked`.
 - No-show pass: for sessions with `ends_at_utc + 30 min ≤ now` and not cancelled → `booked` → `no_show`, consuming entries.
 
-- [ ] **Step 1: Write the failing tests:**
+- [x] **Step 1: Write the failing tests:**
   - `decideCheckIn`: only a class pack with a booking in the window → valid with no visit consumed; the same without a booking → `classes_only`; a time membership still wins.
   - Kiosk check-in by a class-pack-only member 30 min before their booked class → green; the booking is `attended` with `entry_consumed`; `visits_used + 1`. *(Review Focus 4)*
   - 2 hours before → `classes_only`, booking still `booked`. *(Review Focus 4)*
@@ -147,10 +147,10 @@
   - The no-show pass at end + 30 min marks the rest `no_show` and consumes; running it twice → consumed once. *(Review Focus 5)*
   - DST day: a 09:00 session of 45 min is processed by the pass at 10:15 local (07:15Z), not at 09:45 local. *(Review Focus 5)*
   - Reception marks `no_show` → `204`; a member → `403`.
-- [ ] **Step 2: Run** `pnpm --filter api test attendance decide checkin` → FAIL.
-- [ ] **Step 3: Implement.**
-- [ ] **Step 4: Run** `pnpm --filter api test` → PASS.
-- [ ] **Step 5: Commit** `feat: class attendance, no-shows and door access for booked classes`.
+- [x] **Step 2: Run** `pnpm --filter api test attendance decide checkin` → FAIL.
+- [x] **Step 3: Implement.**
+- [x] **Step 4: Run** `pnpm --filter api test` → PASS.
+- [x] **Step 5: Commit** `feat: class attendance, no-shows and door access for booked classes`.
 
 ---
 
@@ -165,15 +165,15 @@
 - Reminder pass: bookings with status `booked` whose session `starts_at_utc` is within `(now, now + 2 h]` and not cancelled → `notify('class.reminder', dedupe class_reminder:<bookingId>)`. The push `url` is `/classes/my`.
 - Cancel: after commit, `notify('class.cancelled', dedupe class_cancelled:<sessionId>:<memberId>)` for each booking that was `booked`.
 
-- [ ] **Step 1: Write the failing tests:**
+- [x] **Step 1: Write the failing tests:**
   - A booking for 18:00: the pass at 15:50 → nothing; 16:05 → one reminder; 16:20 → none (dedupe).
   - A member with the `classes` group switched off for email and push → no reminder, and no dedupe row.
   - Cancelling a session with 2 bookings → 2 `class.cancelled`; retrying the cancel → 0 more. *(Review Focus 3)*
   - The settings page shows the `Μαθήματα` toggles.
-- [ ] **Step 2: Run** `pnpm --filter api test class-notifications && pnpm --filter web test notifications` → FAIL.
-- [ ] **Step 3: Implement.**
-- [ ] **Step 4: Run** → PASS.
-- [ ] **Step 5: Commit** `feat: class reminders and cancellation notices`.
+- [x] **Step 2: Run** `pnpm --filter api test class-notifications && pnpm --filter web test notifications` → FAIL.
+- [x] **Step 3: Implement.**
+- [x] **Step 4: Run** → PASS.
+- [x] **Step 5: Commit** `feat: class reminders and cancellation notices`.
 
 ---
 
@@ -188,11 +188,11 @@
 - `TimetablePage`: Monday–Sunday columns with session blocks (time, type, trainer, `booked/capacity`, cancelled struck through). Owner: add series or one-off, and "αλλαγή από αυτή τη μέρα" / "ακύρωση αυτής της μέρας" like the shift grid. Reception: view and open sessions. On phones: a day list.
 - `SessionDetailPage`: an attendee list with photo and status chips, mark attended/no-show buttons (44 px), "Κράτηση για μέλος" (member search reuse), and "Ακύρωση μαθήματος" with a reason and a warning ("Θα ειδοποιηθούν N μέλη").
 
-- [ ] **Step 1: Write the failing tests:** blocks show `booked/capacity`; a cancelled session is struck through; the cancel dialog shows the number of members to be notified; marking attended calls the API and updates the chip; the desk card shows the class line when `classBooking` is present.
-- [ ] **Step 2: Run** `pnpm --filter web test classes desk` → FAIL.
-- [ ] **Step 3: Implement.** Run ui-ux-reviewer.
-- [ ] **Step 4: Run** → PASS.
-- [ ] **Step 5: Commit** `feat(web): class timetable management and session detail`.
+- [x] **Step 1: Write the failing tests:** blocks show `booked/capacity`; a cancelled session is struck through; the cancel dialog shows the number of members to be notified; marking attended calls the API and updates the chip; the desk card shows the class line when `classBooking` is present.
+- [x] **Step 2: Run** `pnpm --filter web test classes desk` → FAIL.
+- [x] **Step 3: Implement.** Run ui-ux-reviewer.
+- [x] **Step 4: Run** → PASS.
+- [x] **Step 5: Commit** `feat(web): class timetable management and session detail`.
 
 ---
 
@@ -206,11 +206,11 @@
 **Interfaces:**
 - `MyClassesPage`: today's and the next 7 days' classes the trainer runs. Today's sessions open straight into an attendance view (reusing `SessionDetailPage` without the owner actions).
 
-- [ ] **Step 1: Write the failing tests:** only the trainer's sessions are listed; today's session opens the attendance view; past sessions are read-only.
-- [ ] **Step 2: Run** `pnpm --filter web test MyClasses` → FAIL.
-- [ ] **Step 3: Implement.** Run ui-ux-reviewer (tablet and phone).
-- [ ] **Step 4: Run** → PASS.
-- [ ] **Step 5: Commit** `feat(web): trainer's classes and attendance`.
+- [x] **Step 1: Write the failing tests:** only the trainer's sessions are listed; today's session opens the attendance view; past sessions are read-only.
+- [x] **Step 2: Run** `pnpm --filter web test MyClasses` → FAIL.
+- [x] **Step 3: Implement.** Run ui-ux-reviewer (tablet and phone).
+- [x] **Step 4: Run** → PASS.
+- [x] **Step 5: Commit** `feat(web): trainer's classes and attendance`.
 
 ---
 
@@ -231,17 +231,17 @@
 - `MyBookingsPage`: upcoming bookings with cancel, and past ones with status (παρών / δεν ήρθε / ακυρώθηκε).
 - The member home shows "Επόμενο μάθημα: Pilates, Τρίτη 18:00".
 
-- [ ] **Step 1: Write the failing tests:** each button state renders from API data; the late-cancel warning appears only inside the cut-off and only for pack-paid bookings; a `409 Class full` response turns the card to "Πλήρες"; the home card shows the next booking.
+- [x] **Step 1: Write the failing tests:** each button state renders from API data; the late-cancel warning appears only inside the cut-off and only for pack-paid bookings; a `409 Class full` response turns the card to "Πλήρες"; the home card shows the next booking.
   - E2E: the owner creates a spinning series (capacity 2) and sells two members a class pack (1 entry each) and a third a membership with classes → members 1 and 2 book → member 3 sees "Πλήρες" → member 1 cancels on time → member 3 books → member 2 checks in at the kiosk 30 min before → green, and the desk shows the class line → after the class, the no-show pass marks member 3 as no-show → member 2 sees "παρών" in their bookings.
-- [ ] **Step 2: Run** `pnpm --filter web test classes && pnpm e2e` → FAIL.
-- [ ] **Step 3: Implement.** Run ui-ux-reviewer (375 px, Greek, dark mode).
-- [ ] **Step 4: Run** `pnpm lint && pnpm typecheck && pnpm -r test && pnpm e2e` → PASS.
+- [x] **Step 2: Run** `pnpm --filter web test classes && pnpm e2e` → FAIL.
+- [x] **Step 3: Implement.** Run ui-ux-reviewer (375 px, Greek, dark mode).
+- [x] **Step 4: Run** `pnpm lint && pnpm typecheck && pnpm -r test && pnpm e2e` → PASS.
 - [ ] **Step 5: Manual check** on the phones through the tunnel:
   - Book a class on the iPhone and get the reminder push 2 hours before (use a class starting about 2 hours from now).
   - Check in at the kiosk with a class-pack-only member.
   - If still open: do the phase 4b and 5 phone checks too.
   - Record everything in `PROGRESS.md`.
-- [ ] **Step 6: Commit** `feat(web): member class timetable and bookings`.
+- [x] **Step 6: Commit** `feat(web): member class timetable and bookings`.
 
 ---
 

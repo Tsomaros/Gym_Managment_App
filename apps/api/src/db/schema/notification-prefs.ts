@@ -22,6 +22,6 @@ export const notificationPrefs = pgTable(
   },
   (t) => [
     primaryKey({ columns: [t.gymId, t.userId, t.group] }),
-    check('notification_prefs_group_chk', sql`${t.group} in ('membership', 'plans')`),
+    check('notification_prefs_group_chk', sql`${t.group} in ('membership', 'plans', 'classes')`),
   ],
 );

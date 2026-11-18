@@ -61,6 +61,18 @@ const copy: Record<Locale, Record<NotificationEvent, (c: RenderContext) => Copy>
       line: `Ο γυμναστής σου σού όρισε το πρόγραμμα «${p.planName}».`,
       path: '/myWorkouts',
     }),
+    'class.reminder': ({ params: p }) => ({
+      subject: 'Υπενθύμιση μαθήματος',
+      title: 'Υπενθύμιση μαθήματος',
+      line: `Το μάθημα «${p.className}» ξεκινά στις ${day(p.date)} ${p.startsAt}.`,
+      path: '/classes/my',
+    }),
+    'class.cancelled': ({ params: p }) => ({
+      subject: 'Ακυρώθηκε μάθημα',
+      title: 'Ακυρώθηκε μάθημα',
+      line: `Το μάθημα «${p.className}» της ${day(p.date)} στις ${p.startsAt} ακυρώθηκε${p.reason ? ` (${p.reason})` : ''}. Η κράτησή σου ακυρώθηκε χωρίς χρέωση.`,
+      path: '/classes',
+    }),
   },
   en: {
     'membership.expiring': ({ params: p }) => ({
@@ -89,6 +101,18 @@ const copy: Record<Locale, Record<NotificationEvent, (c: RenderContext) => Copy>
       title: 'A new workout plan',
       line: `Your trainer assigned you the plan "${p.planName}".`,
       path: '/myWorkouts',
+    }),
+    'class.reminder': ({ params: p }) => ({
+      subject: 'Class reminder',
+      title: 'Class reminder',
+      line: `Your class "${p.classNameEn || p.className}" starts on ${day(p.date)} at ${p.startsAt}.`,
+      path: '/classes/my',
+    }),
+    'class.cancelled': ({ params: p }) => ({
+      subject: 'A class was cancelled',
+      title: 'A class was cancelled',
+      line: `The class "${p.classNameEn || p.className}" on ${day(p.date)} at ${p.startsAt} was cancelled${p.reason ? ` (${p.reason})` : ''}. Your booking was cancelled at no charge.`,
+      path: '/classes',
     }),
   },
 };

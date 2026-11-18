@@ -135,6 +135,11 @@ export function NotificationSettingsPage() {
       help: t('notifications.groupMembershipHelp'),
     },
     { key: 'plans', name: t('notifications.groupPlans'), help: t('notifications.groupPlansHelp') },
+    {
+      key: 'classes',
+      name: t('notifications.groupClasses'),
+      help: t('notifications.groupClassesHelp'),
+    },
   ];
 
   return (

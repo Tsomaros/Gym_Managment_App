@@ -3,6 +3,11 @@ import { useTranslation } from 'react-i18next';
 import { useParams } from 'react-router';
 import { useAuth } from '../auth/AuthProvider';
 import { EmailNotVerifiedBanner } from '../components/EmailNotVerifiedBanner';
+import { ClassTimetablePage } from '../features/classes/ClassTimetablePage';
+import { NextClassCard } from '../features/classes/NextClassCard';
+import { MyClassesPage } from '../features/classes/MyClassesPage';
+import { ClassTypesPage } from '../features/classes/ClassTypesPage';
+import { TimetablePage } from '../features/classes/TimetablePage';
 import { DashboardPage } from '../features/dashboard/DashboardPage';
 import { DeskPage } from '../features/desk/DeskPage';
 import { HistoryPage } from '../features/audit/HistoryPage';
@@ -69,6 +74,7 @@ export function OwnerShell(props: GymShellProps) {
         'staff',
         'exercises',
         'schedule',
+        'classes',
         'checkIn',
         'renewals',
         'devices',
@@ -83,6 +89,12 @@ export function OwnerShell(props: GymShellProps) {
         staff: <StaffPage canManage />,
         exercises: <ExercisesPage />,
         schedule: <SchedulePage isOwner />,
+        classes: (
+          <div className="flex flex-col gap-10">
+            <TimetablePage isOwner />
+            <ClassTypesPage />
+          </div>
+        ),
         checkIn: <DeskPage />,
         renewals: <RenewalsPage />,
         devices: <DevicesPage />,
@@ -100,11 +112,12 @@ export function ReceptionShell(props: GymShellProps) {
     <ShellLayout
       testId="shell-reception"
       title={t('shell.reception')}
-      nav={['checkIn', 'members', 'renewals', 'schedule']}
+      nav={['checkIn', 'members', 'renewals', 'schedule', 'classes']}
       home={<DeskPage />}
       pages={{
         members: <MembersSection />,
         renewals: <RenewalsPage />,
+        classes: <TimetablePage isOwner={false} />,
         schedule: (
           <div className="flex flex-col gap-10">
             <SchedulePage isOwner={false} />
@@ -125,9 +138,10 @@ export function TrainerShell(props: GymShellProps) {
     <ShellLayout
       testId="shell-trainer"
       title={t('shell.trainer')}
-      nav={['schedule', 'members', 'plans', 'exercises']}
+      nav={['schedule', 'classes', 'members', 'plans', 'exercises']}
       home={<MySchedulePage />}
       pages={{
+        classes: <MyClassesPage />,
         members: <TrainerClientsSection />,
         plans: <TemplatesPage />,
         exercises: <ExercisesPage />,
@@ -146,6 +160,7 @@ export function MemberShell(props: GymShellProps) {
       title={t('shell.member')}
       nav={[
         'memberCheckIn',
+        'classes',
         'myMembership',
         'myWorkouts',
         'freeWorkout',
@@ -157,10 +172,12 @@ export function MemberShell(props: GymShellProps) {
       home={
         <>
           <MemberCheckInPage />
+          <NextClassCard />
           <EnablePushCard />
         </>
       }
       pages={{
+        classes: <ClassTimetablePage />,
         myMembership: <MyMembershipPage />,
         myWorkouts: <MyPlanPage />,
         freeWorkout: <FreeWorkoutPage />,

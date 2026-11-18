@@ -129,6 +129,7 @@ describe('gym settings and member check-in token', () => {
       reminderDays: 5,
       capacity: null,
       showOccupancyCount: false,
+      classCancelCutoffMinutes: 120,
     });
     await request(server())
       .patch(`/gyms/${gymId}/settings`)

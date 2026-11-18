@@ -21,6 +21,7 @@ const settings = (over: Partial<GymSettings> = {}): GymSettings => ({
   reminderDays: 5,
   capacity: null,
   showOccupancyCount: false,
+  classCancelCutoffMinutes: 120,
   ...over,
 });
 const week = (monday: string): ScheduleResponse => ({

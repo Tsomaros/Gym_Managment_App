@@ -1,7 +1,7 @@
 import type { CheckInReason, Membership } from '@gym/shared';
 
 export type CheckInDecision =
-  | { valid: true; useMembershipId: string; consumeVisit: boolean }
+  | { valid: true; useMembershipId: string; consumeVisit: boolean; bookingId?: string }
   | { valid: false; reason: CheckInReason };
 
 /** Earliest end first, memberships without an end last, then the older sale. */
@@ -19,15 +19,35 @@ function byEndThenSale(a: Membership, b: Membership): number {
 /**
  * Whether a member may enter, from their memberships already evaluated for today (spec §6.2).
  * An active time membership wins and uses no visit; otherwise an active visit pack or day pass
- * with visits left is used, the one that ends first. Class packs don't open the gym door.
- * Pure: no clock, no database.
+ * with visits left is used, the one that ends first. Class packs don't open the gym door by
+ * themselves, but a member with a booking whose check-in window is open (`bookingsNow`, chosen by
+ * the caller) is let in for that class, with no visit consumed. Pure: no clock, no database.
  */
-export function decideCheckIn(ms: readonly Membership[]): CheckInDecision {
+export function decideCheckIn(
+  ms: readonly Membership[],
+  bookingsNow: readonly { bookingId: string; membershipId: string | null }[] = [],
+): CheckInDecision {
   const live = ms.filter((m) => m.status !== 'voided');
   const active = live.filter((m) => m.status === 'active');
 
   const time = active.filter((m) => m.kind === 'time').sort(byEndThenSale)[0];
   if (time) return { valid: true, useMembershipId: time.id, consumeVisit: false };
+
+  const booking = bookingsNow[0];
+  if (booking) {
+    // The membership that paid for the booking must still work today (not voided, frozen, ended).
+    const via =
+      (booking.membershipId ? active.find((m) => m.id === booking.membershipId) : undefined) ??
+      active.find((m) => m.includesClasses);
+    if (via) {
+      return {
+        valid: true,
+        useMembershipId: via.id,
+        consumeVisit: false,
+        bookingId: booking.bookingId,
+      };
+    }
+  }
 
   const pack = active
     .filter((m) => (m.kind === 'visits' || m.kind === 'day_pass') && (m.remaining.visits ?? 0) > 0)

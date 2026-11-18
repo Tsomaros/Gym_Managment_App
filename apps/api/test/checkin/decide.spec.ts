@@ -141,3 +141,70 @@ describe('relevantMembership', () => {
     expect(relevantMembership([ms({ status: 'voided' })], 'expired')).toBeNull();
   });
 });
+
+describe('decideCheckIn with bookings in their check-in window', () => {
+  const classPack = (over: Partial<Membership> = {}) =>
+    ms({
+      kind: 'classes',
+      includesClasses: true,
+      visitsTotal: 5,
+      visitsUsed: 1,
+      remaining: { days: null, visits: 4 },
+      endsOn: null,
+      effectiveEndsOn: null,
+      ...over,
+    });
+
+  it('lets a class-pack-only member in for a booked class without consuming a gym visit', () => {
+    const p = classPack();
+    expect(decideCheckIn([p], [{ bookingId: 'b1', membershipId: p.id }])).toEqual({
+      valid: true,
+      useMembershipId: p.id,
+      consumeVisit: false,
+      bookingId: 'b1',
+    });
+  });
+
+  it('without a booking in the window the same member is still classes_only', () => {
+    expect(decideCheckIn([classPack()], [])).toEqual({ valid: false, reason: 'classes_only' });
+    expect(decideCheckIn([classPack()])).toEqual({ valid: false, reason: 'classes_only' });
+  });
+
+  it('a time membership still wins and the booking is ignored by the decision', () => {
+    const time = ms({});
+    const p = classPack();
+    expect(decideCheckIn([p, time], [{ bookingId: 'b1', membershipId: p.id }])).toEqual({
+      valid: true,
+      useMembershipId: time.id,
+      consumeVisit: false,
+    });
+  });
+
+  it('a booking without a membership falls back to the first active membership with classes', () => {
+    const p = classPack();
+    expect(decideCheckIn([p], [{ bookingId: 'b2', membershipId: null }])).toMatchObject({
+      valid: true,
+      useMembershipId: p.id,
+      bookingId: 'b2',
+    });
+  });
+
+  it('a booking whose own membership is voided, frozen or ended does not open the door', () => {
+    for (const status of ['voided', 'frozen', 'expired', 'used_up'] as const) {
+      const p = classPack({ status });
+      const d = decideCheckIn([p], [{ bookingId: 'b1', membershipId: p.id }]);
+      expect(d.valid, status).toBe(false);
+    }
+  });
+
+  it('a visit pack next to a class pack: the booked class is paid by its entry, no gym visit is spent', () => {
+    const p = classPack();
+    const visits = pack();
+    expect(decideCheckIn([visits, p], [{ bookingId: 'b1', membershipId: p.id }])).toEqual({
+      valid: true,
+      useMembershipId: p.id,
+      consumeVisit: false,
+      bookingId: 'b1',
+    });
+  });
+});
