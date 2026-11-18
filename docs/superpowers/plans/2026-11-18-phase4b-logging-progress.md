@@ -80,7 +80,7 @@
   - `GET /gyms/:gymId/members/:memberId/last-performance?exerciseIds=a,b` → `LastPerformance[]` from the most recent finished session containing each exercise.
   - `/me/...` aliases for members.
 
-- [ ] **Step 1: Write the failing tests:**
+- [x] **Step 1: Write the failing tests:**
   - `health-access.spec.ts`: each table row, including a paused link → no read, and a cover tomorrow → no read.
   - Member M creates session S with a client UUID, then 3 sets → `GET` shows them in order. The same `PUT`s again → still 3 sets, and the bodies are unchanged. *(Review Focus 1)*
   - Opening a new session while S is open → S gets `finished_at` = its last set's `logged_at`.
@@ -89,10 +89,10 @@
   - `last-performance` returns the latest finished session's sets for each requested exercise.
   - Primary trainer T reads sessions → `200` and writes → `403`. Cover trainer U reads today → `200`, the next day → `404`. Owner and reception → `404`. *(Review Focus 5)*
   - Another member's session id in the path → `404`. A member `GET /exercises` → `200` (unarchived only). Two-gym isolation.
-- [ ] **Step 2: Run** `pnpm --filter api test workouts health-access` → FAIL.
-- [ ] **Step 3: Implement.** Consult database-expert (client UUID keys, composite FK with `SET NULL (column)`, indexes).
-- [ ] **Step 4: Run** `pnpm --filter api test` → PASS.
-- [ ] **Step 5: Commit** `feat: workout sessions and sets with idempotent client ids`.
+- [x] **Step 2: Run** `pnpm --filter api test workouts health-access` → FAIL.
+- [x] **Step 3: Implement.** Consult database-expert (client UUID keys, composite FK with `SET NULL (column)`, indexes).
+- [x] **Step 4: Run** `pnpm --filter api test` → PASS.
+- [x] **Step 5: Commit** `feat: workout sessions and sets with idempotent client ids`.
 
 ---
 
@@ -118,7 +118,7 @@
   - `GET …/progress/attendance?weeks=` → `AttendancePoint[]` (from `check_ins` where `valid`).
   - Plus `/me/...` aliases.
 
-- [ ] **Step 1: Write the failing tests** (values worked out by hand):
+- [x] **Step 1: Write the failing tests** (values worked out by hand):
   - `e1rm(100, 5)` = 116.5 (116.67 → nearest 0.5); `e1rm(100, 1)` = 103.5 (103.33 → 103.5); `e1rm(100, 13)` = `null`; `e1rm(0, 10)` = 0.
   - `topSet([{60,8},{70,5},{70,6}])` = `{ 70, 6 }`.
   - `isoWeekStart('2027-03-29')` = `'2027-03-29'`; `isoWeekStart('2027-03-28')` = `'2027-03-22'`.
@@ -127,10 +127,10 @@
   - After the exercise's `measure` is changed to `duration`, its old `weight_reps` sets still count (snapshot), and new duration sets don't. *(Review Focus 4)*
   - Attendance: valid check-ins on Mon, Mon (duplicate day) and Wed → 2 days; invalid check-ins aren't counted.
   - API: `weeks=3` → `400`; owner → `404`; cover trainer today → `200`.
-- [ ] **Step 2: Run** `pnpm --filter api test progress` → FAIL.
-- [ ] **Step 3: Implement.** Convert `logged_at` to the gym's local date with `todayIn(timezone, loggedAt)`.
-- [ ] **Step 4: Run** `pnpm --filter api test` → PASS.
-- [ ] **Step 5: Commit** `feat: progress maths and progress API`.
+- [x] **Step 2: Run** `pnpm --filter api test progress` → FAIL.
+- [x] **Step 3: Implement.** Convert `logged_at` to the gym's local date with `todayIn(timezone, loggedAt)`.
+- [x] **Step 4: Run** `pnpm --filter api test` → PASS.
+- [x] **Step 5: Commit** `feat: progress maths and progress API`.
 
 ---
 
