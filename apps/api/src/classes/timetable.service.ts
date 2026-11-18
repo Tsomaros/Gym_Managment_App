@@ -33,6 +33,7 @@ import {
 import { type Tx, withGym } from '../db/tenant';
 import { addDays, todayIn } from '../memberships/dates';
 import { lockTrainer } from '../trainers/trainer-access';
+import { ClassNotifier } from './class-notifier';
 import { localToUtc, materialiseSeries } from './materialise';
 
 const hhmm = (t: string): string => t.slice(0, 5);
@@ -72,6 +73,7 @@ export class TimetableService {
   constructor(
     private readonly audit: AuditService,
     private readonly clock: Clock,
+    private readonly notifier: ClassNotifier,
   ) {}
 
   private async gymClock(tx: Tx, gymId: string): Promise<{ tz: string; today: string }> {
@@ -328,7 +330,7 @@ export class TimetableService {
     id: string,
     lastDate: string,
   ): Promise<CancelledBooking[]> {
-    return withGym(gymId, async (tx) => {
+    const cancelled = await withGym(gymId, async (tx) => {
       const { today } = await this.gymClock(tx, gymId);
       const [s] = await tx.select().from(classSeries).where(eq(classSeries.id, id)).for('update');
       if (!s) throw new NotFoundException();
@@ -367,6 +369,8 @@ export class TimetableService {
       });
       return cancelled;
     });
+    await this.notifier.notifyCancelled(gymId, cancelled);
+    return cancelled;
   }
 
   /**
@@ -482,7 +486,7 @@ export class TimetableService {
     id: string,
     reason: string | undefined,
   ): Promise<CancelledBooking[]> {
-    return withGym(gymId, async (tx) => {
+    const cancelled = await withGym(gymId, async (tx) => {
       const [s] = await tx
         .select()
         .from(classSessions)
@@ -493,6 +497,9 @@ export class TimetableService {
       if (s.endsAtUtc <= this.clock.now()) throw new ConflictException('The class is over');
       return this.cancelInTx(tx, gymId, actorId, id, reason ?? null);
     });
+    // After the commit; a repeat of the cancel finds nothing left to cancel and tells nobody.
+    await this.notifier.notifyCancelled(gymId, cancelled);
+    return cancelled;
   }
 
   /** Sessions with `date` in `q.from..q.to`, soonest first. */

@@ -40,8 +40,9 @@ export function decideCheckIn(
 
   const booking = bookingsNow[0];
   if (booking) {
+    // The membership that paid for the booking must still work today (not voided, frozen, ended).
     const via =
-      (booking.membershipId ? ms.find((m) => m.id === booking.membershipId) : undefined) ??
+      (booking.membershipId ? active.find((m) => m.id === booking.membershipId) : undefined) ??
       active.find((m) => m.includesClasses);
     if (via) {
       return {

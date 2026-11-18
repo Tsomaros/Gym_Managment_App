@@ -89,8 +89,13 @@ describe('notification settings and push subscriptions', () => {
     expect((await f.req('get', '/me/notification-prefs', 'm').expect(200)).body).toEqual({
       membership: on,
       plans: on,
+      classes: on,
     });
-    const next = { membership: { email: false, push: true }, plans: { email: true, push: false } };
+    const next = {
+      membership: { email: false, push: true },
+      plans: { email: true, push: false },
+      classes: { email: false, push: false },
+    };
     expect((await f.req('put', '/me/notification-prefs', 'm').send(next).expect(200)).body).toEqual(
       next,
     );
@@ -99,15 +104,16 @@ describe('notification settings and push subscriptions', () => {
     expect((await f.req('get', '/me/notification-prefs', 'n').expect(200)).body).toEqual({
       membership: on,
       plans: on,
+      classes: on,
     });
     // A second PUT updates the rows instead of adding more.
     await f
       .req('put', '/me/notification-prefs', 'm')
-      .send({ membership: on, plans: on })
+      .send({ membership: on, plans: on, classes: on })
       .expect(200);
     expect(
       await systemDb.select().from(notificationPrefs).where(eq(notificationPrefs.userId, f.id.m!)),
-    ).toHaveLength(2);
+    ).toHaveLength(3);
   });
 
   it('rejects an incomplete prefs body', async () => {

@@ -167,7 +167,10 @@ export class AttendanceService {
           isNull(classSessions.cancelledAt),
           lte(classSessions.startsAtUtc, to),
         ),
-      );
+      )
+      // Locked, so a session cancelled at the same moment is seen as cancelled (the rows are
+      // re-checked once the lock is ours) and its booking never lets the member in.
+      .for('update', { of: classBookings });
     return rows
       .filter((r) => r.startsAtUtc >= from)
       .sort((a, b) => a.startsAtUtc.getTime() - b.startsAtUtc.getTime())

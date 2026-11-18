@@ -188,4 +188,12 @@ describe('decideCheckIn with bookings in their check-in window', () => {
       bookingId: 'b2',
     });
   });
+
+  it('a booking whose own membership is voided, frozen or ended does not open the door', () => {
+    for (const status of ['voided', 'frozen', 'expired', 'used_up'] as const) {
+      const p = classPack({ status });
+      const d = decideCheckIn([p], [{ bookingId: 'b1', membershipId: p.id }]);
+      expect(d.valid, status).toBe(false);
+    }
+  });
 });

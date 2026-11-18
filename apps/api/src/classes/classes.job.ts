@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
 import { Clock } from '../common/clock';
 import { AttendanceService } from './attendance.service';
+import { ClassNotifier } from './class-notifier';
 import { TimetableService } from './timetable.service';
 
 /** Class timetable jobs. Tests call the services directly. */
@@ -9,10 +10,12 @@ import { TimetableService } from './timetable.service';
 export class ClassesJob {
   private running = false;
   private passing = false;
+  private reminding = false;
 
   constructor(
     private readonly timetable: TimetableService,
     private readonly attendance: AttendanceService,
+    private readonly notifier: ClassNotifier,
     private readonly clock: Clock,
   ) {}
 
@@ -44,6 +47,21 @@ export class ClassesJob {
       console.error(`[classes] no-show pass failed: ${(err as Error).message}`);
     } finally {
       this.passing = false;
+    }
+  }
+
+  /** Every 15 minutes: members whose booked class starts within 2 hours get one reminder. */
+  @Cron('*/15 * * * *')
+  async reminders(): Promise<void> {
+    if (process.env.NODE_ENV === 'test' || this.reminding) return;
+    this.reminding = true;
+    try {
+      const r = await this.notifier.remindersPassAll(this.clock.now());
+      if (r.sent || r.failed) console.log(`[classes] reminders ${JSON.stringify(r)}`);
+    } catch (err) {
+      console.error(`[classes] reminder pass failed: ${(err as Error).message}`);
+    } finally {
+      this.reminding = false;
     }
   }
 }

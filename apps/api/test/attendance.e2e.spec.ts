@@ -134,7 +134,7 @@ describe('class attendance, no-shows and door access for booked classes', () => 
     expect(await used('x')).toEqual([0]);
   });
 
-  it('a time membership holder arriving for a booked class is let in and marked attended', async () => {
+  it('a member without a class membership cannot book, so their check-in carries no class', async () => {
     f.clock.setDay(DAY);
     const s = await mk(DAY, '20:00');
     await book('m', s).expect(409); // m's membership has no classes: not eligible
@@ -142,6 +142,40 @@ describe('class attendance, no-shows and door access for booked classes', () => 
     const r = await checkIn('m');
     expect(r.valid).toBe(true);
     expect(r.classBooking).toBeUndefined();
+  });
+
+  it('a member holding a time membership and a class pack is marked attended on entry, entry used once', async () => {
+    f.clock.setDay(DAY);
+    await sell('n');
+    const s = await mk(DAY, '20:00');
+    await book('n', s).expect(201);
+    const before = (await used('n')).reduce((a, b) => a + b, 0);
+    f.clock.current = local(DAY, '19:30');
+    const r = await checkIn('n');
+    expect(r.valid).toBe(true);
+    expect(r.classBooking).toMatchObject({ sessionId: s });
+    expect(await booking(s, 'n')).toMatchObject({ status: 'attended', entryConsumed: true });
+    expect((await used('n')).reduce((a, b) => a + b, 0)).toBe(before + 1);
+  });
+
+  it('the check-in window is 60 min before to 15 min after the start, both ends included', async () => {
+    f.clock.setDay(DAY);
+    for (const n of ['e1', 'e2', 'e3', 'e4']) {
+      await newMember(n);
+      await sell(n);
+    }
+    const s = await mk(DAY, '22:00');
+    for (const n of ['e1', 'e2', 'e3', 'e4']) await book(n, s).expect(201);
+    f.clock.current = local(DAY, '20:59');
+    expect(await checkIn('e1')).toMatchObject({ valid: false, reason: 'classes_only' });
+    f.clock.current = local(DAY, '21:00');
+    expect((await checkIn('e2')).classBooking).toMatchObject({ sessionId: s });
+    f.clock.current = local(DAY, '22:15');
+    expect((await checkIn('e3')).classBooking).toMatchObject({ sessionId: s });
+    f.clock.current = local(DAY, '22:16');
+    expect(await checkIn('e4')).toMatchObject({ valid: false, reason: 'classes_only' });
+    expect((await booking(s, 'e1')).status).toBe('booked');
+    expect((await booking(s, 'e4')).status).toBe('booked');
   });
 
   it('reception marks a no-show; a member and a trainer who does not run the class cannot', async () => {

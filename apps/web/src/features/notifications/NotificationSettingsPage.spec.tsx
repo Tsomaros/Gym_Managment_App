@@ -23,7 +23,7 @@ describe('NotificationSettingsPage', () => {
   let putStatus: number;
 
   beforeEach(() => {
-    prefs = { membership: { ...ON }, plans: { ...ON } };
+    prefs = { membership: { ...ON }, plans: { ...ON }, classes: { ...ON } };
     putStatus = 200;
     push.state = 'default';
     push.enable.mockClear();
@@ -50,13 +50,19 @@ describe('NotificationSettingsPage', () => {
   const puts = () => fetchMock.mock.calls.filter(([, i]) => i?.method === 'PUT');
   const toggle = (name: string) => screen.findByRole('switch', { name });
 
-  it('shows the four switches from the saved preferences', async () => {
-    prefs = { membership: { email: false, push: true }, plans: { email: true, push: false } };
+  it('shows the six switches from the saved preferences', async () => {
+    prefs = {
+      membership: { email: false, push: true },
+      plans: { email: true, push: false },
+      classes: { email: false, push: false },
+    };
     renderPage();
     expect(await toggle('Συνδρομή: Email')).not.toBeChecked();
     expect(await toggle('Συνδρομή: Ειδοποίηση')).toBeChecked();
     expect(await toggle('Προγράμματα: Email')).toBeChecked();
     expect(await toggle('Προγράμματα: Ειδοποίηση')).not.toBeChecked();
+    expect(await toggle('Μαθήματα: Email')).not.toBeChecked();
+    expect(await toggle('Μαθήματα: Ειδοποίηση')).not.toBeChecked();
     expect(String(fetchMock.mock.calls[0]![0])).toBe(`/api/gyms/${GYM}/me/notification-prefs`);
   });
 
@@ -67,6 +73,7 @@ describe('NotificationSettingsPage', () => {
     expect(JSON.parse(String(puts()[0]![1]!.body))).toEqual({
       membership: { email: false, push: true },
       plans: { email: true, push: true },
+      classes: { email: true, push: true },
     });
     await waitFor(async () => expect(await toggle('Συνδρομή: Email')).not.toBeChecked());
     await userEvent.click(await toggle('Προγράμματα: Ειδοποίηση'));
@@ -74,6 +81,7 @@ describe('NotificationSettingsPage', () => {
     expect(JSON.parse(String(puts()[1]![1]!.body))).toEqual({
       membership: { email: false, push: true },
       plans: { email: true, push: false },
+      classes: { email: true, push: true },
     });
   });
 

@@ -165,15 +165,15 @@
 - Reminder pass: bookings with status `booked` whose session `starts_at_utc` is within `(now, now + 2 h]` and not cancelled → `notify('class.reminder', dedupe class_reminder:<bookingId>)`. The push `url` is `/classes/my`.
 - Cancel: after commit, `notify('class.cancelled', dedupe class_cancelled:<sessionId>:<memberId>)` for each booking that was `booked`.
 
-- [ ] **Step 1: Write the failing tests:**
+- [x] **Step 1: Write the failing tests:**
   - A booking for 18:00: the pass at 15:50 → nothing; 16:05 → one reminder; 16:20 → none (dedupe).
   - A member with the `classes` group switched off for email and push → no reminder, and no dedupe row.
   - Cancelling a session with 2 bookings → 2 `class.cancelled`; retrying the cancel → 0 more. *(Review Focus 3)*
   - The settings page shows the `Μαθήματα` toggles.
-- [ ] **Step 2: Run** `pnpm --filter api test class-notifications && pnpm --filter web test notifications` → FAIL.
-- [ ] **Step 3: Implement.**
-- [ ] **Step 4: Run** → PASS.
-- [ ] **Step 5: Commit** `feat: class reminders and cancellation notices`.
+- [x] **Step 2: Run** `pnpm --filter api test class-notifications && pnpm --filter web test notifications` → FAIL.
+- [x] **Step 3: Implement.**
+- [x] **Step 4: Run** → PASS.
+- [x] **Step 5: Commit** `feat: class reminders and cancellation notices`.
 
 ---
 

@@ -923,6 +923,8 @@
     "groupMembershipHelp": "Your membership ending, and a visit pack running low",
     "groupPlans": "Plans",
     "groupPlansHelp": "When your trainer gives you a new plan",
+    "groupClasses": "Classes",
+    "groupClassesHelp": "Reminder before a class and a notice if it is cancelled",
     "switchLabel": "{{group}}: {{channel}}",
     "cardQuestion": "Want a reminder before your membership ends?",
     "cardEnable": "Turn on",
