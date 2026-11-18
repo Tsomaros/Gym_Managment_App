@@ -80,8 +80,12 @@ describe('health UI', () => {
       renderCard({ granted: false, at: null }, 0, onChanged);
       expect(screen.getByText(/Δεν τα βλέπει ο ιδιοκτήτης ούτε η υποδοχή/)).toBeInTheDocument();
       expect(screen.getByText(/όποτε θέλεις/)).toBeInTheDocument();
-      expect(screen.queryByRole('button', { name: 'Ανάκληση' })).not.toBeInTheDocument();
-      await userEvent.setup().click(screen.getByRole('button', { name: 'Συμφωνώ' }));
+      expect(
+        screen.queryByRole('button', { name: 'Ανάκληση συγκατάθεσης' }),
+      ).not.toBeInTheDocument();
+      await userEvent
+        .setup()
+        .click(screen.getByRole('button', { name: 'Συμφωνώ να αποθηκεύονται' }));
       await waitFor(() => expect(onChanged).toHaveBeenCalled());
       expect(calls).toEqual([
         { method: 'POST', path: '/me/consents/measurements', body: undefined },
@@ -94,18 +98,20 @@ describe('health UI', () => {
       const user = userEvent.setup();
       renderCard({ granted: true, at: '2027-05-01T08:00:00.000Z' }, 3, onChanged);
       expect(screen.getByText(/Έδωσες τη συγκατάθεσή σου στις 1 Μαΐου 2027/)).toBeInTheDocument();
-      await user.click(screen.getByRole('button', { name: 'Ανάκληση' }));
+      await user.click(screen.getByRole('button', { name: 'Ανάκληση συγκατάθεσης' }));
       const dialog = await screen.findByRole('alertdialog');
       expect(within(dialog).getByText('Θα διαγραφούν οριστικά 3 μετρήσεις.')).toBeInTheDocument();
-      expect(within(dialog).getByText(/δεν μπορεί να αναιρεθεί/)).toBeInTheDocument();
+      expect(within(dialog).getByText(/Δεν μπορεί να αναιρεθεί/)).toBeInTheDocument();
       expect(calls).toHaveLength(0); // nothing yet
       // cancelling keeps everything
       await user.click(within(dialog).getByRole('button', { name: 'Άκυρο' }));
       expect(calls).toHaveLength(0);
       expect(onChanged).not.toHaveBeenCalled();
-      await user.click(screen.getByRole('button', { name: 'Ανάκληση' }));
+      await user.click(screen.getByRole('button', { name: 'Ανάκληση συγκατάθεσης' }));
       await user.click(
-        within(await screen.findByRole('alertdialog')).getByRole('button', { name: 'Ανάκληση' }),
+        within(await screen.findByRole('alertdialog')).getByRole('button', {
+          name: 'Ανάκληση συγκατάθεσης',
+        }),
       );
       await waitFor(() => expect(onChanged).toHaveBeenCalled());
       expect(calls).toEqual([
@@ -116,7 +122,7 @@ describe('health UI', () => {
     it('uses the singular for one item', async () => {
       mockApi(() => undefined);
       renderCard({ granted: true, at: '2027-05-01T08:00:00.000Z' }, 1);
-      await userEvent.setup().click(screen.getByRole('button', { name: 'Ανάκληση' }));
+      await userEvent.setup().click(screen.getByRole('button', { name: 'Ανάκληση συγκατάθεσης' }));
       expect(await screen.findByText('Θα διαγραφεί οριστικά 1 μέτρηση.')).toBeInTheDocument();
     });
 
@@ -125,9 +131,11 @@ describe('health UI', () => {
       const onChanged = vi.fn();
       const user = userEvent.setup();
       renderCard({ granted: true, at: '2027-05-01T08:00:00.000Z' }, 2, onChanged);
-      await user.click(screen.getByRole('button', { name: 'Ανάκληση' }));
+      await user.click(screen.getByRole('button', { name: 'Ανάκληση συγκατάθεσης' }));
       await user.click(
-        within(await screen.findByRole('alertdialog')).getByRole('button', { name: 'Ανάκληση' }),
+        within(await screen.findByRole('alertdialog')).getByRole('button', {
+          name: 'Ανάκληση συγκατάθεσης',
+        }),
       );
       expect(await within(screen.getByRole('alertdialog')).findByRole('alert')).toHaveTextContent(
         'Κάτι πήγε στραβά',
@@ -142,7 +150,9 @@ describe('health UI', () => {
       render(
         <MeasurementForm gymId={GYM} memberId={MEMBER} consentGranted={false} onSaved={vi.fn()} />,
       );
-      expect(screen.getByText('Δεν έχει δοθεί συγκατάθεση.')).toBeInTheDocument();
+      expect(
+        screen.getByText(/Δεν έχει δοθεί συγκατάθεση\. Ζήτησε από τον πελάτη/),
+      ).toBeInTheDocument();
       expect(screen.getByLabelText('Βάρος (kg)')).toBeDisabled();
       expect(screen.getByLabelText('Ημέρα')).toBeDisabled();
       expect(screen.getByRole('button', { name: 'Αποθήκευση μέτρησης' })).toBeDisabled();
@@ -166,9 +176,10 @@ describe('health UI', () => {
         path: `/members/${MEMBER}/measurements`,
         body: { weightKg: 82.5, bodyFatPct: 18, waistCm: 84.5 },
       });
-      expect((calls[0]!.body as { measuredOn: string }).measuredOn).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+      // the day was not picked: the server dates it by the gym's calendar
+      expect(calls[0]!.body).not.toHaveProperty('measuredOn');
       expect(screen.getByLabelText('Βάρος (kg)')).toHaveValue('');
-      expect(screen.getByRole('status')).toHaveTextContent('Η μέτρηση αποθηκεύτηκε.');
+      expect(screen.getByText('✓ Η μέτρηση αποθηκεύτηκε.')).toBeInTheDocument();
     });
 
     it('checks the ranges before sending and names the field', async () => {
@@ -182,7 +193,7 @@ describe('health UI', () => {
         'Βάλε αριθμό από 20 έως 400.',
       );
       expect(screen.getByLabelText('Λίπος (%)')).toHaveAccessibleDescription(
-        'Βάλε αριθμό από 2 έως 70.',
+        'Βάλε το πολύ 1 δεκαδικό ψηφίο.',
       );
       expect(calls).toHaveLength(0);
     });
@@ -210,10 +221,15 @@ describe('health UI', () => {
     });
 
     /** Canvas is not implemented in jsdom: record what would be drawn and encoded. */
-    function mockCanvas() {
+    function mockCanvas(source = { width: 3000, height: 2000 }) {
       const encoded: { width: number; height: number; type?: string; quality?: unknown }[] = [];
+      drawn = [];
       vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockImplementation(
-        () => ({ drawImage: () => undefined }) as unknown as CanvasRenderingContext2D,
+        () =>
+          ({
+            drawImage: (_img: unknown, x: number, y: number, w: number, h: number) =>
+              drawn.push([x, y, w, h]),
+          }) as unknown as CanvasRenderingContext2D,
       );
       vi.spyOn(HTMLCanvasElement.prototype, 'toBlob').mockImplementation(function (
         this: HTMLCanvasElement,
@@ -226,12 +242,14 @@ describe('health UI', () => {
       });
       vi.stubGlobal(
         'createImageBitmap',
-        vi.fn(async () => ({ width: 3000, height: 2000, close: vi.fn() })),
+        vi.fn(async () => ({ ...source, close: vi.fn() })),
       );
       return encoded;
     }
+    let drawn: number[][] = [];
+    afterEach(() => vi.restoreAllMocks());
 
-    it('resizes a 3000×2000 photo to 1200×800 before uploading it, with today as the day', async () => {
+    it('resizes a 3000×2000 photo to 1200×800 before uploading it, without sending a day', async () => {
       const encoded = mockCanvas();
       let list = [photo('p1', '2027-05-10')];
       const calls = mockApi((c) => {
@@ -252,11 +270,31 @@ describe('health UI', () => {
       const post = calls.find((c) => c.method === 'POST')!;
       expect(post.path).toBe(`/members/${MEMBER}/progress-photos`);
       const form = post.body as FormData;
-      expect(form.get('takenOn')).toMatch(/^\d{4}-\d{2}-\d{2}$/);
-      expect((form.get('photo') as File).name).toBe('photo.jpg');
+      // no day is sent: the server dates the photo by the gym's calendar
+      expect(form.get('takenOn')).toBeNull();
+      const sent = form.get('photo') as File;
+      expect(sent.name).toBe('photo.jpg');
+      // the encoded 'jpeg' blob goes up, not the original 1-byte file picked by the user
+      expect(await sent.text()).toBe('jpeg');
+      expect(drawn).toEqual([[0, 0, 1200, 800]]);
       expect(
         await screen.findByRole('button', { name: 'Άνοιγμα φωτογραφίας 12 Μαΐ' }),
       ).toBeInTheDocument();
+    });
+
+    it('resizes a portrait photo by its longest side (2000×3000 becomes 800×1200)', async () => {
+      const encoded = mockCanvas({ width: 2000, height: 3000 });
+      mockApi((c) => (c.method === 'GET' ? json(200, []) : json(201, {})));
+      render(<ProgressPhotos gymId={GYM} canWrite consentGranted />);
+      await screen.findByText('Δεν υπάρχουν φωτογραφίες ακόμη.');
+      await userEvent
+        .setup()
+        .upload(
+          screen.getByLabelText('Προσθήκη φωτογραφίας'),
+          new File(['x'], 'tall.jpg', { type: 'image/jpeg' }),
+        );
+      await waitFor(() => expect(encoded).toHaveLength(1));
+      expect(encoded[0]).toMatchObject({ width: 800, height: 1200 });
     });
 
     it('a cover trainer sees the photos but no upload and no delete', async () => {
@@ -272,8 +310,10 @@ describe('health UI', () => {
     it('without consent the upload is off and says why', async () => {
       mockApi(() => json(200, []));
       render(<ProgressPhotos gymId={GYM} memberId={MEMBER} canWrite consentGranted={false} />);
-      expect(await screen.findByText('Δεν υπάρχουν φωτογραφίες ακόμη.')).toBeInTheDocument();
-      expect(screen.getByText('Δεν έχει δοθεί συγκατάθεση για φωτογραφίες.')).toBeInTheDocument();
+      expect(
+        await screen.findByText('Δεν έχει δοθεί συγκατάθεση για φωτογραφίες.'),
+      ).toBeInTheDocument();
+      expect(screen.queryByText('Δεν υπάρχουν φωτογραφίες ακόμη.')).not.toBeInTheDocument();
       expect(screen.getByLabelText('Προσθήκη φωτογραφίας')).toBeDisabled();
     });
 
@@ -315,11 +355,96 @@ describe('health UI', () => {
       expect(await screen.findByRole('alert')).toHaveTextContent('όριο των 200 φωτογραφιών');
     });
 
+    const pick = (name = 'a.jpg') =>
+      userEvent
+        .setup()
+        .upload(
+          screen.getByLabelText('Προσθήκη φωτογραφίας'),
+          new File(['x'], name, { type: 'image/jpeg' }),
+        );
+
+    it('a 409 for any other reason says consent is missing, not that the limit is reached', async () => {
+      mockCanvas();
+      mockApi((c) => (c.method === 'POST' ? json(409, { message: 'No consent' }) : json(200, [])));
+      render(<ProgressPhotos gymId={GYM} canWrite consentGranted />);
+      await screen.findByText('Δεν υπάρχουν φωτογραφίες ακόμη.');
+      await pick();
+      const alert = await screen.findByRole('alert');
+      expect(alert).toHaveTextContent('Δεν έχει δοθεί συγκατάθεση για φωτογραφίες.');
+      expect(alert).not.toHaveTextContent('όριο');
+    });
+
+    it('any other upload failure says the photo did not go up and lets the member try again', async () => {
+      mockCanvas();
+      let fail = true;
+      const calls = mockApi((c) => {
+        if (c.method !== 'POST') return json(200, []);
+        return fail ? json(500, {}) : json(201, {});
+      });
+      render(<ProgressPhotos gymId={GYM} canWrite consentGranted />);
+      await screen.findByText('Δεν υπάρχουν φωτογραφίες ακόμη.');
+      await pick();
+      expect(await screen.findByRole('alert')).toHaveTextContent('Η φωτογραφία δεν ανέβηκε');
+      fail = false;
+      await pick();
+      await waitFor(() => expect(screen.queryByRole('alert')).not.toBeInTheDocument());
+      expect(calls.filter((c) => c.method === 'POST')).toHaveLength(2);
+    });
+
+    it('a file the browser cannot read as a picture is never sent', async () => {
+      vi.stubGlobal(
+        'createImageBitmap',
+        vi.fn(async () => {
+          throw new Error('not an image');
+        }),
+      );
+      const calls = mockApi(() => json(200, []));
+      render(<ProgressPhotos gymId={GYM} canWrite consentGranted />);
+      await screen.findByText('Δεν υπάρχουν φωτογραφίες ακόμη.');
+      await pick('notes.pdf');
+      expect(await screen.findByRole('alert')).toHaveTextContent('Η φωτογραφία δεν ανέβηκε');
+      expect(calls.filter((c) => c.method === 'POST')).toHaveLength(0);
+    });
+
+    it('cancelling the delete question keeps the photo and sends nothing', async () => {
+      const calls = mockApi(() => json(200, [photo('p1', '2027-05-10')]));
+      const user = userEvent.setup();
+      render(<ProgressPhotos gymId={GYM} canWrite consentGranted />);
+      await user.click(await screen.findByRole('button', { name: 'Διαγραφή φωτογραφίας 10 Μαΐ' }));
+      await user.click(
+        within(await screen.findByRole('alertdialog')).getByRole('button', { name: 'Άκυρο' }),
+      );
+      expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
+      expect(
+        screen.getByRole('button', { name: 'Άνοιγμα φωτογραφίας 10 Μαΐ' }),
+      ).toBeInTheDocument();
+      expect(calls.filter((c) => c.method !== 'GET')).toHaveLength(0);
+    });
+
+    it('a failed delete keeps the dialog and the photo, and says so', async () => {
+      const calls = mockApi((c) =>
+        c.method === 'DELETE' ? json(500, {}) : json(200, [photo('p1', '2027-05-10')]),
+      );
+      const user = userEvent.setup();
+      render(<ProgressPhotos gymId={GYM} canWrite consentGranted />);
+      await user.click(await screen.findByRole('button', { name: 'Διαγραφή φωτογραφίας 10 Μαΐ' }));
+      const dialog = await screen.findByRole('alertdialog');
+      await user.click(within(dialog).getByRole('button', { name: 'Διαγραφή' }));
+      expect(await within(dialog).findByRole('alert')).toHaveTextContent('Κάτι πήγε στραβά');
+      expect(calls.filter((c) => c.method === 'DELETE')).toHaveLength(1);
+      expect(screen.getByRole('alertdialog')).toBeInTheDocument();
+      expect(
+        screen.getByRole('button', { name: 'Άνοιγμα φωτογραφίας 10 Μαΐ' }),
+      ).toBeInTheDocument();
+    });
+
     it('asks for fresh links before the signed ones expire', async () => {
       vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval'] });
       const calls = mockApi(() => json(200, [photo('p1', '2027-05-10')]));
       render(<ProgressPhotos gymId={GYM} canWrite={false} consentGranted />);
       await vi.waitFor(() => expect(calls).toHaveLength(1));
+      await act(async () => void vi.advanceTimersByTime(3 * 60_000));
+      expect(calls).toHaveLength(1); // links last 5 minutes: not asked for again too early
       await act(async () => void vi.advanceTimersByTime(4 * 60_000 + 100));
       await vi.waitFor(() => expect(calls.length).toBeGreaterThanOrEqual(2));
       vi.useRealTimers();
@@ -343,7 +468,9 @@ describe('health UI', () => {
       renderTab(true);
       expect(await screen.findByRole('form', { name: 'Νέα μέτρηση' })).toBeInTheDocument();
       expect(screen.getByLabelText('Βάρος (kg)')).toBeDisabled();
-      expect(screen.getByText('Δεν υπάρχουν μετρήσεις ακόμη.')).toBeInTheDocument();
+      expect(
+        screen.getByText('Ο πελάτης δεν έχει δώσει συγκατάθεση για μετρήσεις.'),
+      ).toBeInTheDocument();
       expect(screen.getByRole('region', { name: 'Φωτογραφίες προόδου' })).toBeInTheDocument();
     });
 
@@ -370,6 +497,68 @@ describe('health UI', () => {
       expect(screen.queryByRole('form', { name: 'Νέα μέτρηση' })).not.toBeInTheDocument();
       expect(screen.queryByRole('button', { name: /Διαγραφή μέτρησης/ })).not.toBeInTheDocument();
       expect(screen.queryByLabelText('Προσθήκη φωτογραφίας')).not.toBeInTheDocument();
+    });
+
+    it('a cover trainer sees existing photos and measurements but no delete buttons at all', async () => {
+      mockApi((c) => {
+        if (c.path.endsWith('/consents')) return json(200, consent(true, true));
+        if (c.path.endsWith('/measurements')) return json(200, [measurement('b', '2027-05-10')]);
+        return json(200, [
+          { id: 'p1', takenOn: '2027-05-10', url: 'https://files.test/p1', uploadedBy: null },
+        ]);
+      });
+      renderTab(false);
+      expect(
+        await screen.findByRole('button', { name: 'Άνοιγμα φωτογραφίας 10 Μαΐ' }),
+      ).toBeInTheDocument();
+      expect(screen.getByText(/82,5 kg/)).toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: /Διαγραφή/ })).not.toBeInTheDocument();
+    });
+
+    it('the trainer’s save is refused with 403 (cover trainer): says something went wrong, keeps the typed value', async () => {
+      mockApi((c) => {
+        if (c.method === 'POST') return json(403, { message: 'Forbidden' });
+        if (c.path.endsWith('/consents')) return json(200, consent(true, true));
+        return json(200, []);
+      });
+      const user = userEvent.setup();
+      renderTab(true);
+      await user.type(await screen.findByLabelText('Βάρος (kg)'), '80');
+      await user.click(screen.getByRole('button', { name: 'Αποθήκευση μέτρησης' }));
+      expect(await screen.findByRole('alert')).toHaveTextContent('Κάτι πήγε στραβά');
+      expect(screen.queryByText(/Η μέτρηση αποθηκεύτηκε/)).not.toBeInTheDocument(); // no "saved" message
+      expect(screen.getByLabelText('Βάρος (kg)')).toHaveValue('80');
+    });
+
+    it('deleting a measurement asks first and sends DELETE for that measurement only after confirming', async () => {
+      let list = [
+        measurement('m1', '2027-05-10'),
+        measurement('m2', '2027-04-01', { weightKg: 84 }),
+      ];
+      const calls = mockApi((c) => {
+        if (c.method === 'DELETE') {
+          list = list.filter((m) => m.id !== 'm1');
+          return new Response(null, { status: 204 });
+        }
+        if (c.path.endsWith('/consents')) return json(200, consent(true, true));
+        if (c.path.endsWith('/measurements')) return json(200, list);
+        return json(200, []);
+      });
+      const user = userEvent.setup();
+      renderTab(true);
+      await user.click(await screen.findByRole('button', { name: 'Διαγραφή μέτρησης 10 Μαΐ' }));
+      const dialog = await screen.findByRole('alertdialog');
+      expect(calls.filter((c) => c.method === 'DELETE')).toHaveLength(0);
+      await user.click(within(dialog).getByRole('button', { name: 'Διαγραφή' }));
+      await waitFor(() =>
+        expect(
+          screen.queryByRole('button', { name: 'Διαγραφή μέτρησης 10 Μαΐ' }),
+        ).not.toBeInTheDocument(),
+      );
+      expect(calls.filter((c) => c.method === 'DELETE').map((c) => c.path)).toEqual([
+        `/members/${MEMBER}/measurements/m1`,
+      ]);
+      expect(screen.getByRole('button', { name: 'Διαγραφή μέτρησης 1 Απρ' })).toBeInTheDocument();
     });
 
     it('says so and offers a retry when the client’s data cannot be loaded', async () => {
@@ -407,16 +596,22 @@ describe('health UI', () => {
       ).toBeInTheDocument();
       const measurements = await screen.findByRole('region', { name: 'Μετρήσεις σώματος' });
       const photos = screen.getByRole('region', { name: 'Φωτογραφίες προόδου' });
-      await user.click(within(measurements).getByRole('button', { name: 'Ανάκληση' }));
+      await user.click(within(measurements).getByRole('button', { name: 'Ανάκληση συγκατάθεσης' }));
       expect(await screen.findByText('Θα διαγραφούν οριστικά 2 μετρήσεις.')).toBeInTheDocument();
       await user.click(
-        within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Ανάκληση' }),
+        within(screen.getByRole('alertdialog')).getByRole('button', {
+          name: 'Ανάκληση συγκατάθεσης',
+        }),
       );
       await waitFor(() =>
-        expect(within(measurements).getByRole('button', { name: 'Συμφωνώ' })).toBeInTheDocument(),
+        expect(
+          within(measurements).getByRole('button', { name: 'Συμφωνώ να αποθηκεύονται' }),
+        ).toBeInTheDocument(),
       );
       // the photo consent was not touched
-      expect(within(photos).getByRole('button', { name: 'Ανάκληση' })).toBeInTheDocument();
+      expect(
+        within(photos).getByRole('button', { name: 'Ανάκληση συγκατάθεσης' }),
+      ).toBeInTheDocument();
       expect(calls.filter((c) => c.method === 'DELETE').map((c) => c.path)).toEqual([
         '/me/consents/measurements',
       ]);

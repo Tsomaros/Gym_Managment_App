@@ -1,11 +1,11 @@
 import type { MeasurementInput } from '@gym/shared';
-import { type FormEvent, useState } from 'react';
+import { type FormEvent, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ApiError, apiFetch } from '../../api/client';
 import { Field } from '../../components/Field';
 import { parseDecimal } from '../workout/workoutModel';
 
-/** The device's own calendar day as YYYY-MM-DD (the API refuses tomorrow in the gym's zone). */
+/** The device's own calendar day as YYYY-MM-DD: only a default for the date picker. */
 export function localToday(now = new Date()): string {
   const pad = (n: number) => String(n).padStart(2, '0');
   return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
@@ -20,6 +20,7 @@ const NUMERIC = [
   'armCm',
   'thighCm',
 ] as const;
+const HIDDEN = ['waistCm', 'hipsCm', 'chestCm', 'armCm', 'thighCm'] as const;
 type Key = (typeof NUMERIC)[number];
 type Values = Record<Key, string>;
 const EMPTY: Values = {
@@ -45,26 +46,33 @@ const LIMITS: Record<Key, { min: number; max: number; decimals: number }> = {
 /**
  * The primary trainer records a measurement: day, weight, body fat and, under "More", the
  * circumferences. Without the member's consent the form is off and says why. A Greek comma is
- * read as a decimal point.
+ * read as a decimal point. The day is only sent when the trainer picks one: left alone, the
+ * server dates the measurement by the gym's calendar, whatever this device's clock says.
  */
 export function MeasurementForm({
   gymId,
   memberId,
   consentGranted,
   onSaved,
+  onRejected,
 }: {
   gymId: string;
   memberId: string;
   consentGranted: boolean;
   onSaved: () => void;
+  /** The server refused for lack of consent: the member may have withdrawn since the page loaded. */
+  onRejected?: () => void;
 }) {
   const { t } = useTranslation();
   const [day, setDay] = useState(() => localToday());
+  const [dayPicked, setDayPicked] = useState(false);
   const [values, setValues] = useState<Values>(EMPTY);
   const [notes, setNotes] = useState('');
-  const [errors, setErrors] = useState<Partial<Record<Key | 'form', string>>>({});
+  const [errors, setErrors] = useState<Partial<Record<Key | 'day' | 'form', string>>>({});
   const [busy, setBusy] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [more, setMore] = useState(false);
+  const fields = useRef<Partial<Record<Key | 'day', HTMLInputElement | null>>>({});
 
   const label: Record<Key, string> = {
     weightKg: t('health.measure.weight'),
@@ -81,7 +89,11 @@ export function MeasurementForm({
     if (!consentGranted || busy) return;
     setSaved(false);
     const next: typeof errors = {};
-    const body: Record<string, unknown> = { measuredOn: day };
+    const body: Record<string, unknown> = {};
+    if (dayPicked) {
+      if (!day) next.day = t('health.measure.dayRequired');
+      else body.measuredOn = day;
+    }
     let any = false;
     for (const key of NUMERIC) {
       const text = values[key].trim();
@@ -89,8 +101,10 @@ export function MeasurementForm({
       const n = parseDecimal(text);
       const { min, max, decimals } = LIMITS[key];
       const f = 10 ** decimals;
-      if (n === null || n < min || n > max || Math.abs(n * f - Math.round(n * f)) > 1e-6) {
+      if (n === null || n < min || n > max) {
         next[key] = t('health.measure.range', { min, max });
+      } else if (Math.abs(n * f - Math.round(n * f)) > 1e-6) {
+        next[key] = t('health.measure.decimals', { count: decimals });
       } else {
         body[key] = n;
         any = true;
@@ -98,8 +112,15 @@ export function MeasurementForm({
     }
     if (!any && Object.keys(next).length === 0) next.form = t('health.measure.atLeastOne');
     if (notes.trim()) body.notes = notes.trim();
+    const firstBad = (['day', ...NUMERIC] as const).find((k) => next[k]);
+    if (firstBad && !next.form) next.form = t('common.checkFields');
     setErrors(next);
-    if (Object.keys(next).length) return;
+    if (Object.keys(next).length) {
+      // an invalid value inside the closed "More" must not stay out of sight
+      if (firstBad && (HIDDEN as readonly string[]).includes(firstBad)) setMore(true);
+      if (firstBad) requestAnimationFrame(() => fields.current[firstBad]?.focus());
+      return;
+    }
 
     setBusy(true);
     try {
@@ -109,27 +130,35 @@ export function MeasurementForm({
       });
       setValues(EMPTY);
       setNotes('');
+      setDayPicked(false);
+      setDay(localToday());
       setSaved(true);
       onSaved();
     } catch (err) {
+      const noConsent = err instanceof ApiError && err.status === 409;
       setErrors({
-        form:
-          err instanceof ApiError && err.status === 409
-            ? t('health.measure.noConsent')
-            : err instanceof ApiError && err.status === 400
-              ? t('common.checkFields')
-              : t('common.genericError'),
+        form: noConsent
+          ? t('health.measure.noConsent')
+          : err instanceof ApiError && err.status === 400
+            ? t('common.checkFields')
+            : t('common.genericError'),
       });
+      if (noConsent) onRejected?.();
     } finally {
       setBusy(false);
     }
   }
 
-  const set = (key: Key) => (e: { target: { value: string } }) =>
+  const set = (key: Key) => (e: { target: { value: string } }) => {
+    setSaved(false);
     setValues((v) => ({ ...v, [key]: e.target.value }));
+  };
   const field = (key: Key) => (
     <Field
       key={key}
+      ref={(el) => {
+        fields.current[key] = el;
+      }}
       label={label[key]}
       inputMode="decimal"
       autoComplete="off"
@@ -144,38 +173,51 @@ export function MeasurementForm({
     <form
       onSubmit={(e) => void submit(e)}
       noValidate
-      aria-label={t('health.measure.formTitle')}
+      aria-labelledby="measure-form-title"
       className="flex flex-col gap-3 rounded-2xl border border-slate-300 bg-white p-4"
     >
-      <h3 className="text-lg font-semibold text-slate-900">{t('health.measure.formTitle')}</h3>
+      <h3 id="measure-form-title" className="text-lg font-semibold text-slate-900">
+        {t('health.measure.formTitle')}
+      </h3>
       {!consentGranted && (
         <p className="rounded-md border border-amber-700 bg-amber-50 p-3 font-medium text-amber-950">
-          {t('health.measure.noConsent')}
+          {t('health.measure.noConsentAsk')}
         </p>
       )}
       <Field
+        ref={(el) => {
+          fields.current.day = el;
+        }}
         label={t('health.measure.day')}
         type="date"
         value={day}
         max={localToday()}
-        onChange={(e) => setDay(e.target.value)}
+        onChange={(e) => {
+          setDay(e.target.value);
+          setDayPicked(true);
+          setSaved(false);
+        }}
+        error={errors.day}
         disabled={!consentGranted}
       />
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         {field('weightKg')}
         {field('bodyFatPct')}
       </div>
-      <details>
+      <details open={more} onToggle={(e) => setMore(e.currentTarget.open)}>
         <summary className="flex min-h-11 cursor-pointer items-center font-medium text-slate-900 underline">
           {t('health.measure.more')}
         </summary>
         <div className="mt-2 grid grid-cols-1 gap-3 sm:grid-cols-2">
-          {(['waistCm', 'hipsCm', 'chestCm', 'armCm', 'thighCm'] as const).map(field)}
+          {HIDDEN.map(field)}
           <Field
             label={t('health.measure.notes')}
             value={notes}
             maxLength={300}
-            onChange={(e) => setNotes(e.target.value)}
+            onChange={(e) => {
+              setNotes(e.target.value);
+              setSaved(false);
+            }}
             disabled={!consentGranted}
           />
         </div>
@@ -185,11 +227,9 @@ export function MeasurementForm({
           {errors.form}
         </p>
       )}
-      {saved && (
-        <p role="status" className="text-green-800">
-          ✓ {t('health.measure.saved')}
-        </p>
-      )}
+      <p role="status" className="text-green-800 empty:hidden">
+        {saved && `✓ ${t('health.measure.saved')}`}
+      </p>
       <button
         type="submit"
         disabled={!consentGranted}

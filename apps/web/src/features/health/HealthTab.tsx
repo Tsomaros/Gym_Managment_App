@@ -1,5 +1,5 @@
 import type { ConsentState, Measurement } from '@gym/shared';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { apiFetch } from '../../api/client';
 import { MeasurementForm } from './MeasurementForm';
@@ -25,18 +25,22 @@ export function HealthTab({
   const [consents, setConsents] = useState<ConsentState | null>(null);
   const [measurements, setMeasurements] = useState<Measurement[]>([]);
   const [failed, setFailed] = useState(false);
+  // Only the newest answer counts: an older one arriving late must not undo a newer state.
+  const latest = useRef(0);
 
   const load = useCallback(async () => {
+    const mine = ++latest.current;
     try {
       const [c, m] = await Promise.all([
         apiFetch<ConsentState>(`${base}/consents`),
         apiFetch<Measurement[]>(`${base}/measurements`),
       ]);
+      if (mine !== latest.current) return;
       setConsents(c);
       setMeasurements(m);
       setFailed(false);
     } catch {
-      setFailed(true);
+      if (mine === latest.current) setFailed(true);
     }
   }, [base]);
   useEffect(() => {
@@ -66,6 +70,7 @@ export function HealthTab({
               memberId={memberId}
               consentGranted={consents.measurements.granted}
               onSaved={() => void load()}
+              onRejected={() => void load()}
             />
           )}
           <MeasurementsList
@@ -73,6 +78,7 @@ export function HealthTab({
             memberId={memberId}
             measurements={measurements}
             canDelete={canWrite}
+            consentGranted={consents.measurements.granted}
             onChanged={() => void load()}
           />
           <ProgressPhotos
@@ -80,6 +86,7 @@ export function HealthTab({
             memberId={memberId}
             canWrite={canWrite}
             consentGranted={consents.photos.granted}
+            onChanged={() => void load()}
           />
         </>
       )}

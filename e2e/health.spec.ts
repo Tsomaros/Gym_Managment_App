@@ -169,6 +169,17 @@ test('a member consents to body measurements, the trainer records one, the membe
   const list = trainerPage.getByRole('region', { name: 'Μετρήσεις', exact: true });
   await expect(list.getByText(/82,5 kg · 18 %/)).toBeVisible();
 
+  // Review Focus 5: the data exists now, and still the owner and reception get 404 on it.
+  const measurementsPath = `/gyms/${gymId}/members/${memberId}/measurements`;
+  await expect(call('GET', measurementsPath, undefined, owner.accessToken)).rejects.toThrow(/404/);
+  await expect(call('GET', measurementsPath, undefined, reception.accessToken)).rejects.toThrow(
+    /404/,
+  );
+  // ...while the primary trainer reads it.
+  expect(
+    await call<unknown[]>('GET', measurementsPath, undefined, trainer.accessToken),
+  ).toHaveLength(1);
+
   // The member sees it in the progress charts and list.
   await phone.goto(`/g/${gymId}/progress`);
   await expect(phone.getByRole('heading', { name: 'Βάρος σώματος' })).toBeVisible();
@@ -195,9 +206,14 @@ test('a member consents to body measurements, the trainer records one, the membe
   // The trainer's tab shows none, and the form is off with the reason.
   await trainerPage.reload();
   await trainerPage.getByRole('button', { name: 'Σώμα' }).click();
-  await expect(trainerPage.getByText('Δεν υπάρχουν μετρήσεις ακόμη.')).toBeVisible();
+  await expect(
+    trainerPage.getByText('Ο πελάτης δεν έχει δώσει συγκατάθεση για μετρήσεις.'),
+  ).toBeVisible();
+  await expect(trainerPage.getByText(/82,5 kg · 18 %/)).toBeHidden();
   await expect(trainerPage.getByLabel('Βάρος (kg)')).toBeDisabled();
-  await expect(trainerPage.getByText('Δεν έχει δοθεί συγκατάθεση.').first()).toBeVisible();
+  await expect(
+    trainerPage.getByText(/Δεν έχει δοθεί συγκατάθεση. Ζήτησε από τον πελάτη/),
+  ).toBeVisible();
 
   // The API agrees: no rows, and recording again is refused.
   const login = await post<{ accessToken: string }>('/auth/login', {

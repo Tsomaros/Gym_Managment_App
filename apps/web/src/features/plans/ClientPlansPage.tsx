@@ -200,7 +200,12 @@ export function ClientPlansPage() {
         <ProgressPage key={`${gymId}/${memberId}`} memberId={memberId} />
       )}
       {tab === 'health' && !noAccess && (
-        <HealthTab gymId={gymId} memberId={memberId} canWrite={canWrite} />
+        <HealthTab
+          key={`${gymId}/${memberId}`}
+          gymId={gymId}
+          memberId={memberId}
+          canWrite={canWrite}
+        />
       )}
       {tab === 'plans' && (
         <>

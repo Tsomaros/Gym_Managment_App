@@ -49,4 +49,18 @@ describe('health data edges', () => {
     await record({ measuredOn: '1899-12-31' }).expect(400);
     await record({ measuredOn: '1900-01-01' }).expect(201);
   });
+
+  it('a measurement sent without a day is dated by the gym’s calendar, not the sender’s', async () => {
+    // 00:30 in Athens on the 12th, still the 11th in UTC
+    fx.clock.current = new Date('2027-05-11T22:30:00Z');
+    if (!(await fx.req('get', `/members/${fx.id.m}/consents`, 't')).body.measurements.granted) {
+      await fx.req('post', '/me/consents/measurements', 'm').expect(201);
+    }
+    const res = await fx
+      .req('post', `/members/${fx.id.m}/measurements`, 't')
+      .send({ weightKg: 79 })
+      .expect(201);
+    expect(res.body.measuredOn).toBe('2027-05-12');
+    fx.clock.setDay(DAY);
+  });
 });

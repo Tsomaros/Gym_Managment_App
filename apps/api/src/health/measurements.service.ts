@@ -74,7 +74,8 @@ export class MeasurementsService {
     return withGym(gymId, async (tx) => {
       const { access, today } = await this.access(tx, gymId, caller, memberId);
       if (!access.writeMeasurements) throw new ForbiddenException();
-      if (input.measuredOn > today) {
+      const day = input.measuredOn ?? today; // the gym's calendar, not the sender's clock
+      if (day > today) {
         throw new BadRequestException({ message: 'The measurement day is in the future' });
       }
       // Serialised with a withdrawal: the consent we see is the one still in force at commit.
@@ -87,7 +88,7 @@ export class MeasurementsService {
         .values({
           gymId,
           memberId,
-          measuredOn: input.measuredOn,
+          measuredOn: day,
           weightKg: str(input.weightKg),
           bodyFatPct: str(input.bodyFatPct),
           waistCm: str(input.waistCm),

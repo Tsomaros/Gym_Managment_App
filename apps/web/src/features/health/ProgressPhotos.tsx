@@ -1,5 +1,5 @@
 import { MAX_PROGRESS_PHOTOS, type ProgressPhoto } from '@gym/shared';
-import { type ChangeEvent, useCallback, useEffect, useState } from 'react';
+import { type ChangeEvent, useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ApiError, apiFetch } from '../../api/client';
 import { ConfirmDialog } from '../../components/ConfirmDialog';
@@ -7,21 +7,23 @@ import { Dialog } from '../../components/Dialog';
 import { viewerLanguage } from '../exercises/exerciseName';
 import { resizeImage } from '../members/resizeImage';
 import { shortDate } from '../progress/chartTheme';
-import { localToday } from './MeasurementForm';
 
 /** Progress photos are shrunk to this longest side in the browser before they go up. */
 export const PROGRESS_PHOTO_MAX_SIDE = 1200;
 /** Signed links last 5 minutes; the list is fetched again a little before that. */
 const REFRESH_MS = 4 * 60_000;
+/** A broken image may mean an expired link, but never worth more than one reload a minute. */
+const ERROR_RELOAD_MS = 60_000;
 
 const button =
-  'inline-flex min-h-11 cursor-pointer items-center rounded-md border border-slate-500 bg-white px-4 font-medium text-slate-900 hover:bg-slate-50 focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-slate-900';
+  'inline-flex min-h-11 cursor-pointer items-center rounded-md border border-slate-500 bg-white px-4 font-medium text-slate-900 hover:bg-slate-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-900 aria-disabled:cursor-not-allowed aria-disabled:opacity-50';
 
 /**
  * Progress photos of a member: a grid of thumbnails with the day, tap for full size, add (a
  * phone's camera or a file), delete after asking. Only the member and their primary trainer add
  * and delete (`canWrite`); a cover trainer only looks. Links are signed and short-lived, so the
- * list is refreshed while the page stays open.
+ * list is refreshed while the page stays open. The day of a new photo is the gym's today: the
+ * server fills it in, so a phone with another clock or zone cannot date it wrongly.
  */
 export function ProgressPhotos({
   gymId,
@@ -35,6 +37,7 @@ export function ProgressPhotos({
   memberId?: string;
   canWrite: boolean;
   consentGranted: boolean;
+  /** Something changed that the parent shows too (a photo added or deleted, consent found withdrawn). */
   onChanged?: () => void;
 }) {
   const { t, i18n } = useTranslation();
@@ -43,16 +46,27 @@ export function ProgressPhotos({
   const [photos, setPhotos] = useState<ProgressPhoto[] | null>(null);
   const [failed, setFailed] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [deleteBusy, setDeleteBusy] = useState(false);
+  const [notice, setNotice] = useState('');
   const [viewing, setViewing] = useState<ProgressPhoto | null>(null);
   const [deleting, setDeleting] = useState<ProgressPhoto | null>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
+  const addRef = useRef<HTMLButtonElement>(null);
+  const titleRef = useRef<HTMLHeadingElement>(null);
+  // Only the newest answer counts: a slow older one must not bring back a deleted photo.
+  const latest = useRef(0);
+  const lastErrorReload = useRef(0);
 
   const load = useCallback(async () => {
+    const mine = ++latest.current;
     try {
-      setPhotos(await apiFetch<ProgressPhoto[]>(base));
+      const list = await apiFetch<ProgressPhoto[]>(base);
+      if (mine !== latest.current) return;
+      setPhotos(list);
       setFailed(false);
     } catch {
-      setFailed(true);
+      if (mine === latest.current) setFailed(true);
     }
   }, [base]);
   useEffect(() => {
@@ -63,58 +77,78 @@ export function ProgressPhotos({
     return () => clearInterval(timer);
   }, [load]);
 
+  const reloadOnBrokenImage = () => {
+    if (Date.now() - lastErrorReload.current < ERROR_RELOAD_MS) return;
+    lastErrorReload.current = Date.now();
+    void load();
+  };
+
   async function upload(e: ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     e.target.value = ''; // choosing the same file again must fire a change
-    if (!file) return;
+    if (!file || uploading) return;
     setError(null);
-    setBusy(true);
+    setNotice('');
+    setUploading(true);
     try {
       const resized = await resizeImage(file, PROGRESS_PHOTO_MAX_SIDE);
       const body = new FormData();
       body.set('photo', resized, 'photo.jpg');
-      body.set('takenOn', localToday());
       await apiFetch(base, { method: 'POST', body });
       await load();
+      setNotice(t('health.photos.added'));
       onChanged?.();
     } catch (err) {
-      setError(
-        err instanceof ApiError && err.status === 409
-          ? t(
-              (err.body as { message?: string } | undefined)?.message === 'Too many photos'
-                ? 'health.photos.tooMany'
-                : 'health.photos.noConsent',
-              { max: MAX_PROGRESS_PHOTOS },
-            )
-          : t('health.photos.uploadFailed'),
-      );
+      const message = err instanceof ApiError ? (err.body as { message?: string })?.message : '';
+      if (err instanceof ApiError && err.status === 409) {
+        setError(
+          t(message === 'Too many photos' ? 'health.photos.tooMany' : 'health.photos.noConsent', {
+            max: MAX_PROGRESS_PHOTOS,
+          }),
+        );
+        // the consent may have been withdrawn elsewhere: let the page find out
+        if (message !== 'Too many photos') onChanged?.();
+      } else {
+        setError(t('health.photos.uploadFailed'));
+      }
     } finally {
-      setBusy(false);
+      setUploading(false);
     }
   }
 
   async function remove() {
     if (!deleting) return;
-    setBusy(true);
+    setDeleteBusy(true);
     setError(null);
     try {
       await apiFetch(`${base}/${deleting.id}`, { method: 'DELETE' });
       setDeleting(null);
       await load();
+      setNotice(t('health.photos.deleted'));
+      // the delete button that opened the dialog is gone: keep focus on the section
+      requestAnimationFrame(() => titleRef.current?.focus());
       onChanged?.();
     } catch {
       setError(t('common.genericError'));
     } finally {
-      setBusy(false);
+      setDeleteBusy(false);
     }
   }
 
+  const canAdd = consentGranted && !uploading;
   return (
     <section
-      aria-label={t('health.photos.title')}
+      aria-labelledby="photos-title"
       className="flex flex-col gap-3 rounded-2xl border border-slate-300 bg-white p-4"
     >
-      <h3 className="text-lg font-semibold text-slate-900">{t('health.photos.title')}</h3>
+      <h3
+        id="photos-title"
+        ref={titleRef}
+        tabIndex={-1}
+        className="text-lg font-semibold text-slate-900 focus:outline-none"
+      >
+        {t('health.photos.title')}
+      </h3>
       {failed && (
         <div role="alert" className="flex items-center gap-3 text-red-700">
           {t('common.genericError')}
@@ -128,7 +162,14 @@ export function ProgressPhotos({
           {t('app.loading')}
         </p>
       )}
-      {photos?.length === 0 && <p className="text-slate-700">{t('health.photos.none')}</p>}
+      {!consentGranted && (
+        <p className="rounded-md border border-amber-700 bg-amber-50 p-3 font-medium text-amber-950">
+          {canWrite ? t('health.photos.noConsent') : t('health.photos.noConsentView')}
+        </p>
+      )}
+      {photos?.length === 0 && consentGranted && (
+        <p className="text-slate-700">{t('health.photos.none')}</p>
+      )}
       {photos && photos.length > 0 && (
         <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3">
           {photos.map((p) => (
@@ -144,7 +185,7 @@ export function ProgressPhotos({
                   alt=""
                   loading="lazy"
                   className="aspect-[3/4] w-full object-cover"
-                  onError={() => void load()}
+                  onError={reloadOnBrokenImage}
                 />
               </button>
               <div className="flex items-center gap-1">
@@ -157,7 +198,9 @@ export function ProgressPhotos({
                     aria-label={t('health.photos.deleteNamed', {
                       date: shortDate(p.takenOn, lang),
                     })}
+                    aria-disabled={uploading || undefined}
                     onClick={() => {
+                      if (uploading) return;
                       setError(null);
                       setDeleting(p);
                     }}
@@ -173,25 +216,31 @@ export function ProgressPhotos({
       )}
       {canWrite && (
         <div className="flex flex-col gap-2">
-          {!consentGranted && (
-            <p className="rounded-md border border-amber-700 bg-amber-50 p-3 font-medium text-amber-950">
-              {t('health.photos.noConsent')}
-            </p>
-          )}
-          <label
-            className={`${button} self-start ${consentGranted ? '' : 'pointer-events-none opacity-50'}`}
+          <button
+            ref={addRef}
+            type="button"
+            aria-disabled={!canAdd || undefined}
+            onClick={() => canAdd && fileRef.current?.click()}
+            className={`${button} self-start`}
           >
-            {busy ? t('common.working') : t('health.photos.add')}
-            <input
-              type="file"
-              accept="image/*"
-              disabled={!consentGranted || busy}
-              onChange={(e) => void upload(e)}
-              className="sr-only"
-            />
-          </label>
+            {uploading ? t('common.working') : t('health.photos.add')}
+          </button>
+          {/* no `capture`: phones then offer both the camera and the library */}
+          <input
+            ref={fileRef}
+            type="file"
+            accept="image/*"
+            aria-label={t('health.photos.add')}
+            disabled={!consentGranted}
+            tabIndex={-1}
+            onChange={(e) => void upload(e)}
+            className="sr-only"
+          />
         </div>
       )}
+      <p role="status" className="sr-only">
+        {notice}
+      </p>
       {error && !deleting && (
         <p role="alert" className="text-red-700">
           {error}
@@ -203,11 +252,7 @@ export function ProgressPhotos({
           closeLabel={t('common.close')}
           onClose={() => setViewing(null)}
         >
-          <img
-            src={viewing.url}
-            alt={t('health.photos.viewTitle', { date: shortDate(viewing.takenOn, lang) })}
-            className="max-h-[70vh] w-full rounded-md object-contain"
-          />
+          <img src={viewing.url} alt="" className="max-h-[70vh] w-full rounded-md object-contain" />
         </Dialog>
       )}
       {deleting && (
@@ -216,7 +261,7 @@ export function ProgressPhotos({
           message={t('health.photos.deleteMessage', { date: shortDate(deleting.takenOn, lang) })}
           confirmLabel={t('health.photos.delete')}
           cancelLabel={t('common.cancel')}
-          busy={busy}
+          busy={deleteBusy}
           busyLabel={t('common.working')}
           error={error}
           onConfirm={() => void remove()}

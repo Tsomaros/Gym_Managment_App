@@ -265,15 +265,15 @@
 - `MeasurementForm` (primary trainer only): date (default today), weight, body fat, and optional circumferences under "Περισσότερα". Disabled with a "Δεν έχει δοθεί συγκατάθεση" note without consent.
 - `ProgressPhotos`: a grid of thumbnails with the date, tap for full size, delete with confirm, and "Προσθήκη φωτογραφίας" (`accept="image/*"`, `capture="environment"` optional).
 
-- [x] **Step X: Write the failing tests:**
+- [x] **Step 1: Write the failing tests:**
   - Without consent, the trainer's form is disabled with the note.
   - The withdraw dialog shows the count and calls `DELETE` only after confirmation.
   - Photo upload resizes a 3000×2000 image to 1200×800 (canvas mocked).
   - A cover trainer sees measurements but no form or upload.
   - E2E: a member grants measurement consent → the trainer records a measurement → the member sees it in the chart → the member withdraws → the trainer's tab shows none and the form is disabled. *(Review Focus 2)*
-- [x] **Step X: Run** `pnpm --filter web test health && pnpm e2e` → FAIL.
-- [x] **Step X: Implement.** Run ui-ux-reviewer.
-- [x] **Step X: Run** `pnpm lint && pnpm typecheck && pnpm -r test && pnpm e2e` → PASS.
+- [x] **Step 2: Run** `pnpm --filter web test health && pnpm e2e` → FAIL.
+- [x] **Step 3: Implement.** Run ui-ux-reviewer.
+- [x] **Step 4: Run** `pnpm lint && pnpm typecheck && pnpm -r test && pnpm e2e` → PASS.
 - [ ] **Step 5: Manual check** on the iPhone through the tunnel:
   - Log a workout with mobile data switched off mid-session, then switch it back on; the sets arrive.
   - Type a weight with a Greek comma (`22,5`) in both the plan editor and the logger (carries the phase 4a ruling).

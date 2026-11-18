@@ -36,8 +36,11 @@ const MEASURED_VALUES = [
 
 export const MeasurementInputSchema = z
   .object({
-    /** A gym-local day, not in the future (checked by the API against the gym's clock). */
-    measuredOn: z.iso.date().refine((d) => d >= '1900-01-01', 'Too long ago'),
+    /** A gym-local day, not in the future. Left out, it is the gym's today (the sender's clock may differ). */
+    measuredOn: z.iso
+      .date()
+      .refine((d) => d >= '1900-01-01', 'Too long ago')
+      .optional(),
     weightKg: z.number().min(20).max(400).refine(decimals(2), 'Two decimals').nullish(),
     bodyFatPct: z.number().min(2).max(70).refine(decimals(1), 'One decimal').nullish(),
     waistCm: cm,
@@ -77,7 +80,10 @@ export const MAX_PROGRESS_PHOTO_BYTES = 3 * 1024 * 1024;
 export const MAX_PROGRESS_PHOTOS = 200;
 
 /** The text fields sent next to the photo (multipart). */
-export const ProgressPhotoFieldsSchema = z.object({ takenOn: z.iso.date() });
+export const ProgressPhotoFieldsSchema = z.object({
+  /** Left out, it is the gym's today. */
+  takenOn: z.iso.date().optional(),
+});
 export type ProgressPhotoFields = z.infer<typeof ProgressPhotoFieldsSchema>;
 
 export interface ProgressPhoto {

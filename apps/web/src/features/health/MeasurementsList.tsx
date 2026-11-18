@@ -1,5 +1,5 @@
 import type { Measurement } from '@gym/shared';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { apiFetch } from '../../api/client';
 import { ConfirmDialog } from '../../components/ConfirmDialog';
@@ -12,12 +12,15 @@ export function MeasurementsList({
   memberId,
   measurements,
   canDelete,
+  consentGranted = true,
   onChanged,
 }: {
   gymId: string;
   memberId?: string;
   measurements: Measurement[];
   canDelete: boolean;
+  /** Without consent nothing can be recorded: say so instead of showing an empty list. */
+  consentGranted?: boolean;
   onChanged: () => void;
 }) {
   const { t, i18n } = useTranslation();
@@ -25,6 +28,7 @@ export function MeasurementsList({
   const [deleting, setDeleting] = useState<Measurement | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const titleRef = useRef<HTMLHeadingElement>(null);
 
   const parts = (m: Measurement): string[] =>
     [
@@ -46,6 +50,8 @@ export function MeasurementsList({
         method: 'DELETE',
       });
       setDeleting(null);
+      // the delete button that opened the dialog is gone: keep focus on the section
+      requestAnimationFrame(() => titleRef.current?.focus());
       onChanged();
     } catch {
       setError(t('common.genericError'));
@@ -56,11 +62,20 @@ export function MeasurementsList({
 
   return (
     <section
-      aria-label={t('health.measure.listTitle')}
+      aria-labelledby="measure-list-title"
       className="flex flex-col gap-2 rounded-2xl border border-slate-300 bg-white p-4"
     >
-      <h3 className="text-lg font-semibold text-slate-900">{t('health.measure.listTitle')}</h3>
-      {measurements.length === 0 ? (
+      <h3
+        id="measure-list-title"
+        ref={titleRef}
+        tabIndex={-1}
+        className="text-lg font-semibold text-slate-900 focus:outline-none"
+      >
+        {t('health.measure.listTitle')}
+      </h3>
+      {!consentGranted && measurements.length === 0 ? (
+        <p className="text-slate-700">{t('health.measure.noConsentView')}</p>
+      ) : measurements.length === 0 ? (
         <p className="text-slate-700">{t('health.measure.none')}</p>
       ) : (
         <ul className="flex flex-col gap-2">

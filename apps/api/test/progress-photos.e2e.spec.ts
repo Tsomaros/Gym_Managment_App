@@ -131,17 +131,13 @@ describe('progress photos (MinIO): consent, access, withdrawal deletes the objec
   });
 
   s3it(
-    'rejects a wrong type (415), a file over 3 MB (413), a future or missing day (400) and no file (415)',
+    'rejects a wrong type (415), a file over 3 MB (413), a future or malformed day (400) and no file (415)',
     async () => {
       const rowsBefore = (await list('t')).length;
       await upload('m', 'm', Buffer.from('not an image at all')).expect(415);
       await upload('m', 'm', jpeg(3 * 1024 * 1024 + 1024)).expect(413);
       await upload('m', 'm', jpeg(), { takenOn: '2027-05-13' }).expect(400);
       await upload('m', 'm', jpeg(), { takenOn: 'yesterday' }).expect(400);
-      await fx
-        .req('post', `/members/${fx.id.m}/progress-photos`, 'm')
-        .attach('photo', jpeg(), { filename: 'p.jpg', contentType: 'image/jpeg' })
-        .expect(400); // no takenOn
       await fx
         .req('post', `/members/${fx.id.m}/progress-photos`, 'm')
         .field('takenOn', DAY)

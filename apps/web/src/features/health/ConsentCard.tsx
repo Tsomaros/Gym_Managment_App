@@ -1,5 +1,5 @@
 import type { ConsentKind, ConsentState } from '@gym/shared';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { apiFetch } from '../../api/client';
 import { ConfirmDialog } from '../../components/ConfirmDialog';
@@ -7,13 +7,17 @@ import { ConfirmDialog } from '../../components/ConfirmDialog';
 /**
  * What the member agrees to, in plain words: what is stored, who sees it (the member and their
  * trainer, never the owner or reception) and that it can be withdrawn at any time, which deletes
- * it. "I agree" gives consent; "Withdraw" asks first, naming how much will be deleted.
+ * it. "I agree" gives consent; "Withdraw" asks first, naming how much will be deleted (read
+ * again when the question opens, because the member or the trainer may have added more since).
+ * After a change focus moves to the card's heading and the result is announced: the button that
+ * was pressed is gone.
  */
 export function ConsentCard({
   gymId,
   kind,
   state,
   itemCount,
+  refreshCount,
   onChanged,
 }: {
   gymId: string;
@@ -21,25 +25,50 @@ export function ConsentCard({
   state: ConsentState[ConsentKind];
   /** How many measurements or photos withdrawing would delete. */
   itemCount: number;
+  /** Re-reads that number; the question waits for it. */
+  refreshCount?: () => Promise<void>;
   onChanged: () => void;
 }) {
   const { t, i18n } = useTranslation();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [withdrawing, setWithdrawing] = useState(false);
+  const [notice, setNotice] = useState('');
+  const titleRef = useRef<HTMLHeadingElement>(null);
   const path = `/gyms/${gymId}/me/consents/${kind}`;
 
+  const settle = (message: string) => {
+    setNotice(message);
+    // the pressed button is replaced by its opposite: keep focus on the card
+    requestAnimationFrame(() => titleRef.current?.focus());
+    onChanged();
+  };
+
   async function grant() {
+    if (busy) return;
     setBusy(true);
     setError(null);
     try {
       await apiFetch(path, { method: 'POST' });
-      onChanged();
+      settle(t(`health.consent.${kind}.grantedNotice`));
     } catch {
       setError(t('common.genericError'));
     } finally {
       setBusy(false);
     }
+  }
+
+  async function openWithdraw() {
+    setError(null);
+    setBusy(true);
+    try {
+      await refreshCount?.();
+    } catch {
+      // the count on screen is the best we have; the server deletes everything either way
+    } finally {
+      setBusy(false);
+    }
+    setWithdrawing(true);
   }
 
   async function withdraw() {
@@ -48,7 +77,7 @@ export function ConsentCard({
     try {
       await apiFetch(path, { method: 'DELETE' });
       setWithdrawing(false);
-      onChanged();
+      settle(t(`health.consent.${kind}.withdrawnNotice`));
     } catch {
       setError(t('common.genericError'));
     } finally {
@@ -63,28 +92,34 @@ export function ConsentCard({
         year: 'numeric',
       }).format(new Date(state.at))
     : null;
+  const titleId = `consent-${kind}-title`;
 
   return (
     <section
-      aria-label={t(`health.consent.${kind}.title`)}
+      aria-labelledby={titleId}
       className="flex flex-col gap-3 rounded-2xl border border-slate-300 bg-white p-4"
     >
-      <h3 className="text-lg font-semibold text-slate-900">{t(`health.consent.${kind}.title`)}</h3>
+      <h3
+        id={titleId}
+        ref={titleRef}
+        tabIndex={-1}
+        className="text-lg font-semibold text-slate-900 focus:outline-none"
+      >
+        {t(`health.consent.${kind}.title`)}
+      </h3>
       <p className="text-slate-800">{t(`health.consent.${kind}.what`)}</p>
       <p className="text-slate-800">{t('health.consent.who')}</p>
-      <p className="text-slate-800">{t('health.consent.withdrawInfo')}</p>
+      <p className="text-slate-800">{t(`health.consent.${kind}.withdrawInfo`)}</p>
       {state.granted ? (
         <>
           <p className="font-medium text-green-800">
-            ✓ {t('health.consent.given', { date: since })}
+            ✓ {since ? t('health.consent.given', { date: since }) : t('health.consent.givenNoDate')}
           </p>
           <button
             type="button"
-            onClick={() => {
-              setError(null);
-              setWithdrawing(true);
-            }}
-            className="min-h-11 self-start rounded-md border border-red-700 bg-white px-4 font-medium text-red-800 hover:bg-red-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-800"
+            onClick={() => !busy && void openWithdraw()}
+            aria-disabled={busy || undefined}
+            className="min-h-11 self-start rounded-md border border-red-700 bg-white px-4 font-medium text-red-800 hover:bg-red-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-800 aria-disabled:opacity-60"
           >
             {t('health.consent.withdraw')}
           </button>
@@ -99,6 +134,9 @@ export function ConsentCard({
           {busy ? t('common.working') : t('health.consent.agree')}
         </button>
       )}
+      <p role="status" className="sr-only">
+        {notice}
+      </p>
       {error && !withdrawing && (
         <p role="alert" className="text-red-700">
           {error}
@@ -138,7 +176,11 @@ export function WithdrawConsentDialog({
   return (
     <ConfirmDialog
       title={t(`health.withdraw.title.${kind}`)}
-      message={t(`health.withdraw.message.${kind}`, { count })}
+      message={
+        count === 0
+          ? t(`health.withdraw.nothing.${kind}`)
+          : t(`health.withdraw.message.${kind}`, { count })
+      }
       warning={t('health.withdraw.warning')}
       confirmLabel={t('health.consent.withdraw')}
       cancelLabel={t('common.cancel')}

@@ -810,24 +810,30 @@
     "privacyIntro": "Body measurements and progress photos are personal health data. They are only stored if you agree, and you can withdraw your consent whenever you like.",
     "sectionBody": "Body",
     "consent": {
-      "who": "You and your trainer can see them. The owner and reception cannot.",
-      "withdrawInfo": "You can withdraw your consent at any time; all the related data is then deleted.",
-      "agree": "I agree",
-      "withdraw": "Withdraw",
+      "who": "Only you and your trainer (or whoever covers for your trainer for a day) can see them. The owner and reception cannot.",
+      "agree": "I agree to this being stored",
+      "withdraw": "Withdraw consent",
       "given": "You gave your consent on {{date}}.",
       "measurements": {
         "title": "Body measurements",
-        "what": "Your trainer records weight, body fat and circumferences so you can follow your progress in charts."
+        "what": "Your trainer records weight, body fat and circumferences so you can follow your progress in charts.",
+        "withdrawInfo": "You can change your mind at any time. If you withdraw, your measurements are deleted permanently.",
+        "grantedNotice": "You agreed: your measurements will be stored.",
+        "withdrawnNotice": "Consent withdrawn and the measurements deleted."
       },
       "photos": {
         "title": "Progress photos",
-        "what": "You and your trainer can upload progress photos. They are stored privately and open only through a link that expires in 5 minutes."
-      }
+        "what": "You and your trainer can upload progress photos. They are stored privately and open only through a link that expires in 5 minutes.",
+        "withdrawInfo": "You can change your mind at any time. If you withdraw, your photos are deleted permanently.",
+        "grantedNotice": "You agreed: your photos will be stored.",
+        "withdrawnNotice": "Consent withdrawn and the photos deleted."
+      },
+      "givenNoDate": "You have given your consent."
     },
     "withdraw": {
       "title": {
-        "measurements": "Withdraw for measurements?",
-        "photos": "Withdraw for photos?"
+        "measurements": "Withdraw consent for measurements?",
+        "photos": "Withdraw consent for photos?"
       },
       "message": {
         "measurements_one": "{{count}} measurement will be deleted permanently.",
@@ -835,12 +841,16 @@
         "photos_one": "{{count}} photo will be deleted permanently.",
         "photos_other": "{{count}} photos will be deleted permanently."
       },
-      "warning": "This cannot be undone."
+      "warning": "This cannot be undone, and your trainer will no longer have access.",
+      "nothing": {
+        "measurements": "You have no stored measurements to delete.",
+        "photos": "You have no stored photos to delete."
+      }
     },
     "measure": {
       "formTitle": "New measurement",
       "listTitle": "Measurements",
-      "none": "No measurements yet.",
+      "none": "No measurements yet. Your trainer records them.",
       "day": "Day",
       "weight": "Weight (kg)",
       "bodyFat": "Body fat (%)",
@@ -859,7 +869,12 @@
       "delete": "Delete",
       "deleteNamed": "Delete measurement of {{date}}",
       "deleteTitle": "Delete measurement?",
-      "deleteMessage": "The measurement of {{date}} will be deleted permanently."
+      "deleteMessage": "The measurement of {{date}} will be deleted permanently.",
+      "decimals_one": "Use at most {{count}} decimal place.",
+      "decimals_other": "Use at most {{count}} decimal places.",
+      "dayRequired": "Pick a day.",
+      "noConsentAsk": "No consent has been given. Ask the client to agree in their privacy settings.",
+      "noConsentView": "The client has not given consent for measurements."
     },
     "photos": {
       "title": "Progress photos",
@@ -873,7 +888,10 @@
       "deleteMessage": "The photo of {{date}} will be deleted permanently.",
       "noConsent": "No consent has been given for photos.",
       "tooMany": "You have reached the limit of {{max}} photos. Delete some first.",
-      "uploadFailed": "The photo did not upload. Try again."
+      "uploadFailed": "The photo did not upload. Try again.",
+      "noConsentView": "The client has not given consent for photos.",
+      "added": "Photo added.",
+      "deleted": "Photo deleted."
     }
   }
 }

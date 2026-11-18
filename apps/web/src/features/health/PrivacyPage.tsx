@@ -1,5 +1,5 @@
 import type { ConsentState, Measurement, ProgressPhoto } from '@gym/shared';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useParams } from 'react-router';
 import { apiFetch } from '../../api/client';
@@ -17,8 +17,10 @@ export function PrivacyPage() {
   const [consents, setConsents] = useState<ConsentState | null>(null);
   const [counts, setCounts] = useState({ measurements: 0, photos: 0 });
   const [failed, setFailed] = useState(false);
+  const latest = useRef(0);
 
   const load = useCallback(async () => {
+    const mine = ++latest.current;
     try {
       const c = await apiFetch<ConsentState>(`${base}/consents`);
       // Only what exists to be deleted needs counting.
@@ -26,11 +28,12 @@ export function PrivacyPage() {
         c.measurements.granted ? apiFetch<Measurement[]>(`${base}/measurements`) : [],
         c.photos.granted ? apiFetch<ProgressPhoto[]>(`${base}/progress-photos`) : [],
       ]);
+      if (mine !== latest.current) return;
       setConsents(c);
       setCounts({ measurements: m.length, photos: p.length });
       setFailed(false);
     } catch {
-      setFailed(true);
+      if (mine === latest.current) setFailed(true);
     }
   }, [base]);
   useEffect(() => {
@@ -64,6 +67,7 @@ export function PrivacyPage() {
             kind={kind}
             state={consents[kind]}
             itemCount={counts[kind]}
+            refreshCount={load}
             onChanged={() => void load()}
           />
         ))}

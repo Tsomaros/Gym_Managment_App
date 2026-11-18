@@ -72,17 +72,21 @@ export class ProgressPhotosService {
     gymId: string,
     caller: Caller,
     memberId: string,
-    takenOn: string,
+    requestedDay: string | undefined,
     file: Buffer,
   ): Promise<ProgressPhoto> {
-    await withGym(gymId, async (tx) => {
+    const takenOn = await withGym(gymId, async (tx) => {
       const { access, today } = await this.access(tx, gymId, caller, memberId);
       if (!access.writePhotos) throw new ForbiddenException();
-      if (takenOn > today)
+      // the gym's calendar, not the sender's clock
+      const day = requestedDay ?? today;
+      if (day > today) {
         throw new BadRequestException({ message: 'The photo day is in the future' });
+      }
       if (!(await activeConsent(tx, memberId, 'photos'))) {
         throw new ConflictException({ message: 'No consent' });
       }
+      return day;
     });
     const type = sniffImage(file);
     if (!type) throw new UnsupportedMediaTypeException('Only JPEG, PNG or WebP images');

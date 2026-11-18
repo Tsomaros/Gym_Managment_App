@@ -91,6 +91,17 @@ describe('progress photos: storage failures and limits (MinIO)', () => {
     expect(listed).toEqual([]);
   });
 
+  s3it('a photo sent without a day is dated by the gym’s calendar, not the sender’s', async () => {
+    await fx.req('post', '/me/consents/photos', 'm').expect(201);
+    fx.clock.current = new Date('2027-05-11T22:30:00Z'); // 00:30 in Athens on the 12th
+    const res = await fx
+      .req('post', `/members/${fx.id.m}/progress-photos`, 'm')
+      .attach('photo', jpeg(), { filename: 'p.jpg', contentType: 'image/jpeg' })
+      .expect(201);
+    expect(res.body.takenOn).toBe('2027-05-12');
+    fx.clock.setDay(DAY);
+  });
+
   s3it('refuses the 201st photo of a member (storage and the list stay bounded)', async () => {
     await fx.req('post', '/me/consents/photos', 'n').expect(201);
     await systemDb.insert(progressPhotos).values(
