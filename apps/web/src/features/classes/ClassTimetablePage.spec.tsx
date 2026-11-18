@@ -1,5 +1,5 @@
 import type { BookingView, ClassSessionView, Membership } from '@gym/shared';
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -68,7 +68,10 @@ describe('ClassTimetablePage (member)', () => {
     const cards = screen.getAllByRole('listitem');
     expect(cards).toHaveLength(2);
     expect(within(cards[0]!).getByText(/3 θέσεις/)).toBeVisible();
-    expect(within(cards[1]!).getByRole('button', { name: 'Πλήρες' })).toBeDisabled();
+    expect(within(cards[1]!).getByRole('button', { name: /^Πλήρες/ })).toHaveAttribute(
+      'aria-disabled',
+      'true',
+    );
     expect(screen.queryByText('10:00 Σπινινγκ')).not.toBeInTheDocument(); // tomorrow's
   });
 
@@ -104,7 +107,7 @@ describe('ClassTimetablePage (member)', () => {
     await waitFor(() =>
       expect(
         screen.getAllByRole('button', { name: 'Χρειάζεσαι συνδρομή με μαθήματα' })[0],
-      ).toBeDisabled(),
+      ).toHaveAttribute('aria-disabled', 'true'),
     );
   });
 
@@ -112,6 +115,45 @@ describe('ClassTimetablePage (member)', () => {
     memberships = [membership({ includesClasses: true, status: 'expired' })];
     renderPage();
     expect(await screen.findByText(/χρειάζεσαι συνδρομή με μαθήματα ή πακέτο/)).toBeVisible();
+  });
+
+  it('a membership with classes that starts later still lets the member book', async () => {
+    memberships = [membership({ includesClasses: true, status: 'upcoming' })];
+    renderPage();
+    const card = (await screen.findByRole('heading', { name: '18:00 Σπινινγκ' })).closest('li')!;
+    // canBook starts true, so wait until the memberships answer has been applied before judging.
+    await waitFor(() =>
+      expect(fetchMock.mock.calls.some(([u]) => String(u).includes('/me/memberships'))).toBe(true),
+    );
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 20));
+    });
+    expect(within(card).getByRole('button', { name: /^Κράτηση/ })).toBeVisible();
+    expect(screen.queryByText(/χρειάζεσαι συνδρομή με μαθήματα ή πακέτο/)).not.toBeInTheDocument();
+  });
+
+  it('names the chosen day, marks days that have classes, and offers the next such day when empty', async () => {
+    sessions = [...sessions, classSession({ id: 'd', date: '2027-05-17', startsAt: '08:00' })];
+    renderPage();
+    expect(await screen.findByRole('heading', { name: 'Τετάρτη 12 Μαΐου', level: 3 })).toBeVisible();
+    expect(screen.getByRole('button', { name: /13\/5.*έχει μαθήματα/ })).toBeVisible();
+    expect(screen.getByRole('button', { name: /14\/5/ })).not.toHaveTextContent('•');
+    await userEvent.click(screen.getByRole('button', { name: /14\/5/ })); // no classes that day
+    expect(await screen.findByText('Δεν υπάρχουν μαθήματα αυτή τη μέρα.')).toBeVisible();
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Επόμενη μέρα με μαθήματα: Δευτέρα 17 Μαΐου' }),
+    );
+    expect(await screen.findByRole('heading', { name: 'Δευτέρα 17 Μαΐου', level: 3 })).toBeVisible();
+    expect(screen.getByRole('heading', { name: '08:00 Σπινινγκ' })).toBeVisible();
+  });
+
+  it('after booking, the confirmation is announced and focus stays on that class card', async () => {
+    renderPage();
+    const heading = await screen.findByRole('heading', { name: '18:00 Σπινινγκ' });
+    const card = heading.closest('li')!;
+    await userEvent.click(within(card).getByRole('button', { name: /^Κράτηση/ }));
+    expect(await screen.findByRole('status')).toHaveTextContent('Έγινε κράτηση: Σπινινγκ');
+    await waitFor(() => expect(card).toHaveFocus());
   });
 
   it('a booked class shows the booked state with its cancel button', async () => {

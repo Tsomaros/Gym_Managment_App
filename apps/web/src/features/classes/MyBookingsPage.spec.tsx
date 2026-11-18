@@ -1,5 +1,5 @@
 import type { BookingStatus, BookingView } from '@gym/shared';
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -84,7 +84,15 @@ describe('MyBookingsPage and NextClassCard', () => {
     );
     const del = fetchMock.mock.calls.find(([, i]) => i?.method === 'DELETE')!;
     expect(String(del[0])).toBe(`/api/gyms/${GYM}/me/bookings/u2`);
+    // ...and the lists are fetched again (2 before the cancel, 2 after).
+    await waitFor(() =>
+      expect(fetchMock.mock.calls.filter(([, i]) => i?.method !== 'DELETE')).toHaveLength(4),
+    );
     await waitFor(() => expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument());
+    expect(screen.getByRole('status')).toHaveTextContent('Η κράτηση ακυρώθηκε');
+    await waitFor(() =>
+      expect(screen.getByRole('heading', { name: 'Οι κρατήσεις μου', level: 2 })).toHaveFocus(),
+    );
   });
 
   it('says so when there are no bookings, and when loading fails', async () => {
@@ -111,14 +119,22 @@ describe('MyBookingsPage and NextClassCard', () => {
   });
 
   it('the home card is absent without a booking or when loading fails', async () => {
+    // Let the response arrive and React re-render before looking: otherwise "empty" is just "not loaded yet".
+    const settled = async () => {
+      await waitFor(() => expect(fetchMock).toHaveBeenCalled());
+      await act(async () => {
+        await new Promise((r) => setTimeout(r, 20));
+      });
+    };
     upcoming = [];
     const { container, unmount } = renderIn(<NextClassCard />);
-    await waitFor(() => expect(fetchMock).toHaveBeenCalled());
+    await settled();
     expect(container).toBeEmptyDOMElement();
     unmount();
+    fetchMock.mockClear();
     fetchMock.mockImplementation(async () => json(500, {}));
     const failed = renderIn(<NextClassCard />);
-    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+    await settled();
     expect(failed.container).toBeEmptyDOMElement();
   });
 });

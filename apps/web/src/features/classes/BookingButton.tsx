@@ -27,7 +27,8 @@ export function BookingButton({
   /** The member has a membership that includes classes (or a class pack). */
   canBook: boolean;
   dayLabel: string;
-  onChanged: () => void;
+  /** The booking changed: reload; the text is what a screen reader should hear. */
+  onChanged: (announcement?: string) => void;
 }) {
   const { t, i18n } = useTranslation();
   const [busy, setBusy] = useState(false);
@@ -46,10 +47,13 @@ export function BookingButton({
         method: 'POST',
         body: JSON.stringify({}),
       });
-      onChanged();
+      onChanged(t('classes.member.bookedAnnounce', { name, day: dayLabel, time: session.startsAt }));
     } catch (err) {
       const message = messageOf(err);
-      if (message === 'Class full') setRefused('full');
+      if (message === 'Class full') {
+        setRefused('full');
+        onChanged(t('classes.member.justFull'));
+      }
       else if (message === 'No membership for classes') setRefused('needsMembership');
       else if (message === 'Already booked') onChanged();
       else if (message === 'The class has started') setRefused('started');
@@ -67,7 +71,7 @@ export function BookingButton({
     try {
       await apiFetch(`/gyms/${gymId}/me/bookings/${mine.id}`, { method: 'DELETE' });
       setConfirming(false);
-      onChanged();
+      onChanged(t('classes.member.cancelledAnnounce', { name, day: dayLabel, time: session.startsAt }));
     } catch {
       setCancelFailed(true);
     } finally {
@@ -117,18 +121,33 @@ export function BookingButton({
 
   if (refused === 'full' || session.booked >= session.capacity) {
     return (
-      <button type="button" disabled className={`${plainClass} opacity-70`}>
+      <button
+        type="button"
+        aria-disabled="true"
+        className={`${plainClass} cursor-not-allowed bg-slate-50 py-2 text-slate-700`}
+      >
         {t('classes.member.full')}
+        <span className="sr-only">
+          {' '}
+          {name} {session.startsAt}
+        </span>
       </button>
     );
   }
   if (!canBook || refused === 'needsMembership') {
     return (
       <div className="flex flex-col gap-1">
-        <button type="button" disabled className={`${plainClass} opacity-70`}>
+        <button
+          type="button"
+          aria-disabled="true"
+          aria-describedby={`hint-${session.id}`}
+          className={`${plainClass} cursor-not-allowed bg-slate-50 py-2 text-left text-slate-700`}
+        >
           {t('classes.member.needsMembership')}
         </button>
-        {note(t('classes.member.askReception'))}
+        <p id={`hint-${session.id}`} className="text-sm text-slate-700">
+          {t('classes.member.askReception')}
+        </p>
       </div>
     );
   }

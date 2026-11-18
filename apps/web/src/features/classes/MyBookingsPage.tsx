@@ -1,5 +1,5 @@
 import type { BookingStatus, BookingView } from '@gym/shared';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useParams } from 'react-router';
 import { apiFetch } from '../../api/client';
@@ -16,6 +16,15 @@ export function MyBookingsPage(_props: { now?: () => Date } = {}) {
   const [cancelling, setCancelling] = useState<BookingView | null>(null);
   const [busy, setBusy] = useState(false);
   const [cancelFailed, setCancelFailed] = useState(false);
+  const [announcement, setAnnouncement] = useState('');
+  const titleRef = useRef<HTMLHeadingElement>(null);
+
+  // After a cancel the row that had the focus is gone (and the dialog just closed): the heading takes it.
+  useEffect(() => {
+    if (!announcement) return;
+    const frame = requestAnimationFrame(() => titleRef.current?.focus());
+    return () => cancelAnimationFrame(frame);
+  }, [announcement]);
 
   const load = useCallback(() => {
     setFailed(false);
@@ -48,6 +57,13 @@ export function MyBookingsPage(_props: { now?: () => Date } = {}) {
     setCancelFailed(false);
     try {
       await apiFetch(`/gyms/${gymId}/me/bookings/${cancelling.id}`, { method: 'DELETE' });
+      setAnnouncement(
+        t('classes.member.cancelledAnnounce', {
+          name: typeName(cancelling.session.type, i18n.language),
+          day: day(cancelling.session.date),
+          time: cancelling.session.startsAt,
+        }),
+      );
       setCancelling(null);
       load();
     } catch {
@@ -60,13 +76,22 @@ export function MyBookingsPage(_props: { now?: () => Date } = {}) {
   return (
     <section aria-labelledby="my-bookings-title" className="flex flex-col gap-5">
       <div className="flex flex-wrap items-center gap-3">
-        <h2 id="my-bookings-title" className="mr-auto text-xl font-semibold text-slate-900">
+        <h2
+          id="my-bookings-title"
+          ref={titleRef}
+          tabIndex={-1}
+          className="mr-auto text-xl font-semibold text-slate-900 focus:outline-none"
+        >
           {t('classes.member.myTitle')}
         </h2>
         <Link to={`/g/${gymId}/classes`} className={`${plainClass} content-center`}>
           {t('classes.member.title')}
         </Link>
       </div>
+
+      <p role="status" className="sr-only">
+        {announcement}
+      </p>
 
       {failed && (
         <div role="alert" className="flex items-center gap-3 text-red-700">

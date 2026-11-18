@@ -20,6 +20,8 @@ function Timetable({ now = () => new Date() }: { now?: () => Date }) {
   const [sessions, setSessions] = useState<ClassSessionView[] | null>(null);
   const [canBook, setCanBook] = useState(true);
   const [failed, setFailed] = useState(false);
+  const [announcement, setAnnouncement] = useState('');
+  const [focusCard, setFocusCard] = useState<string | null>(null);
 
   const load = useCallback(() => {
     setFailed(false);
@@ -53,6 +55,16 @@ function Timetable({ now = () => new Date() }: { now?: () => Date }) {
     }).format(new Date(`${iso}T00:00:00Z`));
 
   const ofDay = (sessions ?? []).filter((s) => s.date === day);
+  const hasClasses = (d: string) => (sessions ?? []).some((s) => s.date === d);
+  const nextWithClasses = days.find((d) => d > day && hasClasses(d));
+
+  // After a booking changes the list reloads: focus goes back to that class card, not to <body>.
+  useEffect(() => {
+    if (focusCard && sessions) {
+      document.getElementById(`card-${focusCard}`)?.focus();
+      setFocusCard(null);
+    }
+  }, [focusCard, sessions]);
 
   return (
     <section aria-labelledby="classes-title" className="flex flex-col gap-4">
@@ -71,6 +83,7 @@ function Timetable({ now = () => new Date() }: { now?: () => Date }) {
             key={d}
             type="button"
             aria-pressed={d === day}
+            data-has-classes={hasClasses(d) || undefined}
             onClick={() => setDay(d)}
             className={`min-h-11 shrink-0 rounded-md border px-3 text-sm font-medium focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-900 ${
               d === day
@@ -79,10 +92,23 @@ function Timetable({ now = () => new Date() }: { now?: () => Date }) {
             }`}
           >
             {label(d)}
+            {hasClasses(d) && (
+              <span aria-hidden="true" className="ml-1">
+                •
+              </span>
+            )}
+            {hasClasses(d) && <span className="sr-only"> ({t('classes.member.hasClasses')})</span>}
             {d === today && <span className="sr-only"> ({t('schedule.today')})</span>}
           </button>
         ))}
       </div>
+
+      <h3 className="font-semibold text-slate-900" aria-live="polite">
+        {label(day, true)}
+      </h3>
+      <p role="status" className="sr-only">
+        {announcement}
+      </p>
 
       {!canBook && (
         <p className="rounded-md border border-slate-300 bg-slate-50 p-3 text-sm text-slate-800">
@@ -104,7 +130,14 @@ function Timetable({ now = () => new Date() }: { now?: () => Date }) {
         </p>
       )}
       {sessions && ofDay.length === 0 && (
-        <p className="text-slate-700">{t('classes.member.emptyDay')}</p>
+        <div className="flex flex-col items-start gap-2">
+          <p className="text-slate-700">{t('classes.member.emptyDay')}</p>
+          {nextWithClasses && (
+            <button type="button" onClick={() => setDay(nextWithClasses)} className={plainClass}>
+              {t('classes.member.nextWithClasses', { day: label(nextWithClasses, true) })}
+            </button>
+          )}
+        </div>
       )}
       {ofDay.length > 0 && (
         <ul className="flex flex-col gap-3">
@@ -113,14 +146,16 @@ function Timetable({ now = () => new Date() }: { now?: () => Date }) {
             return (
               <li
                 key={s.id}
-                className="flex flex-col gap-2 rounded-xl border border-slate-200 bg-white p-4"
+                id={`card-${s.id}`}
+                tabIndex={-1}
+                className="flex flex-col gap-2 rounded-xl border border-slate-200 bg-white p-4 focus:outline-2 focus:outline-slate-900"
               >
                 <div className="flex flex-wrap items-baseline gap-x-3">
                   <h3 className="text-lg font-semibold text-slate-900">
                     {s.startsAt} {typeName(s.type, i18n.language)}
                   </h3>
                   <span className="text-sm text-slate-700">
-                    {s.startsAt}–{s.endsAt}
+                    {t('classes.member.until', { time: s.endsAt })}
                   </span>
                 </div>
                 <p className="text-sm text-slate-700">
@@ -138,7 +173,11 @@ function Timetable({ now = () => new Date() }: { now?: () => Date }) {
                   session={s}
                   canBook={canBook}
                   dayLabel={label(s.date, true)}
-                  onChanged={load}
+                  onChanged={(message) => {
+                    if (message) setAnnouncement(message);
+                    setFocusCard(s.id);
+                    load();
+                  }}
                 />
               </li>
             );

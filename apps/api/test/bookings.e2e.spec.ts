@@ -319,7 +319,14 @@ describe('class bookings: capacity, reservations, cancellation rules', () => {
       .body as ClassSessionView[];
     expect(list.find((x) => x.id === far)!.myBooking).toMatchObject({ usesEntry: true, late: false });
     expect(list.find((x) => x.id === s)!.myBooking).toBeUndefined();
+    // The member's own booking list says the same (a separate code path from the session list).
+    const mineBefore = (await f.req('get', '/me/bookings?upcoming=true', 'lp').expect(200))
+      .body as BookingView[];
+    expect(mineBefore.find((x) => x.session.id === far)).toMatchObject({ usesEntry: true, late: false });
     f.clock.current = local('2027-05-12', '19:00'); // 60 min before the 20:00 class
+    const mineLater = (await f.req('get', '/me/bookings?upcoming=true', 'lp').expect(200))
+      .body as BookingView[];
+    expect(mineLater.find((x) => x.session.id === far)).toMatchObject({ usesEntry: true, late: true });
     const later = (await f.req('get', '/class-sessions?from=2027-05-12&to=2027-05-12', 'lp').expect(200))
       .body as ClassSessionView[];
     expect(later.find((x) => x.id === far)!.myBooking).toMatchObject({ usesEntry: true, late: true });
