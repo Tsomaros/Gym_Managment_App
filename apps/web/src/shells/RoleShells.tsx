@@ -11,6 +11,7 @@ import { ExercisesPage } from '../features/exercises/ExercisesPage';
 import { MembersSection } from '../features/members/MembersSection';
 import { MyMembershipPage } from '../features/my-membership/MyMembershipPage';
 import { MyPlanPage } from '../features/my-plan/MyPlanPage';
+import { PrivacyPage } from '../features/health/PrivacyPage';
 import { ProgressPage } from '../features/progress/ProgressPage';
 import { FreeWorkoutPage } from '../features/workout/WorkoutPage';
 import { WorkoutHistoryPage } from '../features/workout/WorkoutHistoryPage';
@@ -146,6 +147,7 @@ export function MemberShell(props: GymShellProps) {
         'freeWorkout',
         'workoutHistory',
         'progress',
+        'privacy',
       ]}
       home={<MemberCheckInPage />}
       pages={{
@@ -154,6 +156,7 @@ export function MemberShell(props: GymShellProps) {
         freeWorkout: <FreeWorkoutPage />,
         workoutHistory: <WorkoutHistoryPage />,
         progress: <ProgressPage />,
+        privacy: <PrivacyPage />,
       }}
       banner={me && !me.emailVerified ? <EmailNotVerifiedBanner email={me.email} /> : undefined}
       {...props}

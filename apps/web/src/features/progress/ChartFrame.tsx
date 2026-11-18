@@ -10,6 +10,7 @@ export function ChartFrame({
   title,
   summary,
   empty,
+  loading,
   legend,
   table,
   children,
@@ -18,6 +19,8 @@ export function ChartFrame({
   /** The chart in a sentence; null when there is no data. */
   summary: string | null;
   empty: boolean;
+  /** An answer for what is on screen is still on its way: show a placeholder, not "nothing". */
+  loading?: boolean;
   legend?: ReactNode;
   table: { head: string[]; rows: string[][] };
   children: ReactNode;
@@ -32,18 +35,26 @@ export function ChartFrame({
       <h3 id={`${id}-title`} className="text-lg font-semibold text-slate-900">
         {title}
       </h3>
-      {empty ? (
+      {loading ? (
+        <div
+          role="status"
+          className="flex h-56 items-center justify-center rounded-lg bg-slate-100 text-slate-700"
+        >
+          {t('app.loading')}
+        </div>
+      ) : empty ? (
         <p className="py-6 text-center text-slate-700">{t('progress.empty')}</p>
       ) : (
         <>
           {summary && <p className="text-slate-800">{summary}</p>}
           {legend}
-          <div role="img" aria-label={summary ?? title} className="h-56 w-full">
+          <div role="img" aria-label={title} className="h-56 w-full">
             {children}
           </div>
           <details>
             <summary className="flex min-h-11 cursor-pointer items-center text-sm font-medium text-slate-800 underline">
               {t('progress.showTable')}
+              <span className="sr-only"> – {title}</span>
             </summary>
             <div className="overflow-x-auto">
               <table className="w-full text-left text-sm">
@@ -60,11 +71,17 @@ export function ChartFrame({
                 <tbody>
                   {table.rows.map((row, i) => (
                     <tr key={i} className="border-t border-slate-200">
-                      {row.map((cell, j) => (
-                        <td key={j} className="py-1 pr-3 tabular-nums text-slate-800">
-                          {cell}
-                        </td>
-                      ))}
+                      {row.map((cell, j) =>
+                        j === 0 ? (
+                          <th key={j} scope="row" className="py-1 pr-3 font-medium text-slate-900">
+                            {cell}
+                          </th>
+                        ) : (
+                          <td key={j} className="py-1 pr-3 tabular-nums text-slate-800">
+                            {cell}
+                          </td>
+                        ),
+                      )}
                     </tr>
                   ))}
                 </tbody>
@@ -89,7 +106,7 @@ export function LegendItem({
 }) {
   return (
     <span className="inline-flex items-center gap-2 text-sm text-slate-800">
-      <svg width="24" height="8" aria-hidden>
+      <svg width="24" height="8" aria-hidden className="shrink-0">
         <line
           x1="0"
           y1="4"

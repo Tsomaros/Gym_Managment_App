@@ -60,7 +60,9 @@
     "exercises": "Exercises",
     "freeWorkout": "Free workout",
     "workoutHistory": "Workout history",
-    "progress": "Progress"
+    "progress": "Progress",
+    "privacy": "Privacy",
+    "body": "Body"
   },
   "shell": {
     "owner": "Owner area",
@@ -708,7 +710,8 @@
     "sections": "Client sections",
     "tab": {
       "plans": "Plans",
-      "progress": "Progress"
+      "progress": "Progress",
+      "health": "Body"
     }
   },
   "workout": {
@@ -783,20 +786,94 @@
     "rangeWeeks_other": "the last {{count}} weeks",
     "exerciseTitle": "{{name}}",
     "summaryExercise": "From {{from}} to {{to}} kg over {{range}}",
-    "summaryVolume": "{{total}} kg in total over {{active}} training weeks in {{range}}",
-    "summaryAttendance": "{{total}} visits, {{average}} a week on average over {{range}}",
     "summaryMeasure": "From {{from}} to {{to}}",
-    "topSet": "Top set",
-    "e1rm": "Estimated 1RM",
+    "topSet": "Top set (kg)",
+    "e1rm": "Estimated 1RM (kg)",
     "reps": "Reps",
     "date": "Date",
     "week": "Week",
     "weekOf": "Week of {{date}}",
     "volume": "Volume",
-    "volumeTitle": "Weekly volume",
+    "volumeTitle": "Weekly volume (kg)",
     "attendanceTitle": "Visits per week",
     "days": "Days",
     "weight": "Body weight",
-    "bodyFat": "Body fat"
+    "bodyFat": "Body fat",
+    "summaryExerciseOne": "{{kg}} kg × {{reps}}, your only session so far",
+    "summaryVolume_one": "{{total}} kg in total over {{count}} training week in {{range}}",
+    "summaryVolume_other": "{{total}} kg in total over {{count}} training weeks in {{range}}",
+    "summaryAttendance_one": "{{count}} visit over {{range}}",
+    "summaryAttendance_other": "{{count}} visits, {{average}} a week on average over {{range}}"
+  },
+  "health": {
+    "privacyTitle": "Privacy settings",
+    "privacyIntro": "Body measurements and progress photos are personal health data. They are only stored if you agree, and you can withdraw your consent whenever you like.",
+    "sectionBody": "Body",
+    "consent": {
+      "who": "You and your trainer can see them. The owner and reception cannot.",
+      "withdrawInfo": "You can withdraw your consent at any time; all the related data is then deleted.",
+      "agree": "I agree",
+      "withdraw": "Withdraw",
+      "given": "You gave your consent on {{date}}.",
+      "measurements": {
+        "title": "Body measurements",
+        "what": "Your trainer records weight, body fat and circumferences so you can follow your progress in charts."
+      },
+      "photos": {
+        "title": "Progress photos",
+        "what": "You and your trainer can upload progress photos. They are stored privately and open only through a link that expires in 5 minutes."
+      }
+    },
+    "withdraw": {
+      "title": {
+        "measurements": "Withdraw for measurements?",
+        "photos": "Withdraw for photos?"
+      },
+      "message": {
+        "measurements_one": "{{count}} measurement will be deleted permanently.",
+        "measurements_other": "{{count}} measurements will be deleted permanently.",
+        "photos_one": "{{count}} photo will be deleted permanently.",
+        "photos_other": "{{count}} photos will be deleted permanently."
+      },
+      "warning": "This cannot be undone."
+    },
+    "measure": {
+      "formTitle": "New measurement",
+      "listTitle": "Measurements",
+      "none": "No measurements yet.",
+      "day": "Day",
+      "weight": "Weight (kg)",
+      "bodyFat": "Body fat (%)",
+      "waist": "Waist (cm)",
+      "hips": "Hips (cm)",
+      "chest": "Chest (cm)",
+      "arm": "Arm (cm)",
+      "thigh": "Thigh (cm)",
+      "notes": "Note",
+      "more": "More",
+      "save": "Save measurement",
+      "saved": "Measurement saved.",
+      "range": "Enter a number from {{min}} to {{max}}.",
+      "atLeastOne": "Enter at least one value.",
+      "noConsent": "No consent has been given.",
+      "delete": "Delete",
+      "deleteNamed": "Delete measurement of {{date}}",
+      "deleteTitle": "Delete measurement?",
+      "deleteMessage": "The measurement of {{date}} will be deleted permanently."
+    },
+    "photos": {
+      "title": "Progress photos",
+      "none": "No photos yet.",
+      "add": "Add photo",
+      "open": "Open photo of {{date}}",
+      "viewTitle": "Photo of {{date}}",
+      "delete": "Delete",
+      "deleteNamed": "Delete photo of {{date}}",
+      "deleteTitle": "Delete photo?",
+      "deleteMessage": "The photo of {{date}} will be deleted permanently.",
+      "noConsent": "No consent has been given for photos.",
+      "tooMany": "You have reached the limit of {{max}} photos. Delete some first.",
+      "uploadFailed": "The photo did not upload. Try again."
+    }
   }
 }

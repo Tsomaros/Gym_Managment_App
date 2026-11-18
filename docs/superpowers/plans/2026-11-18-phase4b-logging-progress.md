@@ -244,11 +244,11 @@
 - Each chart has: a text summary for screen readers ("Από 60 σε 70 κιλά τους τελευταίους 3 μήνες"), axes formatted for el/en, an empty state ("Δεν υπάρχουν ακόμη καταγραφές"), and works in dark mode.
 - Follow the `dataviz` skill for colours and mark specs.
 
-- [ ] **Step 1: Write the failing tests:** an empty data set shows the empty state; the exercise selector change refetches with the new id; the summary text names the first and last values; the range switch sends `weeks=52`; the measurements chart is hidden without consent.
-- [ ] **Step 2: Run** `pnpm --filter web test progress` → FAIL.
-- [ ] **Step 3: Implement.** Run ui-ux-reviewer (contrast in both themes, readable at 375 px).
-- [ ] **Step 4: Run** → PASS.
-- [ ] **Step 5: Commit** `feat(web): progress charts for members and trainers`.
+- [x] **Step 1: Write the failing tests:** an empty data set shows the empty state; the exercise selector change refetches with the new id; the summary text names the first and last values; the range switch sends `weeks=52`; the measurements chart is hidden without consent.
+- [x] **Step 2: Run** `pnpm --filter web test progress` → FAIL.
+- [x] **Step 3: Implement.** Run ui-ux-reviewer (contrast in both themes, readable at 375 px).
+- [x] **Step 4: Run** → PASS.
+- [x] **Step 5: Commit** `feat(web): progress charts for members and trainers`.
 
 ---
 
@@ -265,15 +265,15 @@
 - `MeasurementForm` (primary trainer only): date (default today), weight, body fat, and optional circumferences under "Περισσότερα". Disabled with a "Δεν έχει δοθεί συγκατάθεση" note without consent.
 - `ProgressPhotos`: a grid of thumbnails with the date, tap for full size, delete with confirm, and "Προσθήκη φωτογραφίας" (`accept="image/*"`, `capture="environment"` optional).
 
-- [ ] **Step 1: Write the failing tests:**
+- [x] **Step X: Write the failing tests:**
   - Without consent, the trainer's form is disabled with the note.
   - The withdraw dialog shows the count and calls `DELETE` only after confirmation.
   - Photo upload resizes a 3000×2000 image to 1200×800 (canvas mocked).
   - A cover trainer sees measurements but no form or upload.
   - E2E: a member grants measurement consent → the trainer records a measurement → the member sees it in the chart → the member withdraws → the trainer's tab shows none and the form is disabled. *(Review Focus 2)*
-- [ ] **Step 2: Run** `pnpm --filter web test health && pnpm e2e` → FAIL.
-- [ ] **Step 3: Implement.** Run ui-ux-reviewer.
-- [ ] **Step 4: Run** `pnpm lint && pnpm typecheck && pnpm -r test && pnpm e2e` → PASS.
+- [x] **Step X: Run** `pnpm --filter web test health && pnpm e2e` → FAIL.
+- [x] **Step X: Implement.** Run ui-ux-reviewer.
+- [x] **Step X: Run** `pnpm lint && pnpm typecheck && pnpm -r test && pnpm e2e` → PASS.
 - [ ] **Step 5: Manual check** on the iPhone through the tunnel:
   - Log a workout with mobile data switched off mid-session, then switch it back on; the sets arrive.
   - Type a weight with a Greek comma (`22,5`) in both the plan editor and the logger (carries the phase 4a ruling).

@@ -9,32 +9,46 @@ import type {
 import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useParams } from 'react-router';
-import { apiFetch } from '../../api/client';
+import { ApiError, apiFetch } from '../../api/client';
 import { exerciseName, viewerLanguage } from '../exercises/exerciseName';
+import { ConsentCard } from '../health/ConsentCard';
+import { MeasurementsList } from '../health/MeasurementsList';
+import { ProgressPhotos } from '../health/ProgressPhotos';
 import { AttendanceChart, ExerciseChart, MeasurementsChart, VolumeChart } from './charts';
 import { DEFAULT_WEEKS, RANGES } from './chartTheme';
 
-interface Data {
-  options: ProgressExerciseOption[];
-  volume: VolumePoint[];
-  attendance: AttendancePoint[];
-}
+/** Only "not found" means "none"; any other failure is a failure to show, never an empty chart. */
+const orNull = <T,>(promise: Promise<T>): Promise<T | null> =>
+  promise.catch((err: unknown) => {
+    if (err instanceof ApiError && err.status === 404) return null;
+    throw err;
+  });
 
 /**
  * Progress charts: for the signed-in member (no `memberId`, the /me routes) or, for a trainer,
- * one of their clients. Exercise, weekly volume, attendance and, only with the member's
- * consent and data, body measurements. The same page serves both, so they see the same charts.
+ * one of their clients (remount with `key` when the client changes). Exercise, weekly volume,
+ * attendance and, only with the member's consent and data, body measurements. A member also
+ * finds here the consent for body data, their measurements and their progress photos.
+ * Every answer remembers the range it was fetched for: a chart never carries the label of a
+ * range it does not show.
  */
 export function ProgressPage({ memberId }: { memberId?: string }) {
   const { t, i18n } = useTranslation();
   const lang = viewerLanguage(i18n.language);
   const { gymId = '' } = useParams();
   const base = `/gyms/${gymId}/${memberId ? `members/${memberId}` : 'me'}`;
+  const own = !memberId;
   const [weeks, setWeeks] = useState<number>(DEFAULT_WEEKS);
   const [options, setOptions] = useState<ProgressExerciseOption[] | null>(null);
   const [exerciseId, setExerciseId] = useState<string | null>(null);
-  const [data, setData] = useState<Omit<Data, 'options'> | null>(null);
-  const [exercise, setExercise] = useState<ExerciseProgress | null>(null);
+  const [data, setData] = useState<{
+    weeks: number;
+    volume: VolumePoint[];
+    attendance: AttendancePoint[];
+  } | null>(null);
+  const [exercise, setExercise] = useState<{ weeks: number; progress: ExerciseProgress } | null>(
+    null,
+  );
   const [consents, setConsents] = useState<ConsentState | null>(null);
   const [measurements, setMeasurements] = useState<Measurement[]>([]);
   const [failed, setFailed] = useState(false);
@@ -47,15 +61,18 @@ export function ProgressPage({ memberId }: { memberId?: string }) {
     (async () => {
       const [opts, consent] = await Promise.all([
         apiFetch<ProgressExerciseOption[]>(`${base}/progress/exercises`),
-        apiFetch<ConsentState>(`${base}/consents`).catch(() => null),
+        orNull(apiFetch<ConsentState>(`${base}/consents`)),
       ]);
       const list =
         consent?.measurements.granted === true
-          ? await apiFetch<Measurement[]>(`${base}/measurements`).catch(() => [])
+          ? ((await orNull(apiFetch<Measurement[]>(`${base}/measurements`))) ?? [])
           : [];
       if (!current) return;
       setOptions(opts);
-      setExerciseId((cur) => cur ?? opts[0]?.exerciseId ?? null);
+      // keep the choice while it still exists, else the first exercise
+      setExerciseId((cur) =>
+        cur && opts.some((o) => o.exerciseId === cur) ? cur : (opts[0]?.exerciseId ?? null),
+      );
       setConsents(consent);
       setMeasurements(list);
     })().catch(() => current && setFailed(true));
@@ -67,11 +84,12 @@ export function ProgressPage({ memberId }: { memberId?: string }) {
   // What follows the range.
   useEffect(() => {
     let current = true;
+    setFailed(false);
     Promise.all([
       apiFetch<VolumePoint[]>(`${base}/progress/volume?weeks=${weeks}`),
       apiFetch<AttendancePoint[]>(`${base}/progress/attendance?weeks=${weeks}`),
     ])
-      .then(([volume, attendance]) => current && setData({ volume, attendance }))
+      .then(([volume, attendance]) => current && setData({ weeks, volume, attendance }))
       .catch(() => current && setFailed(true));
     return () => {
       current = false;
@@ -84,8 +102,9 @@ export function ProgressPage({ memberId }: { memberId?: string }) {
       return;
     }
     let current = true;
+    setFailed(false);
     apiFetch<ExerciseProgress>(`${base}/progress/exercises/${exerciseId}?weeks=${weeks}`)
-      .then((e) => current && setExercise(e))
+      .then((progress) => current && setExercise({ weeks, progress }))
       .catch(() => current && setFailed(true));
     return () => {
       current = false;
@@ -94,9 +113,12 @@ export function ProgressPage({ memberId }: { memberId?: string }) {
 
   const retry = useCallback(() => setAttempt((n) => n + 1), []);
   const chosen = options?.find((o) => o.exerciseId === exerciseId);
-  // The chart answers the exercise on screen: never show one exercise's points under another's name.
-  const exerciseReady = exercise !== null && exercise.exerciseId === exerciseId;
-  const cutoff = new Date(Date.now() - weeks * 7 * 86_400_000).toISOString().slice(0, 10);
+  // The chart answers the exercise and the range on screen: nothing else is ever shown under them.
+  const exerciseReady =
+    exercise !== null && exercise.progress.exerciseId === exerciseId && exercise.weeks === weeks;
+  const dataReady = data !== null && data.weeks === weeks;
+  // The measurements chart starts where the other charts do: at the first week they show.
+  const cutoff = data?.volume[0]?.weekStart ?? '';
   const shownMeasurements = measurements.filter((m) => m.measuredOn >= cutoff);
 
   return (
@@ -155,17 +177,62 @@ export function ProgressPage({ memberId }: { memberId?: string }) {
           </select>
         </div>
       )}
-      {options && (
+      {options && options.length > 0 && chosen && (
         <ExerciseChart
-          points={exerciseReady ? exercise.points : []}
+          points={exerciseReady ? exercise.progress.points : []}
+          loading={!exerciseReady && !failed}
           weeks={weeks}
-          name={chosen ? exerciseName(chosen, lang) : ''}
+          name={exerciseName(chosen, lang)}
         />
       )}
-      {data && <VolumeChart points={data.volume} weeks={weeks} />}
-      {data && <AttendanceChart points={data.attendance} weeks={weeks} />}
+      {options && (
+        <VolumeChart
+          points={dataReady ? data.volume : []}
+          loading={!dataReady && !failed}
+          weeks={weeks}
+        />
+      )}
+      {options && (
+        <AttendanceChart
+          points={dataReady ? data.attendance : []}
+          loading={!dataReady && !failed}
+          weeks={weeks}
+        />
+      )}
       {consents?.measurements.granted && shownMeasurements.length > 0 && (
         <MeasurementsChart measurements={shownMeasurements} />
+      )}
+
+      {own && consents && (
+        <>
+          {consents.measurements.granted ? (
+            <MeasurementsList
+              gymId={gymId}
+              measurements={measurements}
+              canDelete={false}
+              onChanged={retry}
+            />
+          ) : (
+            <ConsentCard
+              gymId={gymId}
+              kind="measurements"
+              state={consents.measurements}
+              itemCount={0}
+              onChanged={retry}
+            />
+          )}
+          {consents.photos.granted ? (
+            <ProgressPhotos gymId={gymId} canWrite consentGranted />
+          ) : (
+            <ConsentCard
+              gymId={gymId}
+              kind="photos"
+              state={consents.photos}
+              itemCount={0}
+              onChanged={retry}
+            />
+          )}
+        </>
       )}
     </section>
   );

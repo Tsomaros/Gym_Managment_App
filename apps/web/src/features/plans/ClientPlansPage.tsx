@@ -6,6 +6,7 @@ import { ApiError, apiFetch } from '../../api/client';
 import { ConfirmDialog } from '../../components/ConfirmDialog';
 import { NewPlanDialog } from './NewPlanDialog';
 import { PlanEditor } from './PlanEditor';
+import { HealthTab } from '../health/HealthTab';
 import { ProgressPage } from '../progress/ProgressPage';
 import { PlanView } from './PlanView';
 
@@ -31,7 +32,7 @@ export function ClientPlansPage() {
   const [archiveError, setArchiveError] = useState<string | null>(null);
   const [notice, setNotice] = useState('');
   const [busy, setBusy] = useState(false);
-  const [tab, setTab] = useState<'plans' | 'progress'>('plans');
+  const [tab, setTab] = useState<'plans' | 'progress' | 'health'>('plans');
   const [actionError, setActionError] = useState<string | null>(null);
   // Which request is the newest: an older answer arriving late is dropped.
   const latest = useRef(0);
@@ -178,13 +179,12 @@ export function ClientPlansPage() {
           {t('plans.coverBanner')}
         </p>
       )}
-      <div role="tablist" aria-label={t('plans.sections')} className="flex gap-2">
-        {(['plans', 'progress'] as const).map((key) => (
+      <div role="group" aria-label={t('plans.sections')} className="flex flex-wrap gap-2">
+        {(['plans', 'progress', 'health'] as const).map((key) => (
           <button
             key={key}
             type="button"
-            role="tab"
-            aria-selected={tab === key}
+            aria-pressed={tab === key}
             onClick={() => setTab(key)}
             className={`min-h-11 rounded-full border px-4 text-base font-medium focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-900 ${
               tab === key
@@ -196,7 +196,12 @@ export function ClientPlansPage() {
           </button>
         ))}
       </div>
-      {tab === 'progress' && !noAccess && <ProgressPage memberId={memberId} />}
+      {tab === 'progress' && !noAccess && (
+        <ProgressPage key={`${gymId}/${memberId}`} memberId={memberId} />
+      )}
+      {tab === 'health' && !noAccess && (
+        <HealthTab gymId={gymId} memberId={memberId} canWrite={canWrite} />
+      )}
       {tab === 'plans' && (
         <>
           {noAccess && <p className="text-slate-800">{t('plans.noAccess')}</p>}

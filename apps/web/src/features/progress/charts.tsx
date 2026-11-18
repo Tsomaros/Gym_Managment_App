@@ -35,10 +35,12 @@ export function ExerciseChart({
   points,
   weeks,
   name,
+  loading,
 }: {
   points: ExerciseProgressPoint[];
   weeks: number;
   name: string;
+  loading?: boolean;
 }) {
   const { t, i18n } = useTranslation();
   const lang = viewerLanguage(i18n.language);
@@ -46,21 +48,24 @@ export function ExerciseChart({
   const first = points[0];
   const last = points.at(-1);
   const summary =
-    first && last
-      ? t('progress.summaryExercise', {
-          name,
-          from: num(first.topSetKg, lang),
-          to: num(last.topSetKg, lang),
-          range,
-        })
-      : null;
+    first && last && points.length === 1
+      ? t('progress.summaryExerciseOne', { kg: num(first.topSetKg, lang), reps: first.topSetReps })
+      : first && last
+        ? t('progress.summaryExercise', {
+            name,
+            from: num(first.topSetKg, lang),
+            to: num(last.topSetKg, lang),
+            range,
+          })
+        : null;
   return (
     <ChartFrame
       title={t('progress.exerciseTitle', { name })}
       summary={summary}
       empty={points.length === 0}
+      loading={loading}
       legend={
-        <div className="flex flex-wrap gap-x-4">
+        <div className="flex flex-wrap gap-x-4 gap-y-1">
           <LegendItem color={CHART.series1} label={t('progress.topSet')} />
           <LegendItem color={CHART.series2} label={t('progress.e1rm')} dashed />
         </div>
@@ -78,8 +83,18 @@ export function ExerciseChart({
       <ResponsiveContainer width="100%" height="100%">
         <LineChart data={points} margin={MARGIN}>
           <CartesianGrid stroke={CHART.grid} vertical={false} />
-          <XAxis dataKey="date" tickFormatter={(d: string) => shortDate(d, lang)} {...axisProps} />
-          <YAxis width={44} domain={['auto', 'auto']} {...axisProps} />
+          <XAxis
+            dataKey="date"
+            tickFormatter={(d: string) => shortDate(d, lang)}
+            minTickGap={24}
+            {...axisProps}
+          />
+          <YAxis
+            width={44}
+            domain={['auto', 'auto']}
+            tickFormatter={(v: number) => num(v, lang)}
+            {...axisProps}
+          />
           <Tooltip
             formatter={(v, key) => [
               `${num(Number(v), lang)} kg`,
@@ -112,7 +127,15 @@ export function ExerciseChart({
 }
 
 /** Kilos lifted per week (weight × reps of the done sets). */
-export function VolumeChart({ points, weeks }: { points: VolumePoint[]; weeks: number }) {
+export function VolumeChart({
+  points,
+  weeks,
+  loading,
+}: {
+  points: VolumePoint[];
+  weeks: number;
+  loading?: boolean;
+}) {
   const { t, i18n } = useTranslation();
   const lang = viewerLanguage(i18n.language);
   const range = useRangeLabel(weeks);
@@ -123,10 +146,11 @@ export function VolumeChart({ points, weeks }: { points: VolumePoint[]; weeks: n
       title={t('progress.volumeTitle')}
       summary={
         total > 0
-          ? t('progress.summaryVolume', { total: num(total, lang, 0), active, range })
+          ? t('progress.summaryVolume', { total: num(total, lang, 0), count: active, range })
           : null
       }
       empty={total === 0}
+      loading={loading}
       table={{
         head: [t('progress.week'), t('progress.volume')],
         rows: points.map((p) => [shortDate(p.weekStart, lang), `${num(p.volumeKg, lang, 0)} kg`]),
@@ -141,7 +165,7 @@ export function VolumeChart({ points, weeks }: { points: VolumePoint[]; weeks: n
             minTickGap={24}
             {...axisProps}
           />
-          <YAxis width={52} {...axisProps} />
+          <YAxis width={56} tickFormatter={(v: number) => num(v, lang, 0)} {...axisProps} />
           <Tooltip
             formatter={(v) => [`${num(Number(v), lang, 0)} kg`, t('progress.volume')]}
             labelFormatter={(d) => t('progress.weekOf', { date: shortDate(String(d), lang) })}
@@ -159,7 +183,15 @@ export function VolumeChart({ points, weeks }: { points: VolumePoint[]; weeks: n
 }
 
 /** Gym days per week. */
-export function AttendanceChart({ points, weeks }: { points: AttendancePoint[]; weeks: number }) {
+export function AttendanceChart({
+  points,
+  weeks,
+  loading,
+}: {
+  points: AttendancePoint[];
+  weeks: number;
+  loading?: boolean;
+}) {
   const { t, i18n } = useTranslation();
   const lang = viewerLanguage(i18n.language);
   const range = useRangeLabel(weeks);
@@ -170,13 +202,14 @@ export function AttendanceChart({ points, weeks }: { points: AttendancePoint[]; 
       summary={
         total > 0
           ? t('progress.summaryAttendance', {
-              total,
+              count: total,
               average: num(total / Math.max(1, points.length), lang),
               range,
             })
           : null
       }
       empty={total === 0}
+      loading={loading}
       table={{
         head: [t('progress.week'), t('progress.days')],
         rows: points.map((p) => [shortDate(p.weekStart, lang), String(p.days)]),
@@ -195,7 +228,7 @@ export function AttendanceChart({ points, weeks }: { points: AttendancePoint[]; 
             width={28}
             allowDecimals={false}
             domain={[0, 7]}
-            ticks={[0, 2, 4, 6]}
+            ticks={[0, 1, 2, 3, 4, 5, 6, 7]}
             {...axisProps}
           />
           <Tooltip
@@ -251,7 +284,12 @@ function MeasureLine({
       <ResponsiveContainer width="100%" height="100%">
         <LineChart data={data} margin={MARGIN}>
           <CartesianGrid stroke={CHART.grid} vertical={false} />
-          <XAxis dataKey="date" tickFormatter={(d: string) => shortDate(d, lang)} {...axisProps} />
+          <XAxis
+            dataKey="date"
+            tickFormatter={(d: string) => shortDate(d, lang)}
+            minTickGap={24}
+            {...axisProps}
+          />
           <YAxis width={44} domain={['auto', 'auto']} {...axisProps} />
           <Tooltip
             formatter={(v) => [`${num(Number(v), lang)} ${unit}`, title]}
@@ -299,7 +337,7 @@ export function MeasurementsChart({ measurements }: { measurements: Measurement[
           dataKey="value"
           title={t('progress.bodyFat')}
           unit="%"
-          color={CHART.series2}
+          color={CHART.series1}
         />
       )}
     </div>

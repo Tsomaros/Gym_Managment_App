@@ -67,12 +67,9 @@ describe('charts', () => {
           name="Πιέσεις στήθους"
         />,
       );
-      expect(screen.getByText('Από 60 σε 70 κιλά τους τελευταίους 3 μήνες')).toBeInTheDocument();
-      // the picture carries the same sentence for a screen reader
-      expect(screen.getByRole('img')).toHaveAttribute(
-        'aria-label',
-        'Από 60 σε 70 κιλά τους τελευταίους 3 μήνες',
-      );
+      expect(screen.getByText('Από 60 σε 70 kg τους τελευταίους 3 μήνες')).toBeInTheDocument();
+      // the picture is named by its title; the sentence above it is read once, not twice
+      expect(screen.getByRole('img', { name: 'Πιέσεις στήθους' })).toBeInTheDocument();
     });
 
     it('speaks English with a dot decimal, and "weeks" for a range that is not a whole month choice', async () => {
@@ -92,9 +89,13 @@ describe('charts', () => {
       const lines = screen.getAllByTestId('line');
       expect(lines.map((l) => l.getAttribute('data-key'))).toEqual(['topSetKg', 'e1rmKg']);
       expect(new Set(lines.map((l) => l.getAttribute('data-color'))).size).toBe(2);
+      // the chart is fed the points as given, not a reshaped copy
+      expect(JSON.parse(screen.getByTestId('line-chart').dataset.points!)).toEqual([
+        { date: '2027-03-01', topSetKg: 60, topSetReps: 5, e1rmKg: 70 },
+      ]);
       // once in the legend, once as a table header
-      expect(screen.getAllByText('Καλύτερο σετ')).toHaveLength(2);
-      expect(screen.getAllByText('Εκτιμώμενο μέγιστο (1RM)')).toHaveLength(2);
+      expect(screen.getAllByText('Καλύτερο σετ (kg)')).toHaveLength(2);
+      expect(screen.getAllByText('Εκτιμώμενο μέγιστο 1RM (kg)')).toHaveLength(2);
     });
 
     it('offers the same numbers as a table, with a dash where there is no e1RM', async () => {
@@ -105,7 +106,39 @@ describe('charts', () => {
       const cells = within(table)
         .getAllByRole('cell')
         .map((c) => c.textContent);
-      expect(cells).toEqual(['10 Μαΐ', '70 kg', '5', '–']);
+      expect(cells).toEqual(['70 kg', '5', '–']);
+      // the day heads its row, so a screen reader reads "10 May, 70 kg, 5, –"
+      expect(within(table).getByRole('rowheader', { name: '10 Μαΐ' })).toBeInTheDocument();
+    });
+  });
+
+  describe('wording for one', () => {
+    it('a first session is a sentence of its own, not "from 100 to 100"', () => {
+      render(<ExerciseChart points={[pt('2027-05-10', 100)]} weeks={26} name="Squat" />);
+      expect(screen.getByText('100 kg × 5, η μοναδική προπόνηση ως τώρα')).toBeInTheDocument();
+      expect(screen.queryByText(/Από 100 σε 100/)).not.toBeInTheDocument();
+    });
+    it('one visit and one training week use the singular', async () => {
+      render(<AttendanceChart points={[{ weekStart: '2027-05-10', days: 1 }]} weeks={52} />);
+      expect(screen.getByText('1 επίσκεψη τους τελευταίους 12 μήνες')).toBeInTheDocument();
+      render(<VolumeChart points={[{ weekStart: '2027-05-10', volumeKg: 500 }]} weeks={13} />);
+      expect(
+        screen.getByText('Συνολικά 500 kg σε 1 εβδομάδα με προπόνηση τους τελευταίους 3 μήνες'),
+      ).toBeInTheDocument();
+      await i18n.changeLanguage('en');
+      render(<AttendanceChart points={[{ weekStart: '2027-05-10', days: 1 }]} weeks={26} />);
+      expect(screen.getByText('1 visit over the last 6 months')).toBeInTheDocument();
+    });
+  });
+
+  describe('a chart still waiting for its answer', () => {
+    it('shows a placeholder, never "nothing logged yet"', () => {
+      render(<ExerciseChart points={[]} loading weeks={26} name="Squat" />);
+      expect(screen.getByRole('status')).toHaveTextContent('Φόρτωση…');
+      expect(screen.queryByText('Δεν υπάρχουν ακόμη καταγραφές.')).not.toBeInTheDocument();
+      render(<VolumeChart points={[]} loading weeks={26} />);
+      render(<AttendanceChart points={[]} loading weeks={26} />);
+      expect(screen.getAllByRole('status')).toHaveLength(3);
     });
   });
 

@@ -44,10 +44,10 @@ async function decode(file: Blob): Promise<Decoded> {
  * JPEG at quality 0.85, so a 12-megapixel phone photo becomes a small upload. Rejects when the
  * file is not a picture the browser can read.
  */
-export async function resizeImage(file: Blob): Promise<Blob> {
+export async function resizeImage(file: Blob, maxSide: number = PHOTO_MAX_SIDE): Promise<Blob> {
   const source = await decode(file);
   try {
-    const scale = Math.min(1, PHOTO_MAX_SIDE / Math.max(source.width, source.height));
+    const scale = Math.min(1, maxSide / Math.max(source.width, source.height));
     const width = Math.round(source.width * scale);
     const height = Math.round(source.height * scale);
     const canvas = document.createElement('canvas');
