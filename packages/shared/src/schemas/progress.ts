@@ -19,7 +19,7 @@ export interface ExerciseProgressPoint {
   date: string;
   topSetKg: number;
   topSetReps: number;
-  /** Null when the top-rated set has more than 12 reps. */
+  /** Null when no set of the session has 1–12 reps. */
   e1rmKg: number | null;
 }
 

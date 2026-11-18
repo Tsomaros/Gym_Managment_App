@@ -135,7 +135,10 @@ describe('workout sessions and sets: client ids, idempotent replays, access', ()
   });
 
   it('a malformed id in the path is a 400, not a server error', async () => {
-    await fx.req('put', '/me/sessions/not-a-uuid', 'm').send({ startedAt: at('08:00') }).expect(400);
+    await fx
+      .req('put', '/me/sessions/not-a-uuid', 'm')
+      .send({ startedAt: at('08:00') })
+      .expect(400);
     await fx.req('get', '/members/not-a-uuid/sessions', 't').expect(400);
     await fx.req('put', `/me/sessions/${randomUUID()}/sets/x`, 'm').send(setBody()).expect(400);
     await fx.req('delete', `/me/sessions/${randomUUID()}/sets/x`, 'm').expect(400);

@@ -87,12 +87,37 @@ describe('progress API: exercise progress, weekly volume, attendance', () => {
     expect(
       (await fx.req('get', `/me/progress/exercises/${bench()}?weeks=8`, 'm').expect(200)).body,
     ).toEqual(res);
-    // the shorter range drops the older session
-    const short = await get<ExerciseProgress>(`/progress/exercises/${bench()}?weeks=4`);
-    expect(short.points.map((p) => p.date)).toEqual(['2027-05-03', '2027-05-10']); // 4 weeks back from 2027-05-10
+  });
+
+  it('the weeks range cuts at the gym-local Monday, not at UTC', async () => {
+    await clear();
+    // weeks=4 from Wednesday 2027-05-12 starts on Monday 2027-04-19 (Athens).
+    await log('m', '2027-04-18T20:00:00.000Z', [{ exerciseId: bench(), kg: 50, reps: 5 }]); // Sun 23:00 Athens
+    await log('m', '2027-04-18T21:30:00.000Z', [{ exerciseId: bench(), kg: 60, reps: 5 }]); // Mon 00:30 Athens
+    const four = await get<ExerciseProgress>(`/progress/exercises/${bench()}?weeks=4`);
+    expect(four.points.map((p) => p.date)).toEqual(['2027-04-19']);
+    const five = await get<ExerciseProgress>(`/progress/exercises/${bench()}?weeks=5`);
+    expect(five.points.map((p) => p.date)).toEqual(['2027-04-18', '2027-04-19']);
   });
 
   it('lists the exercises with done weight and reps sets, most logged first', async () => {
+    await clear();
+    const pullUps = fx.exIds[2]!; // measure reps
+    const plank = fx.exIds[4]!; // measure duration
+    await log('m', '2027-05-03T07:00:00.000Z', [
+      { exerciseId: bench(), kg: 60, reps: 8 },
+      { exerciseId: bench(), kg: 60, reps: 8 }, // same session: counted once
+      { exerciseId: pullUps, reps: 10 },
+      { exerciseId: plank, seconds: 60 },
+    ]);
+    await log('m', '2027-05-10T07:00:00.000Z', [
+      { exerciseId: bench(), kg: 62.5, reps: 5 },
+      { exerciseId: squat(), kg: 100, reps: 5 },
+      { exerciseId: squat(), kg: 100, reps: 5, done: false },
+    ]);
+    await log('m', '2027-05-11T07:00:00.000Z', [
+      { exerciseId: squat(), kg: 100, reps: 5, done: false },
+    ]);
     const list = await get<ProgressExerciseOption[]>('/progress/exercises');
     expect(list.map((o) => [o.exerciseId, o.sessions])).toEqual([
       [bench(), 2],
@@ -107,6 +132,7 @@ describe('progress API: exercise progress, weekly volume, attendance', () => {
     await log('m', '2027-05-11T07:00:00.000Z', [
       ...[1, 2, 3].map(() => ({ exerciseId: bench(), kg: 50, reps: 10 })),
       ...[1, 2].map(() => ({ exerciseId: squat(), kg: 80, reps: 5 })),
+      { exerciseId: fx.exIds[2]!, reps: 30 }, // pull-ups: a reps set
       { exerciseId: bench(), kg: 200, reps: 10, done: false },
     ]);
     const out = await get<VolumePoint[]>('/progress/volume?weeks=4');
@@ -166,6 +192,27 @@ describe('progress API: exercise progress, weekly volume, attendance', () => {
     expect(out.at(-1)).toEqual({ weekStart: '2027-05-10', days: 2 });
     expect(out.at(-2)).toEqual({ weekStart: '2027-05-03', days: 0 });
     expect(out.at(-3)).toEqual({ weekStart: '2027-04-26', days: 1 });
+  });
+
+  it('attendance weeks and days follow the gym-local day, not UTC', async () => {
+    await clear();
+    await systemDb.insert(checkIns).values(
+      [
+        ['2027-05-09T20:00:00Z', true], // Sunday 23:00 Athens: the week before
+        ['2027-05-09T21:30:00Z', true], // Monday 00:30 Athens: this week
+        ['2027-05-10T20:30:00Z', true], // Monday 23:30 Athens, still Monday: same day as above
+      ].map(([at, valid]) => ({
+        gymId: fx.gymId,
+        memberId: fx.id.m!,
+        at: new Date(at as string),
+        method: 'manual' as const,
+        valid: valid as boolean,
+        reason: null,
+      })),
+    );
+    const out = await get<AttendancePoint[]>('/progress/attendance?weeks=4');
+    expect(out.at(-1)).toEqual({ weekStart: '2027-05-10', days: 1 });
+    expect(out.at(-2)).toEqual({ weekStart: '2027-05-03', days: 1 });
   });
 
   describe('who may reach it, and the range', () => {

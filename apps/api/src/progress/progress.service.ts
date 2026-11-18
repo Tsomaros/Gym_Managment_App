@@ -6,7 +6,7 @@ import type {
   ProgressExerciseOption,
   VolumePoint,
 } from '@gym/shared';
-import { and, eq, gte } from 'drizzle-orm';
+import { and, eq, gte, sql } from 'drizzle-orm';
 import { Clock } from '../common/clock';
 import { checkIns, exercises, gyms, workoutSessions, workoutSets } from '../db/schema';
 import { type Tx, withGym } from '../db/tenant';
@@ -56,9 +56,9 @@ export class ProgressService {
       const rows = await tx
         .select({
           exerciseId: workoutSets.exerciseId,
-          sessionId: workoutSets.sessionId,
           nameEl: exercises.nameEl,
           nameEn: exercises.nameEn,
+          sessions: sql<number>`count(distinct ${workoutSets.sessionId})::int`,
         })
         .from(workoutSets)
         .innerJoin(workoutSessions, eq(workoutSessions.id, workoutSets.sessionId))
@@ -69,25 +69,9 @@ export class ProgressService {
             eq(workoutSets.done, true),
             eq(workoutSets.measure, 'weight_reps'),
           ),
-        );
-      const byExercise = new Map<string, ProgressExerciseOption & { seen: Set<string> }>();
-      for (const r of rows) {
-        const o = byExercise.get(r.exerciseId) ?? {
-          exerciseId: r.exerciseId,
-          nameEl: r.nameEl,
-          nameEn: r.nameEn,
-          sessions: 0,
-          seen: new Set<string>(),
-        };
-        if (!o.seen.has(r.sessionId)) {
-          o.seen.add(r.sessionId);
-          o.sessions += 1;
-        }
-        byExercise.set(r.exerciseId, o);
-      }
-      return [...byExercise.values()]
-        .map(({ seen: _seen, ...o }) => o)
-        .sort((a, b) => b.sessions - a.sessions || a.nameEl.localeCompare(b.nameEl, 'el'));
+        )
+        .groupBy(workoutSets.exerciseId, exercises.nameEl, exercises.nameEn);
+      return rows.sort((a, b) => b.sessions - a.sessions || a.nameEl.localeCompare(b.nameEl, 'el'));
     });
   }
 

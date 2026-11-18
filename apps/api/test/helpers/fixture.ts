@@ -66,7 +66,12 @@ export async function setupHealthFixture(label: string) {
   await seedExercises(systemDb, gymId);
   await seedExercises(systemDb, otherGymId);
 
-  const req = (method: 'get' | 'post' | 'put' | 'patch' | 'delete', path: string, who: string, gym = gymId) =>
+  const req = (
+    method: 'get' | 'post' | 'put' | 'patch' | 'delete',
+    path: string,
+    who: string,
+    gym = gymId,
+  ) =>
     request(app.getHttpServer())[method](`/gyms/${gym}${path}`).auth(tok[who]!, { type: 'bearer' });
 
   async function person(key: string, roles: string[], gym = gymId): Promise<void> {
