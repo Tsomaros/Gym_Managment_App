@@ -1,9 +1,16 @@
-import type { Exercise, LastPerformance, Plan, PlanDay, WorkoutSession } from '@gym/shared';
+import type {
+  Exercise,
+  LastPerformance,
+  Plan,
+  PlanDay,
+  WorkoutSession,
+  WorkoutSet,
+} from '@gym/shared';
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { useTranslation } from 'react-i18next';
 import { apiFetch } from '../../api/client';
 import { viewerLanguage } from '../exercises/exerciseName';
-import { enqueue, flush, type QueuedOp, size, subscribe } from './workoutQueue';
+import { enqueue, flush, pending, type QueuedOp, size, subscribe } from './workoutQueue';
 import {
   applyStored,
   canBeDone,
@@ -12,6 +19,7 @@ import {
   type LogCard,
   type LogSet,
   newRow,
+  normalise,
   setBody,
   summarise,
   type Summary,
@@ -28,9 +36,66 @@ const send = (op: QueuedOp): Promise<void> =>
 export type WorkoutStatus = 'loading' | 'ready' | 'finished' | 'error';
 
 /**
+ * Sets queued for a session this phone started but could not send yet (it went offline, then the
+ * page was reloaded): the same session is picked up again instead of starting a second one.
+ */
+function fromQueue(
+  base: string,
+  dayId: string | undefined,
+): { id: string; startedAt: string; sets: WorkoutSet[] } | null {
+  const ops = pending();
+  let found: { id: string; startedAt: string } | null = null;
+  for (const op of ops) {
+    if (op.method !== 'PUT' || !op.path.startsWith(`${base}/`) || op.path.includes('/sets/'))
+      continue;
+    const body = op.body as { startedAt: string; planDayId?: string; finishedAt?: string };
+    // a finished session is over; one for another day is another workout
+    if (body.finishedAt || (body.planDayId ?? undefined) !== dayId) continue;
+    found = { id: op.path.slice(base.length + 1), startedAt: body.startedAt };
+  }
+  if (!found) return null;
+  const sets = new Map<string, WorkoutSet>();
+  for (const op of ops) {
+    const m = new RegExp(`^${base}/${found.id}/sets/([^/]+)$`).exec(op.path);
+    if (!m) continue;
+    if (op.method === 'DELETE') sets.delete(m[1]!);
+    else if (op.method === 'PUT') {
+      const b = op.body as Omit<
+        WorkoutSet,
+        'id' | 'measure' | 'reps' | 'weightKg' | 'durationSeconds' | 'planExerciseId'
+      > & {
+        reps?: number;
+        weightKg?: number;
+        durationSeconds?: number;
+        planExerciseId?: string | null;
+      };
+      sets.set(m[1]!, {
+        id: m[1]!,
+        exerciseId: b.exerciseId,
+        planExerciseId: b.planExerciseId ?? null,
+        measure:
+          b.weightKg !== undefined
+            ? 'weight_reps'
+            : b.durationSeconds !== undefined
+              ? 'duration'
+              : 'reps',
+        setIndex: b.setIndex,
+        reps: b.reps ?? null,
+        weightKg: b.weightKg ?? null,
+        durationSeconds: b.durationSeconds ?? null,
+        done: b.done,
+        loggedAt: b.loggedAt,
+      });
+    }
+  }
+  return { ...found, sets: [...sets.values()] };
+}
+
+/**
  * A workout in progress, from a plan day or free. Every change goes through the offline queue
- * and shows at once (optimistic); the queue is sent whenever it can be. An open session found on
- * load is resumed, so closing the app mid-workout loses nothing.
+ * and shows at once (optimistic); the queue is sent whenever it can be. A session this phone or
+ * the server still holds open is resumed, so closing the app mid-workout loses nothing. The
+ * session itself is only created with the first set, so opening a day and leaving leaves no trace.
  */
 export function useWorkoutSession({
   gymId,
@@ -54,6 +119,9 @@ export function useWorkoutSession({
 
   const cardsRef = useRef<LogCard[]>([]);
   const sessionId = useRef<string>('');
+  const startedAt = useRef<string>('');
+  /** Whether the session's own PUT is queued or on the server. */
+  const started = useRef(false);
   const base = `/gyms/${gymId}/me/sessions`;
 
   const flushNow = useCallback(
@@ -71,6 +139,18 @@ export function useWorkoutSession({
     },
     [flushNow],
   );
+  const sessionBody = (finishedAt?: string) => ({
+    startedAt: startedAt.current,
+    planId: plan?.id,
+    planDayId: day?.id,
+    finishedAt,
+  });
+  /** Creates the session just before its first write. */
+  const ensureStarted = () => {
+    if (started.current) return;
+    started.current = true;
+    enqueue({ method: 'PUT', path: `${base}/${sessionId.current}`, body: sessionBody() });
+  };
 
   // Start or resume.
   const dayId = day?.id;
@@ -86,45 +166,46 @@ export function useWorkoutSession({
               `/gyms/${gymId}/me/last-performance?exerciseIds=${ids.join(',')}`,
             ).catch(() => [] as LastPerformance[])
           : Promise.resolve([] as LastPerformance[]),
-        // null: unknown (offline) — then a fresh session is started and the server sorts it out
+        // null: unknown (offline) — then only what this phone has queued can be resumed
         apiFetch<WorkoutSession[]>(`${base}?limit=1`).catch(() => null),
       ]);
       if (cancelled) return;
       const last = new Map(lastList.map((l) => [l.exerciseId, l]));
       const newest = sessions?.[0];
+      const queuedSession = fromQueue(base, dayId);
       const open =
-        newest && newest.finishedAt === null && (newest.planDayId ?? null) === (dayId ?? null)
+        !queuedSession &&
+        newest &&
+        newest.finishedAt === null &&
+        (newest.planDayId ?? null) === (dayId ?? null)
           ? newest
           : null;
+      const resumed = queuedSession ?? open;
 
       let initial: LogCard[] = day
         ? day.exercises.map((e) => cardFromPlanExercise(e, last.get(e.exerciseId) ?? null, lang))
         : [];
-      if (open) {
-        sessionId.current = open.id;
-        if (!day && open.sets.length) {
+      if (resumed) {
+        sessionId.current = resumed.id;
+        startedAt.current = 'startedAt' in resumed ? resumed.startedAt : '';
+        started.current = true; // its PUT is on the server or still queued
+        if (!day && resumed.sets.length) {
           // A free workout: the cards are the exercises the session already holds.
           const library = await apiFetch<Exercise[]>(`/gyms/${gymId}/exercises`).catch(() => []);
           if (cancelled) return;
           const byId = new Map(library.map((x) => [x.id, x]));
-          const order = [...new Set(open.sets.map((s) => s.exerciseId))];
+          const order = [...new Set(resumed.sets.map((s) => s.exerciseId))];
           initial = order.flatMap((id) => {
             const ex = byId.get(id);
             return ex ? [cardFromExercise(ex, null)] : [];
           });
         }
-        initial = initial.map((c) => applyStored(c, open.sets));
+        initial = applyStored(initial, resumed.sets);
       } else {
         sessionId.current = crypto.randomUUID();
-        write({
-          method: 'PUT',
-          path: `${base}/${sessionId.current}`,
-          body: {
-            startedAt: new Date().toISOString(),
-            planId: plan?.id,
-            planDayId: day?.id,
-          },
-        });
+        startedAt.current = new Date().toISOString();
+        started.current = false;
+        initial = normalise(initial);
       }
       commit(initial);
       setStatus('ready');
@@ -153,7 +234,7 @@ export function useWorkoutSession({
     };
   }, [flushNow]);
 
-  /** Applies `edit` to one card and returns the new card and the changed row index. */
+  /** Applies `edit` to one card and returns the new card. */
   const editCard = (key: string, edit: (c: LogCard) => LogCard): LogCard | null => {
     const current = cardsRef.current;
     const at = current.findIndex((c) => c.key === key);
@@ -162,18 +243,25 @@ export function useWorkoutSession({
     commit(current.map((c, i) => (i === at ? card : c)));
     return card;
   };
-  const putSet = (card: LogCard, index: number) =>
+  const putSet = (card: LogCard, index: number) => {
+    ensureStarted();
     write({
       method: 'PUT',
       path: `${base}/${sessionId.current}/sets/${card.sets[index]!.id}`,
       body: setBody(card, index, new Date().toISOString()),
     });
+  };
 
   const change = (key: string, index: number, patch: Partial<LogSet>) => {
     setRefusedSetId(null);
     const card = editCard(key, (c) => ({
       ...c,
-      sets: c.sets.map((s, i) => (i === index ? { ...s, ...patch, touched: true } : s)),
+      sets: c.sets.map((s, i) => {
+        if (i !== index) return s;
+        const merged = { ...s, ...patch, touched: true };
+        // A done set cannot lose its last rep (the server would refuse it): it becomes undone.
+        return merged.done && !canBeDone(c.measure, merged) ? { ...merged, done: false } : merged;
+      }),
     }));
     if (card) putSet(card, index);
   };
@@ -197,7 +285,7 @@ export function useWorkoutSession({
   };
 
   const addSet = (key: string) =>
-    void editCard(key, (c) => ({ ...c, sets: [...c.sets, newRow(c)] }));
+    void editCard(key, (c) => ({ ...c, sets: [...c.sets, newRow(c, cardsRef.current)] }));
 
   const removeLastSet = (key: string) => {
     const card = cardsRef.current.find((c) => c.key === key);
@@ -215,11 +303,20 @@ export function useWorkoutSession({
       `/gyms/${gymId}/me/last-performance?exerciseIds=${exercise.id}`,
     ).catch(() => [] as LastPerformance[]);
     if (cardsRef.current.some((c) => c.key === exercise.id)) return;
-    commit([...cardsRef.current, cardFromExercise(exercise, last[0] ?? null)]);
+    commit(normalise([...cardsRef.current, cardFromExercise(exercise, last[0] ?? null)]));
   };
 
+  /**
+   * The finish is the session's own PUT with the real end time, so a replay hours later keeps
+   * the moment the member pressed the button.
+   */
   const finish = () => {
-    write({ method: 'POST', path: `${base}/${sessionId.current}/finish` });
+    ensureStarted();
+    write({
+      method: 'PUT',
+      path: `${base}/${sessionId.current}`,
+      body: sessionBody(new Date().toISOString()),
+    });
     setSummary(summarise(cardsRef.current));
     setRest(null);
     setStatus('finished');

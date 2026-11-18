@@ -187,28 +187,37 @@ export class WorkoutsService {
   }
 
   /** The plan and plan day must be the member's own, and the day must belong to the plan. */
+  /**
+   * The plan and day must be the member's own, and the day must belong to the plan. One that no
+   * longer exists (the trainer replaced the plan while the phone was offline) is dropped from
+   * the session rather than refused: the workout is kept, only its link is lost.
+   */
   private async checkPlanRefs(
     tx: Tx,
     memberId: string,
     body: SessionUpsert,
   ): Promise<{ planId: string | null; planDayId: string | null }> {
-    const bad = () => new BadRequestException({ message: 'Unknown plan or plan day' });
+    const bad = () => new BadRequestException({ message: 'Not the member’s plan' });
     let planId = body.planId ?? null;
-    const planDayId = body.planDayId ?? null;
+    let planDayId = body.planDayId ?? null;
     if (planDayId) {
       const [day] = await tx
         .select({ planId: planDays.planId })
         .from(planDays)
         .where(eq(planDays.id, planDayId));
-      if (!day || (planId && planId !== day.planId)) throw bad();
-      planId = day.planId;
+      if (!day) planDayId = null;
+      else if (planId && planId !== day.planId) throw bad();
+      else planId = day.planId;
     }
     if (planId) {
       const [plan] = await tx
-        .select({ id: plans.id })
+        .select({ memberId: plans.memberId })
         .from(plans)
-        .where(and(eq(plans.id, planId), eq(plans.memberId, memberId)));
-      if (!plan) throw bad();
+        .where(eq(plans.id, planId));
+      if (!plan) {
+        planId = null;
+        planDayId = null;
+      } else if (plan.memberId !== memberId) throw bad();
     }
     return { planId, planDayId };
   }

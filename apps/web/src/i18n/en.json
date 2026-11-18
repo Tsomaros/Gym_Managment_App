@@ -59,7 +59,8 @@
     "settings": "Settings",
     "exercises": "Exercises",
     "freeWorkout": "Free workout",
-    "workoutHistory": "Workout history"
+    "workoutHistory": "Workout history",
+    "progress": "Progress"
   },
   "shell": {
     "owner": "Owner area",
@@ -703,6 +704,11 @@
       "emptyNoTrainer": "You have no plan yet — ask at reception.",
       "older": "Previous plans",
       "backToCurrent": "Back to the current plan"
+    },
+    "sections": "Client sections",
+    "tab": {
+      "plans": "Plans",
+      "progress": "Progress"
     }
   },
   "workout": {
@@ -717,7 +723,6 @@
     "addSet": "Add set",
     "removeSet": "Remove set {{n}}",
     "set": "Set {{n}}",
-    "done": "Set {{n}} done",
     "reps": "Reps",
     "kg": "Kilos",
     "time": "Time (m:ss)",
@@ -736,12 +741,10 @@
     "restDone": "Rest is over",
     "skipRest": "Skip",
     "saved": "Saved",
-    "saving": "Saving… ({{count}})",
-    "queued": "Offline — will be saved ({{count}})",
     "dropped": "One change could not be saved.",
     "finish": "Finish workout",
     "confirmFinish": "Finish the workout?",
-    "keepGoing": "Keep going",
+    "keepGoing": "No, keep going",
     "finishedTitle": "Well done, you finished!",
     "sumExercises": "Exercises",
     "sumSets": "Sets",
@@ -753,6 +756,47 @@
     "fromPlan": "from the plan",
     "free": "free",
     "noSets": "No finished sets.",
-    "unknownExercise": "Exercise"
+    "unknownExercise": "Exercise",
+    "remove": "Remove",
+    "doneShort": "Done",
+    "queued_one": "Offline — {{count}} change will be saved",
+    "queued_other": "Offline — {{count}} changes will be saved",
+    "saving_one": "Saving… ({{count}} change)",
+    "saving_other": "Saving… ({{count}} changes)",
+    "say": {
+      "saved": "All changes are saved.",
+      "saving": "Saving changes.",
+      "offline": "Offline. Changes will be saved when you are back online."
+    }
+  },
+  "progress": {
+    "title": "Progress",
+    "range": "Period",
+    "months_one": "{{count}} month",
+    "months_other": "{{count}} months",
+    "exercise": "Exercise",
+    "empty": "Nothing logged yet.",
+    "showTable": "Table of values",
+    "rangeMonths_one": "the last month",
+    "rangeMonths_other": "the last {{count}} months",
+    "rangeWeeks_one": "the last week",
+    "rangeWeeks_other": "the last {{count}} weeks",
+    "exerciseTitle": "{{name}}",
+    "summaryExercise": "From {{from}} to {{to}} kg over {{range}}",
+    "summaryVolume": "{{total}} kg in total over {{active}} training weeks in {{range}}",
+    "summaryAttendance": "{{total}} visits, {{average}} a week on average over {{range}}",
+    "summaryMeasure": "From {{from}} to {{to}}",
+    "topSet": "Top set",
+    "e1rm": "Estimated 1RM",
+    "reps": "Reps",
+    "date": "Date",
+    "week": "Week",
+    "weekOf": "Week of {{date}}",
+    "volume": "Volume",
+    "volumeTitle": "Weekly volume",
+    "attendanceTitle": "Visits per week",
+    "days": "Days",
+    "weight": "Body weight",
+    "bodyFat": "Body fat"
   }
 }

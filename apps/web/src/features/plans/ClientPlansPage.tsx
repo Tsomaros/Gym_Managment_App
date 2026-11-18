@@ -6,6 +6,7 @@ import { ApiError, apiFetch } from '../../api/client';
 import { ConfirmDialog } from '../../components/ConfirmDialog';
 import { NewPlanDialog } from './NewPlanDialog';
 import { PlanEditor } from './PlanEditor';
+import { ProgressPage } from '../progress/ProgressPage';
 import { PlanView } from './PlanView';
 
 const action =
@@ -30,6 +31,7 @@ export function ClientPlansPage() {
   const [archiveError, setArchiveError] = useState<string | null>(null);
   const [notice, setNotice] = useState('');
   const [busy, setBusy] = useState(false);
+  const [tab, setTab] = useState<'plans' | 'progress'>('plans');
   const [actionError, setActionError] = useState<string | null>(null);
   // Which request is the newest: an older answer arriving late is dropped.
   const latest = useRef(0);
@@ -176,128 +178,153 @@ export function ClientPlansPage() {
           {t('plans.coverBanner')}
         </p>
       )}
-      {noAccess && <p className="text-slate-800">{t('plans.noAccess')}</p>}
-      {failed && (
-        <div role="alert" className="flex items-center gap-3 text-red-700">
-          {t('plans.loadFailed')}
-          <button type="button" onClick={() => void load()} className="min-h-11 underline">
-            {t('app.retry')}
-          </button>
-        </div>
-      )}
-      {actionError && (
-        <p role="alert" className="text-red-700">
-          {actionError}
-        </p>
-      )}
-      {!list && !noAccess && !failed && (
-        <p role="status" className="text-slate-600">
-          {t('app.loading')}
-        </p>
-      )}
-      <p role="status" className="text-green-800 empty:hidden">
-        {notice && `✓ ${notice}`}
-      </p>
-
-      {list && (
-        <section aria-labelledby="shown-plan-title" className="flex flex-col gap-3">
-          <h3
-            id="shown-plan-title"
-            ref={shownHeading}
-            tabIndex={-1}
-            className="text-sm font-semibold tracking-wide text-slate-600 uppercase focus:outline-none"
+      <div role="tablist" aria-label={t('plans.sections')} className="flex gap-2">
+        {(['plans', 'progress'] as const).map((key) => (
+          <button
+            key={key}
+            type="button"
+            role="tab"
+            aria-selected={tab === key}
+            onClick={() => setTab(key)}
+            className={`min-h-11 rounded-full border px-4 text-base font-medium focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-900 ${
+              tab === key
+                ? 'border-slate-900 bg-slate-900 text-white'
+                : 'border-slate-500 bg-white text-slate-800 hover:bg-slate-50'
+            }`}
           >
-            {viewing ? t(`plans.status.${viewing.status}`) : t('plans.active')}
-            {viewing?.author && (
-              <span className="font-normal normal-case">
-                {' · '}
-                {t('plans.by', { name: `${viewing.author.firstName} ${viewing.author.lastName}` })}
-              </span>
-            )}
-          </h3>
-          {viewing ? (
-            <>
-              <PlanView plan={viewing} />
-              {canWrite && viewing.status !== 'archived' && (
-                <div className="flex flex-wrap gap-2">
-                  {viewing.kind === 'interactive' && (
-                    <button type="button" className={action} onClick={() => setMode('edit')}>
-                      {t('plans.edit')}
-                    </button>
-                  )}
-                  {viewing.status === 'draft' && (
-                    <button
-                      type="button"
-                      className={action}
-                      onClick={() => void activate(viewing)}
-                      aria-label={t('plans.activate') + ' «' + viewing.title + '»'}
-                    >
-                      {t('plans.activate')}
-                    </button>
-                  )}
-                  <button
-                    type="button"
-                    className={action}
-                    aria-label={`${t('plans.archive')} «${viewing.title}»`}
-                    onClick={() => {
-                      setArchiveError(null);
-                      setArchiving(viewing);
-                    }}
-                  >
-                    {t('plans.archive')}
-                  </button>
-                </div>
-              )}
-            </>
-          ) : (
-            !failed && <p className="text-slate-700">{t('plans.noActive')}</p>
+            {t(`plans.tab.${key}`)}
+          </button>
+        ))}
+      </div>
+      {tab === 'progress' && !noAccess && <ProgressPage memberId={memberId} />}
+      {tab === 'plans' && (
+        <>
+          {noAccess && <p className="text-slate-800">{t('plans.noAccess')}</p>}
+          {failed && (
+            <div role="alert" className="flex items-center gap-3 text-red-700">
+              {t('plans.loadFailed')}
+              <button type="button" onClick={() => void load()} className="min-h-11 underline">
+                {t('app.retry')}
+              </button>
+            </div>
           )}
-        </section>
-      )}
+          {actionError && (
+            <p role="alert" className="text-red-700">
+              {actionError}
+            </p>
+          )}
+          {!list && !noAccess && !failed && (
+            <p role="status" className="text-slate-600">
+              {t('app.loading')}
+            </p>
+          )}
+          <p role="status" className="text-green-800 empty:hidden">
+            {notice && `✓ ${notice}`}
+          </p>
 
-      {list && (
-        <section aria-label={t('plans.history')} className="flex flex-col gap-2">
-          <h3 className="text-lg font-semibold text-slate-900">{t('plans.history')}</h3>
-          {others.length === 0 ? (
-            <p className="text-slate-700">{t('plans.noHistory')}</p>
-          ) : (
-            <ul className="flex flex-col gap-2">
-              {others.map((p) => (
-                <li
-                  key={p.id}
-                  className="flex flex-wrap items-center gap-2 rounded-xl border border-slate-200 bg-white p-3"
-                >
-                  <span className="mr-auto min-w-0 font-medium break-words text-slate-900">
-                    {p.title}
-                    <span className="ml-2 text-sm font-normal text-slate-600">
-                      {t(`plans.status.${p.status}`)}
-                      {p.kind === 'pdf' && ` · ${t('plans.kind.pdf')}`}
-                      {p.authorName && ` · ${t('plans.by', { name: p.authorName })}`}
-                    </span>
+          {list && (
+            <section aria-labelledby="shown-plan-title" className="flex flex-col gap-3">
+              <h3
+                id="shown-plan-title"
+                ref={shownHeading}
+                tabIndex={-1}
+                className="text-sm font-semibold tracking-wide text-slate-600 uppercase focus:outline-none"
+              >
+                {viewing ? t(`plans.status.${viewing.status}`) : t('plans.active')}
+                {viewing?.author && (
+                  <span className="font-normal normal-case">
+                    {' · '}
+                    {t('plans.by', {
+                      name: `${viewing.author.firstName} ${viewing.author.lastName}`,
+                    })}
                   </span>
-                  <button
-                    type="button"
-                    className={action}
-                    aria-label={t('plans.openNamed', { title: p.title })}
-                    onClick={() => void open(p.id)}
-                  >
-                    {t('plans.open')}
-                  </button>
-                  {canWrite && p.status === 'draft' && (
-                    <button
-                      type="button"
-                      className={action}
-                      aria-label={`${t('plans.activate')} «${p.title}»`}
-                      onClick={() => void activate(p)}
-                    >
-                      {t('plans.activate')}
-                    </button>
+                )}
+              </h3>
+              {viewing ? (
+                <>
+                  <PlanView plan={viewing} />
+                  {canWrite && viewing.status !== 'archived' && (
+                    <div className="flex flex-wrap gap-2">
+                      {viewing.kind === 'interactive' && (
+                        <button type="button" className={action} onClick={() => setMode('edit')}>
+                          {t('plans.edit')}
+                        </button>
+                      )}
+                      {viewing.status === 'draft' && (
+                        <button
+                          type="button"
+                          className={action}
+                          onClick={() => void activate(viewing)}
+                          aria-label={t('plans.activate') + ' «' + viewing.title + '»'}
+                        >
+                          {t('plans.activate')}
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        className={action}
+                        aria-label={`${t('plans.archive')} «${viewing.title}»`}
+                        onClick={() => {
+                          setArchiveError(null);
+                          setArchiving(viewing);
+                        }}
+                      >
+                        {t('plans.archive')}
+                      </button>
+                    </div>
                   )}
-                </li>
-              ))}
-            </ul>
+                </>
+              ) : (
+                !failed && <p className="text-slate-700">{t('plans.noActive')}</p>
+              )}
+            </section>
           )}
-        </section>
+
+          {list && (
+            <section aria-label={t('plans.history')} className="flex flex-col gap-2">
+              <h3 className="text-lg font-semibold text-slate-900">{t('plans.history')}</h3>
+              {others.length === 0 ? (
+                <p className="text-slate-700">{t('plans.noHistory')}</p>
+              ) : (
+                <ul className="flex flex-col gap-2">
+                  {others.map((p) => (
+                    <li
+                      key={p.id}
+                      className="flex flex-wrap items-center gap-2 rounded-xl border border-slate-200 bg-white p-3"
+                    >
+                      <span className="mr-auto min-w-0 font-medium break-words text-slate-900">
+                        {p.title}
+                        <span className="ml-2 text-sm font-normal text-slate-600">
+                          {t(`plans.status.${p.status}`)}
+                          {p.kind === 'pdf' && ` · ${t('plans.kind.pdf')}`}
+                          {p.authorName && ` · ${t('plans.by', { name: p.authorName })}`}
+                        </span>
+                      </span>
+                      <button
+                        type="button"
+                        className={action}
+                        aria-label={t('plans.openNamed', { title: p.title })}
+                        onClick={() => void open(p.id)}
+                      >
+                        {t('plans.open')}
+                      </button>
+                      {canWrite && p.status === 'draft' && (
+                        <button
+                          type="button"
+                          className={action}
+                          aria-label={`${t('plans.activate')} «${p.title}»`}
+                          onClick={() => void activate(p)}
+                        >
+                          {t('plans.activate')}
+                        </button>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </section>
+          )}
+        </>
       )}
 
       {choosing && (

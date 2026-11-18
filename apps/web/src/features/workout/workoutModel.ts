@@ -22,6 +22,11 @@ export interface LogSet {
   durationSeconds: number;
   done: boolean;
   touched: boolean;
+  /**
+   * The set's place under its exercise on the server (unique per session and exercise). It is
+   * not the row's position: a day may list one exercise twice, and two cards share one sequence.
+   */
+  index: number;
 }
 
 export interface LogCard {
@@ -100,6 +105,7 @@ function prefill(
     ),
     done: false,
     touched: false,
+    index,
   };
 }
 
@@ -135,28 +141,85 @@ export function cardFromExercise(e: Exercise, last: LastPerformance | null): Log
   };
 }
 
-export function newRow(card: LogCard): LogSet {
-  return prefill(card.measure, null, card.last, card.sets.length);
+/** The next free server index of an exercise across every card that holds it. */
+function nextIndex(cards: LogCard[], exerciseId: string): number {
+  let max = -1;
+  for (const c of cards) {
+    if (c.exerciseId === exerciseId) for (const r of c.sets) max = Math.max(max, r.index);
+  }
+  return max + 1;
 }
 
-/** Puts what the server stored for a card into its rows (a resumed session). */
-export function applyStored(card: LogCard, stored: WorkoutSet[]): LogCard {
-  const mine = stored.filter((s) => s.exerciseId === card.exerciseId);
-  if (!mine.length) return card;
-  const sets = [...card.sets];
-  for (const s of mine) {
-    sets[s.setIndex] = {
-      id: s.id,
-      reps: s.reps ?? 0,
-      weightKg: s.weightKg ?? 0,
-      durationSeconds: s.durationSeconds ?? 60,
-      done: s.done,
-      touched: true,
-    };
+/** A new untouched row at the end of `card`, numbered after every row of the same exercise. */
+export function newRow(card: LogCard, all: LogCard[]): LogSet {
+  return {
+    ...prefill(card.measure, null, card.last, card.sets.length),
+    index: nextIndex(all, card.exerciseId),
+  };
+}
+
+/**
+ * Gives the untouched rows of each exercise consecutive indexes across all its cards, skipping
+ * the ones touched rows already hold (those are on the server and never move).
+ */
+export function normalise(cards: LogCard[]): LogCard[] {
+  const used = new Map<string, Set<number>>();
+  for (const c of cards) {
+    const set = used.get(c.exerciseId) ?? new Set<number>();
+    for (const r of c.sets) if (r.touched) set.add(r.index);
+    used.set(c.exerciseId, set);
   }
-  // a gap (a set deleted while offline) is filled with a fresh untouched row
-  for (let i = 0; i < sets.length; i++) sets[i] ??= prefill(card.measure, null, card.last, i);
-  return { ...card, sets };
+  const counter = new Map<string, number>();
+  return cards.map((c) => ({
+    ...c,
+    sets: c.sets.map((r) => {
+      if (r.touched) return r;
+      const taken = used.get(c.exerciseId)!;
+      let n = counter.get(c.exerciseId) ?? 0;
+      while (taken.has(n)) n++;
+      taken.add(n);
+      counter.set(c.exerciseId, n + 1);
+      return { ...r, index: n };
+    }),
+  }));
+}
+
+/**
+ * Puts what the server stored into the cards' rows (a resumed session). A set belongs to the
+ * card of its plan exercise; one whose plan exercise is gone (or a free workout's) goes to the
+ * first card of that exercise.
+ */
+export function applyStored(cards: LogCard[], stored: WorkoutSet[]): LogCard[] {
+  const claimed = new Set<string>();
+  const byCard: WorkoutSet[][] = cards.map((c) => {
+    if (!c.planExerciseId) return [];
+    const mine = stored.filter((s) => s.planExerciseId === c.planExerciseId);
+    for (const m of mine) claimed.add(m.id);
+    return mine;
+  });
+  for (const s of stored) {
+    if (claimed.has(s.id)) continue;
+    const at = cards.findIndex((c) => c.exerciseId === s.exerciseId);
+    if (at >= 0) byCard[at]!.push(s);
+  }
+  const placed = cards.map((card, ci) => {
+    const mine = [...byCard[ci]!].sort((a, b) => a.setIndex - b.setIndex);
+    if (!mine.length) return card;
+    const sets = [...card.sets];
+    mine.forEach((s, k) => {
+      sets[k] = {
+        id: s.id,
+        reps: s.reps ?? 0,
+        weightKg: s.weightKg ?? 0,
+        durationSeconds: s.durationSeconds ?? 60,
+        done: s.done,
+        touched: true,
+        index: s.setIndex,
+      };
+    });
+    return { ...card, sets };
+  });
+  return normalise(placed);
 }
 
 /** The body of the PUT for one row: only the values its exercise is measured by. */
@@ -165,7 +228,7 @@ export function setBody(card: LogCard, index: number, loggedAt: string): SetUpse
   return {
     exerciseId: card.exerciseId,
     planExerciseId: card.planExerciseId,
-    setIndex: index,
+    setIndex: s.index,
     reps: card.measure === 'duration' ? undefined : s.reps,
     weightKg: card.measure === 'weight_reps' ? s.weightKg : undefined,
     durationSeconds: card.measure === 'duration' ? s.durationSeconds : undefined,

@@ -91,6 +91,28 @@ describe('workoutQueue', () => {
     expect(size()).toBe(1);
   });
 
+  it('hands send exactly the operation that was queued (no queue id), and drops any other 4xx but 401, 403, 408, 429', async () => {
+    const op: QueuedOp = { method: 'DELETE', path: '/gyms/g/me/sessions/s/sets/9' };
+    enqueue(op);
+    const seen: unknown[] = [];
+    await flush(async (o) => void seen.push(o));
+    expect(seen).toEqual([op]);
+
+    enqueue(put(1));
+    await flush(async () => {
+      throw new ApiError(408, undefined); // request timeout: try again later
+    });
+    expect(size()).toBe(1);
+    await flush(async () => {
+      throw new ApiError(403, undefined); // not allowed (yet): kept
+    });
+    expect(size()).toBe(1);
+    await flush(async () => {
+      throw new ApiError(404, undefined); // the session is gone: sending it again cannot help
+    });
+    expect(size()).toBe(0);
+  });
+
   it('survives a reload: the queue is read back from localStorage', async () => {
     enqueue(put(1));
     enqueue(put(2));

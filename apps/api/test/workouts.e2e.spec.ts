@@ -296,7 +296,7 @@ describe('workout sessions and sets: client ids, idempotent replays, access', ()
     expect(session!.planId).toBe(plan.id);
   });
 
-  it('a plan or plan day that is not the member’s own is refused', async () => {
+  it('another member’s plan or day is refused; a plan or day that no longer exists is just unlinked', async () => {
     await clearSessions();
     const mkPlan = async (member: string) =>
       (
@@ -311,7 +311,13 @@ describe('workout sessions and sets: client ids, idempotent replays, access', ()
     const mPlan = await mkPlan('m');
     const nPlan = await mkPlan('n');
     await putSession('n', randomUUID(), { planId: mPlan.id }, 'n').expect(400);
-    await putMine('n', randomUUID(), { planId: randomUUID() }).expect(400);
+    // a plan that does not exist (any more) is not an error: the session just has no link
+    const orphan = (await putMine('n', randomUUID(), { planId: randomUUID() }).expect(200)).body;
+    expect(orphan).toMatchObject({ planId: null, planDayId: null });
+    const gone = (
+      await putMine('n', randomUUID(), { planId: nPlan.id, planDayId: randomUUID() }).expect(200)
+    ).body;
+    expect(gone).toMatchObject({ planId: nPlan.id, planDayId: null });
     await putMine('n', randomUUID(), { planDayId: mPlan.days[0]!.id }).expect(400);
     // a day of the member's plan paired with another plan's id
     await putMine('m', randomUUID(), { planId: nPlan.id, planDayId: mPlan.days[0]!.id }).expect(

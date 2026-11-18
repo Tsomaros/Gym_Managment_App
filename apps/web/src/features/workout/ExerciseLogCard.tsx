@@ -1,3 +1,4 @@
+import { useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { exerciseName, viewerLanguage } from '../exercises/exerciseName';
 import { SetRow } from './SetRow';
@@ -22,6 +23,7 @@ export function ExerciseLogCard({
 }) {
   const { t, i18n } = useTranslation();
   const lang = viewerLanguage(i18n.language);
+  const addRef = useRef<HTMLButtonElement>(null);
   const doneCount = card.sets.filter((s) => s.done).length;
   return (
     <section
@@ -56,11 +58,16 @@ export function ExerciseLogCard({
             canRemove={i === card.sets.length - 1 && card.sets.length > 1}
             onChange={(patch) => onChange(i, patch)}
             onToggleDone={() => onToggleDone(i)}
-            onRemove={onRemoveSet}
+            onRemove={() => {
+              onRemoveSet();
+              // the button that was pressed is gone: keep focus inside the card
+              requestAnimationFrame(() => addRef.current?.focus());
+            }}
           />
         ))}
       </ol>
       <button
+        ref={addRef}
         type="button"
         onClick={onAddSet}
         className="min-h-11 rounded-md border border-slate-500 bg-white px-4 font-medium text-slate-900 hover:bg-slate-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-900"

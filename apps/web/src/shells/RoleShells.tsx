@@ -11,6 +11,7 @@ import { ExercisesPage } from '../features/exercises/ExercisesPage';
 import { MembersSection } from '../features/members/MembersSection';
 import { MyMembershipPage } from '../features/my-membership/MyMembershipPage';
 import { MyPlanPage } from '../features/my-plan/MyPlanPage';
+import { ProgressPage } from '../features/progress/ProgressPage';
 import { FreeWorkoutPage } from '../features/workout/WorkoutPage';
 import { WorkoutHistoryPage } from '../features/workout/WorkoutHistoryPage';
 import { PaymentsPage } from '../features/payments/PaymentsPage';
@@ -138,13 +139,21 @@ export function MemberShell(props: GymShellProps) {
     <ShellLayout
       testId="shell-member"
       title={t('shell.member')}
-      nav={['memberCheckIn', 'myMembership', 'myWorkouts', 'freeWorkout', 'workoutHistory']}
+      nav={[
+        'memberCheckIn',
+        'myMembership',
+        'myWorkouts',
+        'freeWorkout',
+        'workoutHistory',
+        'progress',
+      ]}
       home={<MemberCheckInPage />}
       pages={{
         myMembership: <MyMembershipPage />,
         myWorkouts: <MyPlanPage />,
         freeWorkout: <FreeWorkoutPage />,
         workoutHistory: <WorkoutHistoryPage />,
+        progress: <ProgressPage />,
       }}
       banner={me && !me.emailVerified ? <EmailNotVerifiedBanner email={me.email} /> : undefined}
       {...props}

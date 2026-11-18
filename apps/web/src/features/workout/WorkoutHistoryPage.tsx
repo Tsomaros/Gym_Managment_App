@@ -5,6 +5,7 @@ import { useParams } from 'react-router';
 import { apiFetch } from '../../api/client';
 import { exerciseName, viewerLanguage } from '../exercises/exerciseName';
 import { formatKg } from '../plans/planFormat';
+import { formatDuration } from './workoutModel';
 
 const PAGE = 20;
 
@@ -104,7 +105,7 @@ export function WorkoutHistoryPage() {
                           {sets
                             .map((x) =>
                               x.measure === 'duration'
-                                ? `${x.durationSeconds}″`
+                                ? formatDuration(x.durationSeconds ?? 0)
                                 : x.measure === 'reps'
                                   ? `${x.reps}`
                                   : `${formatKg(x.weightKg ?? 0, lang)}×${x.reps}`,

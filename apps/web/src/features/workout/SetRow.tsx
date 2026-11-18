@@ -1,5 +1,5 @@
 import type { Measure } from '@gym/shared';
-import { useEffect, useId, useState } from 'react';
+import { type RefObject, useEffect, useId, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { formatKg } from '../plans/planFormat';
 import {
@@ -19,7 +19,7 @@ import {
 const stepButton =
   'inline-flex h-11 min-h-11 w-11 min-w-11 shrink-0 items-center justify-center rounded-md border border-slate-500 bg-white text-2xl font-semibold text-slate-900 hover:bg-slate-50 active:bg-slate-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-900';
 const field =
-  'min-h-11 w-full min-w-0 rounded-md border border-slate-500 bg-white px-1 text-center text-xl font-semibold tabular-nums text-slate-900 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-900';
+  'min-h-11 w-full min-w-[3.5rem] rounded-md border border-slate-500 bg-white px-1 text-center text-xl font-semibold tabular-nums text-slate-900 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-900';
 
 /** A value with big − and + buttons and a field to type in; the typed text may be mid-edit. */
 function Stepper({
@@ -32,6 +32,8 @@ function Stepper({
   incLabel,
   invalid,
   describedBy,
+  inputMode,
+  inputRef,
 }: {
   label: string;
   text: string;
@@ -42,10 +44,12 @@ function Stepper({
   incLabel: string;
   invalid?: boolean;
   describedBy?: string;
+  inputMode: 'numeric' | 'decimal' | 'text';
+  inputRef?: RefObject<HTMLInputElement | null>;
 }) {
   const id = useId();
   return (
-    <div className="flex min-w-0 flex-1 flex-col gap-1">
+    <div className="flex min-w-[10rem] flex-1 flex-col gap-1">
       <label htmlFor={id} className="text-sm font-medium text-slate-700">
         {label}
       </label>
@@ -60,8 +64,9 @@ function Stepper({
         </button>
         <input
           id={id}
+          ref={inputRef}
           type="text"
-          inputMode="decimal"
+          inputMode={inputMode}
           autoComplete="off"
           value={text}
           aria-invalid={invalid || undefined}
@@ -112,6 +117,11 @@ export function SetRow({
 }) {
   const { t } = useTranslation();
   const errorId = useId();
+  const firstInput = useRef<HTMLInputElement>(null);
+  // A refused done box: the member needs to type the missing rep next, so go there.
+  useEffect(() => {
+    if (error) firstInput.current?.focus();
+  }, [error]);
   const [repsText, setRepsText] = useState(String(set.reps));
   const [kgText, setKgText] = useState(formatKg(set.weightKg, lang));
   const [secText, setSecText] = useState(formatDuration(set.durationSeconds));
@@ -134,6 +144,8 @@ export function SetRow({
     <Stepper
       label={t('workout.reps')}
       text={repsText}
+      inputMode="numeric"
+      inputRef={firstInput}
       invalid={error}
       describedBy={error ? errorId : undefined}
       decLabel={t('workout.fewerReps', { n })}
@@ -151,6 +163,7 @@ export function SetRow({
     <Stepper
       label={t('workout.kg')}
       text={kgText}
+      inputMode="decimal"
       decLabel={t('workout.lessKg', { n })}
       incLabel={t('workout.moreKg', { n })}
       onText={(text) => {
@@ -166,6 +179,10 @@ export function SetRow({
     <Stepper
       label={t('workout.time')}
       text={secText}
+      inputMode="text"
+      inputRef={firstInput}
+      invalid={error}
+      describedBy={error ? errorId : undefined}
       decLabel={t('workout.lessTime', { n })}
       incLabel={t('workout.moreTime', { n })}
       onText={(text) => {
@@ -186,15 +203,16 @@ export function SetRow({
         set.done ? 'border-green-700 bg-green-50' : 'border-slate-300 bg-white'
       }`}
     >
-      <div className="flex items-center gap-2">
+      <div className="flex flex-wrap items-center gap-2">
         <p className="mr-auto text-base font-semibold text-slate-900">{t('workout.set', { n })}</p>
         {canRemove && (
           <button
             type="button"
+            aria-label={t('workout.removeSet', { n })}
             onClick={onRemove}
             className="min-h-11 rounded-md px-3 text-sm font-medium text-red-800 hover:bg-red-50 focus-visible:outline-2 focus-visible:outline-slate-900"
           >
-            {t('workout.removeSet', { n })}
+            {t('workout.remove')}
           </button>
         )}
         <label className="flex min-h-11 items-center gap-2 text-base font-medium text-slate-900">
@@ -202,12 +220,15 @@ export function SetRow({
             type="checkbox"
             checked={set.done}
             onChange={onToggleDone}
-            className="h-11 w-11 min-h-11 min-w-11 accent-green-700"
+            className="h-11 w-11 min-h-11 min-w-11 shrink-0 accent-green-700"
           />
-          <span>{t('workout.done', { n })}</span>
+          <span>
+            {t('workout.doneShort')}
+            <span className="sr-only"> – {t('workout.set', { n })}</span>
+          </span>
         </label>
       </div>
-      <div className="flex gap-3">
+      <div className="flex flex-wrap gap-3">
         {measure === 'duration' ? (
           time
         ) : measure === 'reps' ? (

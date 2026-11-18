@@ -54,6 +54,9 @@ function write(entries: Entry[]): void {
 
 export const size = (): number => read().length;
 
+/** The operations still waiting, oldest first. */
+export const pending = (): QueuedOp[] => read().map(({ id: _id, ...op }) => op);
+
 /** Calls `listener` whenever the queue grows or shrinks. */
 export function subscribe(listener: () => void): () => void {
   listeners.add(listener);
@@ -64,12 +67,12 @@ export function enqueue(op: QueuedOp): void {
   write([...read(), { ...op, id: newId() }]);
 }
 
-/** A 4xx other than "sign in again" or "slow down" is final: sending it again cannot help. */
+/** A 4xx other than "sign in again", "not allowed (yet)" or "slow down" is final: sending it again cannot help. */
 const isRefusal = (err: unknown): boolean =>
   err instanceof ApiError &&
   err.status >= 400 &&
   err.status < 500 &&
-  ![401, 408, 429].includes(err.status);
+  ![401, 403, 408, 429].includes(err.status);
 
 /**
  * Sends the queued operations in order. A network error or a 5xx stops the run and keeps the

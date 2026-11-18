@@ -192,16 +192,16 @@ test('a member logs a workout from the plan, loses the signal for the last set, 
   await expect(phone.getByText('Αποθηκεύτηκε')).toBeVisible();
 
   // Two sets with a signal.
-  await card.getByRole('checkbox', { name: 'Ολοκληρώθηκε το σετ 1' }).check();
-  await card.getByRole('checkbox', { name: 'Ολοκληρώθηκε το σετ 2' }).check();
+  await card.getByRole('checkbox', { name: /^Έγινε.*Σετ 1$/ }).check();
+  await card.getByRole('checkbox', { name: /^Έγινε.*Σετ 2$/ }).check();
   await expect(phone.getByRole('timer')).toBeVisible();
   await expect(phone.getByText('Αποθηκεύτηκε')).toBeVisible();
 
   // No signal: the third set is queued, the screen still shows it as done.
   await context.setOffline(true);
-  await card.getByRole('checkbox', { name: 'Ολοκληρώθηκε το σετ 3' }).check();
-  await expect(phone.getByText(/Χωρίς σύνδεση — θα αποθηκευτεί \(1\)/)).toBeVisible();
-  await expect(card.getByRole('checkbox', { name: 'Ολοκληρώθηκε το σετ 3' })).toBeChecked();
+  await card.getByRole('checkbox', { name: /^Έγινε.*Σετ 3$/ }).check();
+  await expect(phone.getByText('Χωρίς σύνδεση — 1 αλλαγή θα αποθηκευτεί')).toBeVisible();
+  await expect(card.getByRole('checkbox', { name: /^Έγινε.*Σετ 3$/ })).toBeChecked();
 
   // Signal back: the queue empties by itself.
   await context.setOffline(false);

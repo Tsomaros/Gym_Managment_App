@@ -1,5 +1,5 @@
 import type { Plan, PlanDay } from '@gym/shared';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useParams } from 'react-router';
 import { formatKg } from '../plans/planFormat';
@@ -9,21 +9,28 @@ import { FreeWorkoutPicker } from './FreeWorkoutPicker';
 import { RestTimer } from './RestTimer';
 import { useWorkoutSession } from './useWorkoutSession';
 
-/** "Saved" or "Offline — will be saved (n)": never leaves the member guessing. */
+/**
+ * "Saved" or "Offline — will be saved (n)": never leaves the member guessing. Screen readers
+ * hear only when the state changes (saved / saving / offline), not on every tap.
+ */
 function SaveStatus({ queued, online }: { queued: number; online: boolean }) {
   const { t } = useTranslation();
-  const pending = queued > 0;
+  const state = queued === 0 ? 'saved' : online ? 'saving' : 'offline';
   return (
-    <p
-      role="status"
-      className={`text-sm font-medium ${pending ? 'text-amber-900' : 'text-green-800'}`}
-    >
-      {pending
-        ? online
-          ? t('workout.saving', { count: queued })
-          : t('workout.queued', { count: queued })
-        : t('workout.saved')}
-    </p>
+    <>
+      <p
+        className={`text-sm font-medium ${state === 'saved' ? 'text-green-800' : 'text-amber-900'}`}
+      >
+        {state === 'saved'
+          ? t('workout.saved')
+          : state === 'saving'
+            ? t('workout.saving', { count: queued })
+            : t('workout.queued', { count: queued })}
+      </p>
+      <span role="status" className="sr-only">
+        {t(`workout.say.${state}`)}
+      </span>
+    </>
   );
 }
 
@@ -46,6 +53,14 @@ export function WorkoutPage({
   const w = useWorkoutSession({ gymId, plan, day });
   const [confirmFinish, setConfirmFinish] = useState(false);
   const finishRef = useRef<HTMLButtonElement>(null);
+  const confirmRef = useRef<HTMLButtonElement>(null);
+  const doneRef = useRef<HTMLHeadingElement>(null);
+  useEffect(() => {
+    if (confirmFinish) confirmRef.current?.focus();
+  }, [confirmFinish]);
+  useEffect(() => {
+    if (w.status === 'finished') doneRef.current?.focus();
+  }, [w.status]);
   const free = !day;
 
   const title = day ? t('workout.dayTitle', { day: day.title }) : t('workout.freeTitle');
@@ -67,7 +82,12 @@ export function WorkoutPage({
   if (w.status === 'finished' && w.summary) {
     return (
       <section aria-labelledby="workout-done" className="mx-auto flex max-w-md flex-col gap-4">
-        <h2 id="workout-done" tabIndex={-1} className="text-xl font-semibold text-slate-900">
+        <h2
+          ref={doneRef}
+          id="workout-done"
+          tabIndex={-1}
+          className="text-xl font-semibold text-slate-900 focus:outline-none"
+        >
           {t('workout.finishedTitle')}
         </h2>
         <dl className="grid grid-cols-3 gap-2 text-center">
@@ -97,7 +117,7 @@ export function WorkoutPage({
   }
 
   return (
-    <section aria-labelledby="workout-title" className="mx-auto flex max-w-md flex-col gap-4 pb-28">
+    <section aria-labelledby="workout-title" className="mx-auto flex max-w-md flex-col gap-4 pb-36">
       <div className="flex flex-wrap items-baseline gap-x-4">
         <h2 id="workout-title" className="mr-auto text-xl font-semibold break-words text-slate-900">
           {title}
@@ -133,6 +153,7 @@ export function WorkoutPage({
           <p className="font-medium text-slate-900">{t('workout.confirmFinish')}</p>
           <div className="flex gap-2">
             <button
+              ref={confirmRef}
               type="button"
               onClick={w.finish}
               className="min-h-12 flex-1 rounded-md bg-slate-900 px-4 font-semibold text-white hover:bg-slate-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-900"
@@ -162,7 +183,7 @@ export function WorkoutPage({
         </button>
       )}
       {w.rest && (
-        <div className="fixed inset-x-0 bottom-0 z-10 border-t border-slate-300 bg-white/95 p-3">
+        <div className="fixed inset-x-0 bottom-0 z-10 border-t border-slate-300 bg-white/95 p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
           <div className="mx-auto max-w-md">
             <RestTimer seconds={w.rest.seconds} startedAt={w.rest.at} onSkip={w.clearRest} />
           </div>
