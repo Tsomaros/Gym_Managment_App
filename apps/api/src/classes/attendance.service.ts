@@ -85,6 +85,10 @@ export class AttendanceService {
       if (this.clock.now().getTime() < s.startsAtUtc.getTime() - CHECKIN_BEFORE_MS) {
         throw new BadRequestException('The class has not started');
       }
+      // A no-show before the start would shut the member out of the door for their own class.
+      if (status === 'no_show' && this.clock.now() < s.startsAtUtc) {
+        throw new BadRequestException('The class has not started');
+      }
       const changed = await this.markInTx(tx, b, status, byUserId);
       if (changed) {
         await this.audit.record(tx, {

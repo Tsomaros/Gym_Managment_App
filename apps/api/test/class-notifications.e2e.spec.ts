@@ -211,6 +211,7 @@ describe('class reminders and cancellation notices', () => {
       .expect(204);
     await settle();
     expect(mailTo('a')).toHaveLength(before + 1);
+    expect(mailTo('a').at(-1)!.text).not.toContain('series_ended');
     expect(mailTo('a').at(-1)!.text).toContain('ακυρώθηκε');
     expect(mailTo('a').at(-1)!.text).toContain('18:00');
   });

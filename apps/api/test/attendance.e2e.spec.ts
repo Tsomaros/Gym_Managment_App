@@ -184,7 +184,7 @@ describe('class attendance, no-shows and door access for booked classes', () => 
     const s = await mk(DAY, '21:00', { trainerId: f.id.t });
     await book('y', s).expect(201);
     const id = (await booking(s, 'y')).id;
-    f.clock.current = local(DAY, '20:30');
+    f.clock.current = local(DAY, '21:05'); // the class has started
     await mark('y', id, 'no_show').expect(403);
     await mark('u', id, 'no_show').expect(403);
     await mark('rec', id, 'no_show').expect(204);
@@ -193,6 +193,35 @@ describe('class attendance, no-shows and door access for booked classes', () => 
     await mark('rec', id, 'no_show').expect(204);
     expect(await used('y')).toEqual([1]);
     await mark('rec', id, 'bogus').expect(400);
+  });
+
+  it('cancelling a class after a member checked in gives the entry back and returns the booking', async () => {
+    f.clock.setDay(DAY);
+    await newMember('cx');
+    await sell('cx');
+    const s = await mk(DAY, '21:30');
+    await book('cx', s).expect(201);
+    f.clock.current = local(DAY, '21:00');
+    expect(await checkIn('cx')).toMatchObject({ valid: true });
+    expect(await used('cx')).toEqual([1]);
+    f.clock.current = local(DAY, '21:20');
+    await f.req('post', `/class-sessions/${s}/cancel`, 'owner').send({ reason: 'x' }).expect(204);
+    expect(await booking(s, 'cx')).toMatchObject({ status: 'cancelled', entryConsumed: false });
+    expect(await used('cx')).toEqual([0]);
+  });
+
+  it('no-show can only be ticked once the class has started', async () => {
+    f.clock.setDay(DAY);
+    await newMember('ns');
+    await sell('ns');
+    const s = await mk(DAY, '22:00', { trainerId: f.id.t });
+    await book('ns', s).expect(201);
+    const id = (await booking(s, 'ns')).id;
+    f.clock.current = local(DAY, '21:30'); // inside the check-in window, before the start
+    await mark('t', id, 'no_show').expect(400);
+    expect((await booking(s, 'ns')).status).toBe('booked');
+    f.clock.current = local(DAY, '22:05');
+    await mark('t', id, 'no_show').expect(204);
   });
 
   it('a class that has not started cannot be marked', async () => {

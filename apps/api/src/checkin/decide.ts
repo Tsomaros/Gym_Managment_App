@@ -33,11 +33,6 @@ export function decideCheckIn(
   const time = active.filter((m) => m.kind === 'time').sort(byEndThenSale)[0];
   if (time) return { valid: true, useMembershipId: time.id, consumeVisit: false };
 
-  const pack = active
-    .filter((m) => (m.kind === 'visits' || m.kind === 'day_pass') && (m.remaining.visits ?? 0) > 0)
-    .sort(byEndThenSale)[0];
-  if (pack) return { valid: true, useMembershipId: pack.id, consumeVisit: true };
-
   const booking = bookingsNow[0];
   if (booking) {
     // The membership that paid for the booking must still work today (not voided, frozen, ended).
@@ -53,6 +48,11 @@ export function decideCheckIn(
       };
     }
   }
+
+  const pack = active
+    .filter((m) => (m.kind === 'visits' || m.kind === 'day_pass') && (m.remaining.visits ?? 0) > 0)
+    .sort(byEndThenSale)[0];
+  if (pack) return { valid: true, useMembershipId: pack.id, consumeVisit: true };
 
   const has = (status: Membership['status']) => live.some((m) => m.status === status);
   if (has('frozen')) return { valid: false, reason: 'frozen' };

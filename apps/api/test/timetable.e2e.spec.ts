@@ -198,6 +198,26 @@ describe('class types, timetable series and sessions', () => {
     expect(await list('2027-05-17', '2027-05-17')).toEqual([]);
   });
 
+  it('a class in the hour that does not exist on the spring switch day can still be created', async () => {
+    f.clock.current = new Date('2027-03-20T10:00:00Z');
+    try {
+      const made = await f
+        .req('post', '/class-sessions', 'owner')
+        .send({
+          classTypeId: spinning.id,
+          date: '2027-03-28',
+          startsAt: '03:30',
+          durationMinutes: 30,
+          capacity: 5,
+        })
+        .expect(201);
+      const [row] = await systemDb.select().from(classSessions).where(eq(classSessions.id, made.body.id));
+      expect(row!.endsAtUtc.getTime() - row!.startsAtUtc.getTime()).toBe(30 * 60_000);
+    } finally {
+      f.clock.setDay(DAY);
+    }
+  });
+
   it('members can list; people of another gym cannot', async () => {
     await list(DAY, DAY, 'm');
     await f.req('get', `/class-sessions?from=${DAY}&to=${DAY}`, 'stranger').expect(403);

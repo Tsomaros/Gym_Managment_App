@@ -164,7 +164,7 @@ test('members book and cancel, a full class shows Πλήρες, a booked class o
     { name: 'Σπινινγκ', nameEn: 'Spinning', defaultCapacity: 2, defaultDurationMinutes: 45 },
     owner.accessToken,
   );
-  const session = await post<{ id: string }>(
+  await post(
     `/gyms/${gymId}/class-sessions`,
     {
       classTypeId: type.id,
@@ -250,7 +250,6 @@ test('members book and cancel, a full class shows Πλήρες, a booked class o
   await expect(p2.getByText('Παρών')).toBeVisible();
   await p3.goto(`/g/${gymId}/classes/my`);
   await expect(p3.getByText('Δεν ήρθε')).toBeVisible();
-  expect(session.id).toBeTruthy();
 
   await Promise.all([tabletContext.close(), deskContext.close()]);
 });

@@ -39,6 +39,12 @@ import { localToUtc, materialiseSeries } from './materialise';
 
 const hhmm = (t: string): string => t.slice(0, 5);
 
+/** Minutes between two gym-local times of the same day (HH:MM). */
+const lengthMinutes = (from: string, to: string): number => {
+  const m = (t: string) => Number(t.slice(0, 2)) * 60 + Number(t.slice(3, 5));
+  return m(to) - m(from);
+};
+
 /** A booking that was cancelled because its session was (Task 4 notifies these members). */
 export interface CancelledBooking {
   sessionId: string;
@@ -240,7 +246,9 @@ export class TimetableService {
           startsAt: f.startsAt,
           endsAt: f.endsAt,
           startsAtUtc: localToUtc(f.date, f.startsAt, tz),
-          endsAtUtc: localToUtc(f.date, f.endsAt, tz),
+          endsAtUtc: new Date(
+            localToUtc(f.date, f.startsAt, tz).getTime() + lengthMinutes(f.startsAt, f.endsAt) * 60_000,
+          ),
           capacity: f.capacity,
           trainerId: f.trainerId,
           room: f.room,
@@ -358,7 +366,7 @@ export class TimetableService {
         gymId,
         actorId,
         doomed.map((d) => d.id),
-        'series_ended',
+        null,
       );
       await this.audit.record(tx, {
         gymId,
@@ -383,7 +391,7 @@ export class TimetableService {
     gymId: string,
     actorId: string,
     sessionIds: string[],
-    reason: string,
+    reason: string | null,
   ): Promise<CancelledBooking[]> {
     if (!sessionIds.length) return [];
     // Lock the sessions (in id order) so a booking in flight finishes before we look for bookings:
@@ -423,11 +431,33 @@ export class TimetableService {
       .where(and(eq(classSessions.id, sessionId), isNull(classSessions.cancelledAt)))
       .returning();
     if (!s) return [];
+    // Booked ones, and those already ticked (a member who checked in before the class was called
+    // off): all are cancelled at no charge, so an entry spent at the door is given back.
     const rows = await tx
       .update(classBookings)
       .set({ status: 'cancelled', cancelledAt: now })
-      .where(and(eq(classBookings.sessionId, sessionId), eq(classBookings.status, 'booked')))
-      .returning({ bookingId: classBookings.id, memberId: classBookings.memberId });
+      .where(
+        and(
+          eq(classBookings.sessionId, sessionId),
+          inArray(classBookings.status, ['booked', 'attended', 'no_show']),
+        ),
+      )
+      .returning({
+        bookingId: classBookings.id,
+        memberId: classBookings.memberId,
+        membershipId: classBookings.membershipId,
+        consumed: classBookings.entryConsumed,
+      });
+    for (const r of rows.filter((x) => x.consumed && x.membershipId)) {
+      await tx
+        .update(memberships)
+        .set({ visitsUsed: sql`${memberships.visitsUsed} - 1` })
+        .where(and(eq(memberships.id, r.membershipId!), sql`${memberships.visitsUsed} > 0`));
+      await tx
+        .update(classBookings)
+        .set({ entryConsumed: false })
+        .where(eq(classBookings.id, r.bookingId));
+    }
     await this.audit.record(tx, {
       gymId,
       actorId,
@@ -436,7 +466,7 @@ export class TimetableService {
       entityId: sessionId,
       data: { date: s.date, startsAt: hhmm(s.startsAt), reason, bookingsCancelled: rows.length },
     });
-    return rows.map((r) => ({ sessionId, ...r }));
+    return rows.map((r) => ({ sessionId, bookingId: r.bookingId, memberId: r.memberId }));
   }
 
   // --- sessions ------------------------------------------------------------------------------
@@ -462,7 +492,9 @@ export class TimetableService {
           startsAt: b.startsAt,
           endsAt,
           startsAtUtc: localToUtc(b.date, b.startsAt, tz),
-          endsAtUtc: localToUtc(b.date, endsAt, tz),
+          endsAtUtc: new Date(
+            localToUtc(b.date, b.startsAt, tz).getTime() + b.durationMinutes * 60_000,
+          ),
           capacity: b.capacity,
           trainerId: b.trainerId ?? null,
           room: b.room ?? null,

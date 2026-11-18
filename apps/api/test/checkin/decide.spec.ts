@@ -196,4 +196,15 @@ describe('decideCheckIn with bookings in their check-in window', () => {
       expect(d.valid, status).toBe(false);
     }
   });
+
+  it('a visit pack next to a class pack: the booked class is paid by its entry, no gym visit is spent', () => {
+    const p = classPack();
+    const visits = pack();
+    expect(decideCheckIn([visits, p], [{ bookingId: 'b1', membershipId: p.id }])).toEqual({
+      valid: true,
+      useMembershipId: p.id,
+      consumeVisit: false,
+      bookingId: 'b1',
+    });
+  });
 });
