@@ -127,6 +127,8 @@ describe('gym settings and member check-in token', () => {
       autoCheckoutMinutes: 120,
       receptionCanEditShifts: false,
       reminderDays: 5,
+      capacity: null,
+      showOccupancyCount: false,
     });
     await request(server())
       .patch(`/gyms/${gymId}/settings`)

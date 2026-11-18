@@ -1,4 +1,6 @@
 import { eq } from 'drizzle-orm';
+import request from 'supertest';
+import { signAccessToken } from '../src/auth/tokens';
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { systemDb } from '../src/db/client';
 import {
@@ -259,5 +261,32 @@ describe('membership reminders (gym in Europe/Athens)', () => {
     expect(rows[0]!.dedupeKey).toMatch(/^expiring:[0-9a-f-]{36}:2027-06-11$/);
     const [g] = await systemDb.select({ n: gyms.name }).from(gyms).where(eq(gyms.id, f.gymId));
     expect(emailsOf(emailOf('m'))[0]!.subject).toContain(g!.n);
+  });
+
+  describe('the end-to-end test endpoint (only exists when NODE_ENV=test)', () => {
+    const call = (token?: string, body: object = {}) => {
+      const r = request(f.app.getHttpServer()).post('/test/reminders/run');
+      return (token ? r.auth(token, { type: 'bearer' }) : r).send(body);
+    };
+
+    it('runs the reminders for a gym at the given moment, for the platform admin only', async () => {
+      const [admin] = await systemDb
+        .insert(users)
+        .values({
+          email: `pa-${f.run}@x.gr`,
+          firstName: 'Plat',
+          lastName: 'Admin',
+          isPlatformAdmin: true,
+        })
+        .returning({ id: users.id });
+      const body = { gymId: f.gymId, now: '2027-06-06T07:05:00.000Z' };
+      await call(undefined, body).expect(401);
+      await call(f.tok.owner, body).expect(403);
+      const res = await call(signAccessToken({ sub: admin!.id, adm: true }), body).expect(200);
+      expect(res.body).toMatchObject({ sent: 2 });
+      await call(signAccessToken({ sub: admin!.id, adm: true }), { gymId: 'x', now: 'y' }).expect(
+        400,
+      );
+    });
   });
 });

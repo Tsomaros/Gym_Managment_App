@@ -58,6 +58,7 @@ export function DeskPage({ reloadMs = RELOAD_MS }: { reloadMs?: number } = {}) {
   const [present, setPresent] = useState<PresentMember[] | null>(null);
   const [visitors, setVisitors] = useState<VisitorRow[] | null>(null);
   const [timeZone, setTimeZone] = useState(DEFAULT_TIME_ZONE);
+  const [capacity, setCapacity] = useState<number | null>(null);
   const [failed, setFailed] = useState(false);
   const [tab, setTab] = useState<'present' | 'today'>('present');
   const [selling, setSelling] = useState<CheckInResult | null>(null);
@@ -66,7 +67,10 @@ export function DeskPage({ reloadMs = RELOAD_MS }: { reloadMs?: number } = {}) {
   const load = useCallback(() => {
     setFailed(false);
     apiFetch<GymSettings>(`/gyms/${gymId}/settings`)
-      .then((s) => setTimeZone(s.timezone))
+      .then((s) => {
+        setTimeZone(s.timezone);
+        setCapacity(s.capacity);
+      })
       .catch(() => undefined); // the lists still work in the default zone
     Promise.all([
       apiFetch<PresentMember[]>(`/gyms/${gymId}/check-ins/present`),
@@ -213,6 +217,7 @@ export function DeskPage({ reloadMs = RELOAD_MS }: { reloadMs?: number } = {}) {
           ) : tab === 'present' ? (
             <PresentList
               members={present}
+              capacity={capacity}
               onCheckOut={(id) => void checkOut(id)}
               timeZone={timeZone}
             />

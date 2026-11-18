@@ -18,6 +18,8 @@ const apiEnv = {
   DATABASE_MIGRATOR_URL: toTestDb(process.env.DATABASE_MIGRATOR_URL),
   WEB_ORIGIN: 'http://localhost:5173',
   PORT: '3000',
+  // Switches off the hourly reminder job and turns on the test-only endpoint that runs it on demand.
+  NODE_ENV: 'test',
 };
 
 export default defineConfig({

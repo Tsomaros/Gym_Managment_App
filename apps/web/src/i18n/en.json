@@ -395,7 +395,9 @@
     "manualPlaceholder": "Name, email or mobile — Enter to check in",
     "noMatch": "No member found.",
     "checkInButton": "Check in",
-    "views": "View"
+    "views": "View",
+    "outOf_one": "of {{count}} person",
+    "outOf_other": "of {{count}} people"
   },
   "photo": {
     "add": "Add a photo",
@@ -422,7 +424,15 @@
     "invalid": "Enter a whole number from 30–600.",
     "saved": "Saved",
     "receptionShifts": "Reception can edit shifts",
-    "receptionShiftsHint": "When off, only the owner can change shifts."
+    "receptionShiftsHint": "When off, only the owner can change shifts. Saved immediately.",
+    "reminderDays": "Expiry reminder (days before)",
+    "reminderHint": "How many days before a membership ends the member gets a reminder. Allowed: 1–14.",
+    "reminderInvalid": "Enter a whole number 1–14.",
+    "capacity": "Capacity (people)",
+    "capacityHint": "How many people fit at once. Leave empty if you do not want to show how busy the gym is. Allowed: 1–2000.",
+    "capacityInvalid": "Enter a whole number 1–2000, or leave it empty.",
+    "showCount": "Members also see the number of people",
+    "showCountHint": "When off, members only see Quiet, Moderate or Busy. Staff always see the number. Saved immediately."
   },
   "staff": {
     "empty": "No staff yet.",
@@ -967,5 +977,13 @@
     "busyCell_one": "{{day}} {{from}}–{{to}}: {{count}} check-in",
     "busyCell_other": "{{day}} {{from}}–{{to}}: {{count}} check-ins",
     "groupBy": "Group by"
+  },
+  "occupancy": {
+    "label": "How busy",
+    "quiet": "Quiet",
+    "moderate": "Moderate",
+    "busy": "Busy",
+    "people_one": "{{count}} person",
+    "people_other": "{{count}} people"
   }
 }

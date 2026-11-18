@@ -7,10 +7,13 @@ import { StatusBadge } from '../members/StatusBadge';
 /** "Inside now": everyone with a valid check-in who has not left, with a check-out button. */
 export function PresentList({
   members,
+  capacity,
   onCheckOut,
   timeZone,
 }: {
   members: PresentMember[];
+  /** The gym's capacity, when the owner has set one: "5 / 30". */
+  capacity?: number | null;
   onCheckOut: (checkInId: string) => void;
   timeZone: string;
 }) {
@@ -21,6 +24,12 @@ export function PresentList({
         {t('desk.present')}{' '}
         <span className="rounded-full bg-slate-900 px-2.5 py-0.5 text-sm text-white tabular-nums">
           {members.length}
+          {capacity != null && (
+            <>
+              <span aria-hidden="true"> / {capacity}</span>
+              <span className="sr-only"> {t('desk.outOf', { count: capacity })}</span>
+            </>
+          )}
         </span>
       </h2>
       {members.length === 0 ? (

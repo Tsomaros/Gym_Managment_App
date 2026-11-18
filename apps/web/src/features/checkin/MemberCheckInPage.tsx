@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { useParams } from 'react-router';
 import { apiFetch } from '../../api/client';
 import { useAuth } from '../../auth/AuthProvider';
+import { OccupancyBadge } from '../occupancy/OccupancyBadge';
 import { MyMembershipCard } from '../my-membership/MyMembershipCard';
 import { QrCode } from './QrCode';
 import { useCheckInToken } from './useCheckInToken';
@@ -89,6 +90,9 @@ export function MemberCheckInPage() {
           {t('checkin.loading')}
         </p>
       )}
+
+      {/* Below the code: the badge arrives after the first answer and must not push the QR down. */}
+      {gymId && <OccupancyBadge gymId={gymId} />}
 
       {me && <p className="text-lg font-semibold text-slate-900">{me.fullName}</p>}
       {memberships && memberships.length > 0 && (

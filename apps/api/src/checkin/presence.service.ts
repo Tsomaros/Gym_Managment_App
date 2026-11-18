@@ -41,32 +41,7 @@ export class PresenceService {
    */
   async present(gymId: string): Promise<PresentMember[]> {
     return withGym(gymId, async (tx) => {
-      const now = this.clock.now();
-      const { timezone, autoCheckoutMinutes } = await gymClock(tx, gymId);
-      const today = todayIn(timezone, now);
-      const rows = await tx
-        .select({
-          id: checkIns.id,
-          memberId: checkIns.memberId,
-          at: checkIns.at,
-          checkedOutAt: checkIns.checkedOutAt,
-          firstName: users.firstName,
-          lastName: users.lastName,
-        })
-        .from(checkIns)
-        .innerJoin(users, eq(users.id, checkIns.memberId))
-        .where(and(eq(checkIns.valid, true), gte(checkIns.at, dayStart(today, timezone))))
-        .orderBy(desc(checkIns.at), desc(checkIns.id));
-
-      const cutoff = now.getTime() - autoCheckoutMinutes * 60_000;
-      const seen = new Set<string>();
-      const inside: typeof rows = [];
-      for (const r of rows) {
-        if (seen.has(r.memberId)) continue; // only each member's latest valid check-in counts
-        seen.add(r.memberId);
-        if (!r.checkedOutAt && r.at.getTime() >= cutoff) inside.push(r);
-      }
-
+      const { today, inside } = await this.insideNow(tx, gymId);
       const byMember = await membershipsOf(
         tx,
         inside.map((r) => r.memberId),
@@ -86,6 +61,55 @@ export class PresenceService {
         membershipStatus: memberStatus(byMember.get(r.memberId) ?? []).status,
       }));
     });
+  }
+
+  /** How many are inside (the same people `present` lists), without photos or memberships. */
+  async countInside(
+    gymId: string,
+  ): Promise<{ count: number; capacity: number | null; showCount: boolean }> {
+    return withGym(gymId, async (tx) => {
+      const { inside, capacity, showCount } = await this.insideNow(tx, gymId);
+      return { count: inside.length, capacity, showCount };
+    });
+  }
+
+  /** Each member's latest valid check-in of today (gym time) that is not checked out and not stale. */
+  private async insideNow(tx: Tx, gymId: string) {
+    const now = this.clock.now();
+    const [g] = await tx
+      .select({
+        timezone: gyms.timezone,
+        autoCheckoutMinutes: gyms.autoCheckoutMinutes,
+        capacity: gyms.capacity,
+        showCount: gyms.showOccupancyCount,
+      })
+      .from(gyms)
+      .where(eq(gyms.id, gymId));
+    const { timezone, autoCheckoutMinutes } = g!;
+    const today = todayIn(timezone, now);
+    const rows = await tx
+      .select({
+        id: checkIns.id,
+        memberId: checkIns.memberId,
+        at: checkIns.at,
+        checkedOutAt: checkIns.checkedOutAt,
+        firstName: users.firstName,
+        lastName: users.lastName,
+      })
+      .from(checkIns)
+      .innerJoin(users, eq(users.id, checkIns.memberId))
+      .where(and(eq(checkIns.valid, true), gte(checkIns.at, dayStart(today, timezone))))
+      .orderBy(desc(checkIns.at), desc(checkIns.id));
+
+    const cutoff = now.getTime() - autoCheckoutMinutes * 60_000;
+    const seen = new Set<string>();
+    const inside: typeof rows = [];
+    for (const r of rows) {
+      if (seen.has(r.memberId)) continue; // only each member's latest valid check-in counts
+      seen.add(r.memberId);
+      if (!r.checkedOutAt && r.at.getTime() >= cutoff) inside.push(r);
+    }
+    return { today, inside, capacity: g!.capacity, showCount: g!.showCount };
   }
 
   /** Every attempt of one gym-local day, refused ones included, newest first. */

@@ -15,6 +15,9 @@ export const CHECK_IN_REASONS = [
 ] as const;
 export type CheckInReason = (typeof CHECK_IN_REASONS)[number];
 
+export const CAPACITY_MIN = 1;
+export const CAPACITY_MAX = 2000;
+
 export const AUTO_CHECKOUT_MIN = 30;
 export const AUTO_CHECKOUT_MAX = 600;
 
@@ -23,12 +26,17 @@ export const UpdateGymSettingsSchema = z
     autoCheckoutMinutes: z.number().int().min(AUTO_CHECKOUT_MIN).max(AUTO_CHECKOUT_MAX).optional(),
     receptionCanEditShifts: z.boolean().optional(),
     reminderDays: z.number().int().min(REMINDER_DAYS_MIN).max(REMINDER_DAYS_MAX).optional(),
+    /** null clears it: members then see no occupancy. */
+    capacity: z.number().int().min(CAPACITY_MIN).max(CAPACITY_MAX).nullable().optional(),
+    showOccupancyCount: z.boolean().optional(),
   })
   .refine(
     (s) =>
       s.autoCheckoutMinutes !== undefined ||
       s.receptionCanEditShifts !== undefined ||
-      s.reminderDays !== undefined,
+      s.reminderDays !== undefined ||
+      s.capacity !== undefined ||
+      s.showOccupancyCount !== undefined,
     { message: 'Nothing to change' },
   );
 export type UpdateGymSettings = z.infer<typeof UpdateGymSettingsSchema>;
@@ -41,7 +49,20 @@ export interface GymSettings {
   receptionCanEditShifts: boolean;
   /** Days before the end that the "expiring" reminder is sent. */
   reminderDays: number;
+  /** How many people fit at once; null when the owner has not said. */
+  capacity: number | null;
+  /** Whether members see the number inside, not only the level. */
+  showOccupancyCount: boolean;
 }
+
+export type OccupancyLevel = 'quiet' | 'moderate' | 'busy';
+
+/**
+ * How busy the gym is right now. Without a capacity there is no level (null). Members get the
+ * count and capacity only when the owner allowed it; staff always get the count.
+ */
+export type Occupancy =
+  { level: OccupancyLevel; count?: number; capacity?: number } | { level: null; count?: number };
 
 /** The member's rotating QR payload and when it stops being accepted. */
 export interface CheckInTokenResponse {
