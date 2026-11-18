@@ -12,6 +12,10 @@ export default defineConfig({
     tailwindcss(),
     VitePWA({
       registerType: 'autoUpdate',
+      // Our own worker (src/sw.ts): the precache as before plus the push handler.
+      strategies: 'injectManifest',
+      srcDir: 'src',
+      filename: 'sw.ts',
       manifest: {
         name: 'Gym',
         short_name: 'Gym',
@@ -25,7 +29,7 @@ export default defineConfig({
           { src: '/icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'any maskable' },
         ],
       },
-      workbox: { navigateFallbackDenylist: [/^\/api\//] },
+      injectManifest: { globPatterns: ['**/*.{js,css,html,png,svg,ico,webmanifest}'] },
     }),
   ],
   // Load @gym/shared from TypeScript source. Vite 6+ replaces the defaults, so keep them.

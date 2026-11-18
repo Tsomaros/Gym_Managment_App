@@ -38,13 +38,13 @@ const copy: Record<Locale, Record<NotificationEvent, (c: RenderContext) => Copy>
       subject: 'Η συνδρομή σου λήγει σύντομα',
       title: 'Η συνδρομή σου λήγει σύντομα',
       line: `Η συνδρομή «${p.membershipName}» λήγει στις ${day(p.endsOn)} (σε ${p.days} ημέρες).`,
-      path: '',
+      path: '/myMembership',
     }),
     'membership.expires_today': ({ params: p }) => ({
       subject: 'Η συνδρομή σου λήγει σήμερα',
       title: 'Η συνδρομή σου λήγει σήμερα',
       line: `Η συνδρομή «${p.membershipName}» λήγει σήμερα, ${day(p.endsOn)}.`,
-      path: '',
+      path: '/myMembership',
     }),
     'visits.low': ({ params: p }) => ({
       subject: 'Σου απομένουν λίγες επισκέψεις',
@@ -53,13 +53,13 @@ const copy: Record<Locale, Record<NotificationEvent, (c: RenderContext) => Copy>
         Number(p.left) === 0
           ? `Χρησιμοποίησες όλες τις επισκέψεις της συνδρομής «${p.membershipName}».`
           : `Στη συνδρομή «${p.membershipName}» σου απομένουν ${p.left} επισκέψεις.`,
-      path: '',
+      path: '/myMembership',
     }),
     'plan.assigned': ({ params: p }) => ({
       subject: 'Νέο πρόγραμμα προπόνησης',
       title: 'Νέο πρόγραμμα προπόνησης',
       line: `Ο γυμναστής σου σού όρισε το πρόγραμμα «${p.planName}».`,
-      path: '/plan',
+      path: '/myWorkouts',
     }),
   },
   en: {
@@ -67,13 +67,13 @@ const copy: Record<Locale, Record<NotificationEvent, (c: RenderContext) => Copy>
       subject: 'Your membership expires soon',
       title: 'Your membership expires soon',
       line: `Your membership "${p.membershipName}" expires on ${day(p.endsOn)} (in ${p.days} days).`,
-      path: '',
+      path: '/myMembership',
     }),
     'membership.expires_today': ({ params: p }) => ({
       subject: 'Your membership expires today',
       title: 'Your membership expires today',
       line: `Your membership "${p.membershipName}" expires today, ${day(p.endsOn)}.`,
-      path: '',
+      path: '/myMembership',
     }),
     'visits.low': ({ params: p }) => ({
       subject: 'You are running low on visits',
@@ -82,13 +82,13 @@ const copy: Record<Locale, Record<NotificationEvent, (c: RenderContext) => Copy>
         Number(p.left) === 0
           ? `You have used every visit of "${p.membershipName}".`
           : `"${p.membershipName}" has ${p.left} visits left.`,
-      path: '',
+      path: '/myMembership',
     }),
     'plan.assigned': ({ params: p }) => ({
       subject: 'A new workout plan',
       title: 'A new workout plan',
       line: `Your trainer assigned you the plan "${p.planName}".`,
-      path: '/plan',
+      path: '/myWorkouts',
     }),
   },
 };

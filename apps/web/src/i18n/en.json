@@ -62,7 +62,8 @@
     "workoutHistory": "Workout history",
     "progress": "Progress",
     "privacy": "Privacy",
-    "body": "Body"
+    "body": "Body",
+    "notifications": "Notifications"
   },
   "shell": {
     "owner": "Owner area",
@@ -893,5 +894,39 @@
       "added": "Photo added.",
       "deleted": "Photo deleted."
     }
+  },
+  "notifications": {
+    "title": "Notifications",
+    "intro": "Choose how you want to hear from us. Phone notifications also arrive when the app is closed.",
+    "pushTitle": "Notifications on this device",
+    "pushEnable": "Turn on notifications on this device",
+    "pushDisable": "Turn off notifications on this device",
+    "pushOn": "Notifications are on for this device.",
+    "pushOff": "You have not turned on notifications on this device.",
+    "pushDenied": "Notifications are blocked by the browser. Allow them in the browser's site settings (Site settings → Notifications) and try again.",
+    "pushUnsupported": "This device does not support phone notifications. You can still get email, using the settings below.",
+    "pushFailed": "Notifications could not be turned on. Try again.",
+    "whatTitle": "What you want to receive",
+    "channelEmail": "Email",
+    "channelPush": "Notification",
+    "groupMembership": "Membership",
+    "groupMembershipHelp": "Your membership ending, and a visit pack running low",
+    "groupPlans": "Plans",
+    "groupPlansHelp": "When your trainer gives you a new plan",
+    "switchLabel": "{{group}}: {{channel}}",
+    "cardQuestion": "Want a reminder before your membership ends?",
+    "cardEnable": "Turn on",
+    "cardLater": "Not now",
+    "installTitle": "Install the app",
+    "installIosIntro": "To get notifications on iPhone, first add the app to your Home Screen:",
+    "installIosStep1": "Open this page in Safari.",
+    "installIosStep2": "Tap the Share button (the square with an arrow pointing up).",
+    "installIosStep3": "Choose \"Add to Home Screen\" and open the app from there.",
+    "installButton": "Install app",
+    "installAndroidIntro": "Install the app to get notifications.",
+    "installMenu": "Open the browser menu and choose \"Install app\" or \"Add to Home screen\".",
+    "pushAllDevices": "These choices apply to all your devices.",
+    "pushWorking": "One moment…",
+    "cardClose": "Close"
   }
 }
