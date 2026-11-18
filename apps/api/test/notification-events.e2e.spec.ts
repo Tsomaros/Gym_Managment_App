@@ -2,6 +2,7 @@ import { eq } from 'drizzle-orm';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { systemDb } from '../src/db/client';
 import { gymRoles, notificationPrefs, notificationsSent, users } from '../src/db/schema';
+import { RemindersService } from '../src/notifications/reminders.service';
 import { NotificationService } from '../src/notifications/notification.service';
 import { type HealthFixture, setupHealthFixture } from './helpers/fixture';
 
@@ -170,5 +171,92 @@ describe('event notifications: visit pack running low, new plan', () => {
     } finally {
       await systemDb.delete(notificationPrefs).where(eq(notificationPrefs.userId, f.id.m!));
     }
+  });
+
+  it('a day pass (one use) never sends "you used every visit": it is not a visit pack', async () => {
+    const [u] = await systemDb
+      .insert(users)
+      .values({ email: emailOf('dp'), firstName: 'Day', lastName: 'Pass' })
+      .returning({ id: users.id });
+    await systemDb.insert(gymRoles).values({ gymId: f.gymId, userId: u!.id, role: 'member' });
+    const dayPass = (
+      await f
+        .req('post', '/membership-types', 'owner')
+        .send({ name: 'Ημερήσια', kind: 'day_pass', priceCents: 800 })
+        .expect(201)
+    ).body.id as string;
+    await f
+      .req('post', `/members/${u!.id}/memberships`, 'rec')
+      .send({ typeId: dayPass, amountCents: 800, method: 'cash' })
+      .expect(201);
+    expect((await checkIn(u!.id)).valid).toBe(true);
+    expect(mailTo(emailOf('dp'))).toEqual([]);
+    expect(
+      await systemDb.select().from(notificationsSent).where(eq(notificationsSent.userId, u!.id)),
+    ).toEqual([]);
+  });
+
+  describe('a failed send is tried again by the hourly run', () => {
+    const noon = () => new Date(f.clock.now().getTime() + 3 * 3600_000); // after 10:00 in Athens
+
+    it('a low-visits email that failed goes out on the next run, once', async () => {
+      const [u] = await systemDb
+        .insert(users)
+        .values({ email: emailOf('rt'), firstName: 'Retry', lastName: 'Pack' })
+        .returning({ id: users.id });
+      await systemDb.insert(gymRoles).values({ gymId: f.gymId, userId: u!.id, role: 'member' });
+      await f
+        .req('post', `/members/${u!.id}/memberships`, 'rec')
+        .send({ typeId: packType, amountCents: 5000, method: 'cash' })
+        .expect(201);
+      for (let i = 0; i < 7; i++) await checkIn(u!.id);
+      f.mail.failWith = new Error('smtp down');
+      try {
+        await checkIn(u!.id); // 2 left: the email fails, nothing is recorded
+      } finally {
+        f.mail.failWith = null;
+      }
+      expect(mailTo(emailOf('rt'))).toEqual([]);
+      const reminders = f.app.get(RemindersService);
+      await reminders.runForGym(f.gymId, noon());
+      expect(mailTo(emailOf('rt'))).toHaveLength(1);
+      expect(mailTo(emailOf('rt'))[0]!.text).toContain('2');
+      // And never again: a second run and a later one find the record.
+      await reminders.runForGym(f.gymId, noon());
+      expect(mailTo(emailOf('rt'))).toHaveLength(1);
+    });
+
+    it('a new-plan email that failed goes out on the next run, once', async () => {
+      f.mail.failWith = new Error('smtp down');
+      try {
+        await f
+          .req('post', `/members/${f.id.n}/plans`, 't')
+          .send(planBody({ activate: true, title: 'Θα ξαναδοκιμαστεί' }))
+          .expect(201);
+        await settle();
+      } finally {
+        f.mail.failWith = null;
+      }
+      expect(mailTo(emailOf('n')).filter((m) => m.text.includes('Θα ξαναδοκιμαστεί'))).toEqual([]);
+      // Plans are stamped with the real time (not the test clock): run at the next 12:00 UTC,
+      // which is after 10:00 in Athens and less than a day away.
+      const realNoon = new Date();
+      realNoon.setUTCHours(12, 0, 0, 0);
+      if (realNoon.getTime() < Date.now()) realNoon.setUTCDate(realNoon.getUTCDate() + 1);
+      const reminders = f.app.get(RemindersService);
+      await reminders.runForGym(f.gymId, realNoon);
+      await reminders.runForGym(f.gymId, realNoon);
+      expect(mailTo(emailOf('n')).filter((m) => m.text.includes('Θα ξαναδοκιμαστεί'))).toHaveLength(
+        1,
+      );
+    });
+
+    it('does not resend what was already delivered, and ignores packs and plans from days ago', async () => {
+      const before = f.mail.sent.length;
+      await f.app
+        .get(RemindersService)
+        .runForGym(f.gymId, new Date(f.clock.now().getTime() + 3 * 86_400_000 + 3 * 3600_000));
+      expect(f.mail.sent.length).toBe(before);
+    });
   });
 });

@@ -105,3 +105,24 @@ export function usePush(): {
 
   return { state, enable, disable };
 }
+
+/**
+ * Ends push on this browser for whoever is signed in: the server row goes (so no reminder is sent
+ * to it any more) and so does the browser's subscription. Called on sign-out, because a shared
+ * device would otherwise keep showing the previous person's reminders. Never throws.
+ */
+export async function dropPushSubscription(): Promise<void> {
+  try {
+    if (!isSupported()) return;
+    const reg = await navigator.serviceWorker.ready;
+    const sub = await reg.pushManager.getSubscription();
+    if (!sub) return;
+    await apiFetch('/me/push-subscriptions', {
+      method: 'DELETE',
+      body: JSON.stringify({ endpoint: sub.endpoint }),
+    }).catch(() => undefined);
+    await sub.unsubscribe();
+  } catch {
+    // Signing out matters more than tidying up.
+  }
+}

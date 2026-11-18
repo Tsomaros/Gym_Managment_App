@@ -11,16 +11,27 @@ import {
   users,
 } from '../../src/db/schema';
 import type { MailMessage } from '../../src/mail/mail.service';
-import { NotificationService } from '../../src/notifications/notification.service';
+import {
+  DISPATCH_CONCURRENCY,
+  NotificationService,
+} from '../../src/notifications/notification.service';
 import { PushService, type PushTransport } from '../../src/notifications/push.service';
 
 /** Records sends; `failWith` makes sends throw; `gate` holds a send until released. */
 class FakeMail {
   sent: MailMessage[] = [];
+  inFlight = 0;
+  maxInFlight = 0;
   failWith: Error | null = null;
   gate: Promise<void> | null = null;
   async send(msg: MailMessage): Promise<void> {
-    if (this.gate) await this.gate;
+    this.inFlight++;
+    this.maxInFlight = Math.max(this.maxInFlight, this.inFlight);
+    try {
+      if (this.gate) await this.gate;
+    } finally {
+      this.inFlight--;
+    }
     if (this.failWith) throw this.failWith;
     this.sent.push(msg);
   }
@@ -300,5 +311,17 @@ describe('NotificationService', () => {
       .from(notificationsSent)
       .where(and(eq(notificationsSent.gymId, gymB), eq(notificationsSent.userId, member)));
     expect(b[0]!.channels.sort()).toEqual(['email', 'push']);
+  });
+
+  it('dispatch never runs more sends at once than its cap, so a slow mail server cannot use up the pool', async () => {
+    let release!: () => void;
+    mail.gate = new Promise<void>((r) => (release = r));
+    for (let i = 0; i < 12; i++) service.dispatch(event());
+    await new Promise((r) => setTimeout(r, 300));
+    expect(mail.maxInFlight).toBe(DISPATCH_CONCURRENCY);
+    release();
+    await service.idle();
+    expect(mail.sent).toHaveLength(12); // the rest waited their turn, none was dropped
+    expect(mail.maxInFlight).toBe(DISPATCH_CONCURRENCY);
   });
 });

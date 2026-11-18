@@ -21,6 +21,13 @@ import { MailService } from '../mail/mail.service';
 import { type PushSubscriptionRow, PushService } from './push.service';
 import { type NotificationParams, renderNotification } from './templates';
 
+/**
+ * At most this many dispatched sends run at once. Each one holds a pooled database connection
+ * while it talks to the mail server, so an unbounded burst (a rush of check-ins while the mail
+ * server is slow) could take the whole pool and stop everything else.
+ */
+export const DISPATCH_CONCURRENCY = 3;
+
 export interface NotifyInput {
   gymId: string;
   userId: string;
@@ -35,6 +42,8 @@ export type NotifyResult = 'sent' | 'duplicate' | 'opted_out' | 'failed';
 @Injectable()
 export class NotificationService implements BeforeApplicationShutdown {
   private readonly pending = new Set<Promise<unknown>>();
+  private running = 0;
+  private readonly waiting: (() => void)[] = [];
 
   constructor(
     private readonly mail: MailService,
@@ -46,11 +55,22 @@ export class NotificationService implements BeforeApplicationShutdown {
    * `notify` in the background and logs a failure. `idle()` waits for those that are still running.
    */
   dispatch(input: NotifyInput): void {
-    const task = this.notify(input)
-      .catch((err: Error) => {
-        console.error(`[notify] ${input.event} for ${input.userId} failed: ${err.message}`);
-      })
-      .finally(() => this.pending.delete(task));
+    const task: Promise<unknown> = new Promise<void>((resolve) => {
+      const start = () => {
+        this.running++;
+        this.notify(input)
+          .catch((err: Error) => {
+            console.error(`[notify] ${input.event} for ${input.userId} failed: ${err.message}`);
+          })
+          .finally(() => {
+            this.running--;
+            this.waiting.shift()?.();
+            resolve();
+          });
+      };
+      if (this.running < DISPATCH_CONCURRENCY) start();
+      else this.waiting.push(start);
+    }).finally(() => this.pending.delete(task));
     this.pending.add(task);
   }
 

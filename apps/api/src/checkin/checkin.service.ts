@@ -159,7 +159,8 @@ export class CheckInService {
       if (consumed && decision.valid) {
         const pack = fresh.find((m) => m.id === decision.useMembershipId);
         const left = pack?.remaining.visits;
-        if (pack && left !== null && left !== undefined && left <= LOW_VISITS) {
+        // Only a visit pack: a day pass has one use and a class pack has its own wording.
+        if (pack?.kind === 'visits' && left !== null && left !== undefined && left <= LOW_VISITS) {
           lowRef.value = { membershipId: pack.id, membershipName: pack.name, left };
         }
       }

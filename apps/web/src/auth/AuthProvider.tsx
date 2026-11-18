@@ -1,5 +1,6 @@
 import type { AcceptInviteResponse, MeResponse } from '@gym/shared';
 import { createContext, type ReactNode, useCallback, useContext, useEffect, useState } from 'react';
+import { dropPushSubscription } from '../features/notifications/usePush';
 import { apiFetch, onSignedOut, refreshSession, setAccessToken } from '../api/client';
 import { setLanguage } from '../i18n';
 
@@ -74,6 +75,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = useCallback(async () => {
     try {
+      // First, while the session still works: no push for this account may stay on this browser.
+      await dropPushSubscription().catch(() => undefined);
       await apiFetch<void>('/auth/logout', { method: 'POST' });
     } finally {
       setAccessToken(null);

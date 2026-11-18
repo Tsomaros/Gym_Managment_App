@@ -1,7 +1,7 @@
 import { act, renderHook, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { json } from '../../test/fixtures';
-import { usePush } from './usePush';
+import { dropPushSubscription, usePush } from './usePush';
 
 const IPHONE =
   'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1';
@@ -268,5 +268,41 @@ describe('usePush', () => {
       resolveReady({});
     });
     expect(result.current.state).toBe('default');
+  });
+
+  describe('dropPushSubscription (on sign-out)', () => {
+    it('deletes this browser’s subscription at the API and unsubscribes it', async () => {
+      const unsubscribe = vi.fn(async () => true);
+      permission = 'granted';
+      existing = { toJSON: () => SUB_JSON, endpoint: SUB_JSON.endpoint, unsubscribe };
+      setup();
+      resolveReady({});
+      await dropPushSubscription();
+      const del = fetchMock.mock.calls.find(([, i]) => i?.method === 'DELETE')!;
+      expect(String(del[0])).toBe('/api/me/push-subscriptions');
+      expect(JSON.parse(String(del[1]!.body))).toEqual({ endpoint: SUB_JSON.endpoint });
+      expect(unsubscribe).toHaveBeenCalled();
+    });
+
+    it('does nothing when the browser has no subscription, or no push at all', async () => {
+      setup();
+      resolveReady({});
+      await dropPushSubscription();
+      expect(fetchMock.mock.calls.filter(([, i]) => i?.method === 'DELETE')).toEqual([]);
+      setup({ supported: false });
+      await expect(dropPushSubscription()).resolves.toBeUndefined();
+    });
+
+    it('still unsubscribes the browser when the API cannot be reached', async () => {
+      const unsubscribe = vi.fn(async () => true);
+      existing = { toJSON: () => SUB_JSON, endpoint: SUB_JSON.endpoint, unsubscribe };
+      fetchMock.mockImplementation(async () => {
+        throw new Error('offline');
+      });
+      setup();
+      resolveReady({});
+      await dropPushSubscription();
+      expect(unsubscribe).toHaveBeenCalled();
+    });
   });
 });
