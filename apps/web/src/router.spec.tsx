@@ -143,7 +143,7 @@ describe('routing', () => {
           String(input).endsWith('/dashboard')
             ? new Response(JSON.stringify(dashboard()), { status: 200 })
             : new Response(
-                '{"membership":{"email":true,"push":true},"plans":{"email":true,"push":true}}',
+                '{"membership":{"email":true,"push":true},"plans":{"email":true,"push":true},"classes":{"email":true,"push":true}}',
                 { status: 200 },
               ),
         ),
