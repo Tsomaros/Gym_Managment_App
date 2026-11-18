@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import {
   CONSENT_KINDS,
   CONSENT_TEXT_VERSION,
@@ -9,9 +9,10 @@ import {
 import { and, eq, isNull, sql } from 'drizzle-orm';
 import { AuditService } from '../audit/audit.service';
 import { Clock } from '../common/clock';
-import { bodyMeasurements, healthConsents } from '../db/schema';
+import { bodyMeasurements, healthConsents, progressPhotos } from '../db/schema';
 import { type Tx, withGym } from '../db/tenant';
 import { gymToday } from '../memberships/memberships.service';
+import { StorageService } from '../storage/storage.service';
 import { healthAccess } from '../workouts/health-access';
 
 export interface Caller {
@@ -59,9 +60,12 @@ async function stateOf(tx: Tx, memberId: string): Promise<ConsentState> {
 
 @Injectable()
 export class ConsentsService {
+  private readonly log = new Logger(ConsentsService.name);
+
   constructor(
     private readonly audit: AuditService,
     private readonly clock: Clock,
+    private readonly storage: StorageService,
   ) {}
 
   state(gymId: string, caller: Caller, memberId: string): Promise<ConsentState> {
@@ -110,16 +114,23 @@ export class ConsentsService {
    * all of the member's data of that kind in this gym is deleted in the same transaction.
    * Withdrawing what is not granted does nothing.
    */
-  withdraw(gymId: string, memberId: string, kind: ConsentKind): Promise<void> {
-    return withGym(gymId, async (tx) => {
+  async withdraw(gymId: string, memberId: string, kind: ConsentKind): Promise<void> {
+    // Storage objects go after the commit: the rows are the source of truth, and a failed object
+    // delete only leaves an unreachable file (its key is lost with the row, so it is logged).
+    const objectKeys: string[] = [];
+    await withGym(gymId, async (tx) => {
       await lockConsent(tx, memberId);
       const existing = await activeConsent(tx, memberId, kind);
       if (!existing) return;
       await tx
         .update(healthConsents)
-        .set({ withdrawnAt: this.clock.now() })
+        // greatest(): a clock that stepped back since the grant must not break the
+        // withdrawn_at >= granted_at check — withdrawing is a right and cannot fail on skew.
+        .set({
+          withdrawnAt: sql`greatest(${this.clock.now().toISOString()}::timestamptz, ${healthConsents.grantedAt})`,
+        })
         .where(eq(healthConsents.id, existing.id));
-      const deleted = await this.deleteData(tx, memberId, kind);
+      const deleted = await this.deleteData(tx, memberId, kind, objectKeys);
       await this.audit.record(tx, {
         gymId,
         actorId: memberId,
@@ -129,10 +140,22 @@ export class ConsentsService {
         data: { kind, deleted },
       });
     });
+    await Promise.all(
+      objectKeys.map((key) =>
+        this.storage
+          .remove(key)
+          .catch((err: Error) => this.log.warn(`Could not delete ${key}: ${err.message}`)),
+      ),
+    );
   }
 
   /** Deletes the member's data of `kind` and returns how many items went. */
-  private async deleteData(tx: Tx, memberId: string, kind: ConsentKind): Promise<number> {
+  private async deleteData(
+    tx: Tx,
+    memberId: string,
+    kind: ConsentKind,
+    objectKeys: string[],
+  ): Promise<number> {
     if (kind === 'measurements') {
       const rows = await tx
         .delete(bodyMeasurements)
@@ -140,6 +163,11 @@ export class ConsentsService {
         .returning({ id: bodyMeasurements.id });
       return rows.length;
     }
-    return 0; // progress photos: added with the photos table (phase 4b, task 4)
+    const rows = await tx
+      .delete(progressPhotos)
+      .where(eq(progressPhotos.memberId, memberId))
+      .returning({ key: progressPhotos.objectKey });
+    objectKeys.push(...rows.map((r) => r.key));
+    return rows.length;
   }
 }

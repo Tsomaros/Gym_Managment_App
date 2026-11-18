@@ -184,15 +184,15 @@
   - `POST …/progress-photos` (`writePhotos` + consent; multipart `photo`, plus field `takenOn` ≤ today) → `201` + `progress_photo.added`. Validation: `415` for a wrong type, `413` over 3 MB.
   - `DELETE …/progress-photos/:id` (`writePhotos`) → `204`; the object is removed after commit; `progress_photo.deleted`.
 
-- [ ] **Step 1: Write the failing tests:**
+- [x] **Step 1: Write the failing tests:**
   - Without photo consent → `409`. With consent, M uploads → `201`; T lists it with a URL that returns the same bytes.
   - A cover trainer lists it (today) but gets `403` on upload; owner and reception → `404`.
   - M withdraws photo consent → the list is empty and the storage objects are gone. *(Review Focus 2)*
   - A wrong type → `415`; 3.1 MB → `413`; `takenOn` tomorrow → `400`. Two-gym isolation.
-- [ ] **Step 2: Run** `pnpm --filter api test progress-photos` → FAIL.
-- [ ] **Step 3: Implement.**
-- [ ] **Step 4: Run** `pnpm --filter api test` → PASS.
-- [ ] **Step 5: Commit** `feat: progress photos with consent`.
+- [x] **Step 2: Run** `pnpm --filter api test progress-photos` → FAIL.
+- [x] **Step 3: Implement.**
+- [x] **Step 4: Run** `pnpm --filter api test` → PASS.
+- [x] **Step 5: Commit** `feat: progress photos with consent`.
 
 ---
 

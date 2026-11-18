@@ -37,7 +37,7 @@ const MEASURED_VALUES = [
 export const MeasurementInputSchema = z
   .object({
     /** A gym-local day, not in the future (checked by the API against the gym's clock). */
-    measuredOn: z.iso.date(),
+    measuredOn: z.iso.date().refine((d) => d >= '1900-01-01', 'Too long ago'),
     weightKg: z.number().min(20).max(400).refine(decimals(2), 'Two decimals').nullish(),
     bodyFatPct: z.number().min(2).max(70).refine(decimals(1), 'One decimal').nullish(),
     waistCm: cm,
@@ -45,7 +45,12 @@ export const MeasurementInputSchema = z
     chestCm: cm,
     armCm: cm,
     thighCm: cm,
-    notes: z.string().trim().max(300).nullish(),
+    notes: z
+      .string()
+      .trim()
+      .max(300)
+      .refine((s) => !s.includes('\u0000'), 'No NUL characters')
+      .nullish(),
   })
   .refine((v) => MEASURED_VALUES.some((k) => v[k] != null), {
     path: ['weightKg'],
@@ -65,4 +70,18 @@ export interface Measurement {
   thighCm: number | null;
   notes: string | null;
   recordedBy: string | null;
+}
+
+export const MAX_PROGRESS_PHOTO_BYTES = 3 * 1024 * 1024;
+
+/** The text fields sent next to the photo (multipart). */
+export const ProgressPhotoFieldsSchema = z.object({ takenOn: z.iso.date() });
+export type ProgressPhotoFields = z.infer<typeof ProgressPhotoFieldsSchema>;
+
+export interface ProgressPhoto {
+  id: string;
+  takenOn: string;
+  /** A signed link valid for 5 minutes; fetch the list again for a fresh one. */
+  url: string;
+  uploadedBy: string | null;
 }

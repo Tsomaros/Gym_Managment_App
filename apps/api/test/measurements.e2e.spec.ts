@@ -2,7 +2,7 @@ import type { AuditPage, Measurement } from '@gym/shared';
 import { eq } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { systemDb } from '../src/db/client';
-import { bodyMeasurements, healthConsents, trainerCovers } from '../src/db/schema';
+import { bodyMeasurements, gymRoles, healthConsents, trainerCovers } from '../src/db/schema';
 import { DAY, type HealthFixture, setupHealthFixture } from './helpers/fixture';
 
 describe('body measurements: consent, access, withdrawal deletes', () => {
@@ -72,6 +72,10 @@ describe('body measurements: consent, access, withdrawal deletes', () => {
       { bodyFatPct: 18.25 },
       { waistCm: 9.9 },
       { thighCm: 300.5 },
+      { hipsCm: 9.9 },
+      { chestCm: 300.5 },
+      { armCm: 9.9 },
+      { armCm: 20.25 },
       { notes: 'x'.repeat(301) },
     ];
     for (const over of bad) await record('t', 'm', over).expect(400);
@@ -86,6 +90,7 @@ describe('body measurements: consent, access, withdrawal deletes', () => {
     await record('t', 'm', { weightKg: undefined, bodyFatPct: undefined, hipsCm: 10 }).expect(201);
     await record('t', 'm', { weightKg: 20, bodyFatPct: 2, chestCm: 300 }).expect(201);
     await record('t', 'm', { weightKg: 400, bodyFatPct: 70 }).expect(201);
+    await record('t', 'm', { armCm: 10, notes: 'x'.repeat(300) }).expect(201);
   });
 
   it('only the primary trainer records: the member and a cover trainer get 403', async () => {
@@ -114,6 +119,9 @@ describe('body measurements: consent, access, withdrawal deletes', () => {
     const [mine] = await list('t');
     await fx.req('delete', `/members/${fx.id.m}/measurements/${mine!.id}`, 'm').expect(403);
     await fx.req('delete', `/members/${fx.id.m}/measurements/${mine!.id}`, 'owner').expect(404);
+    // t is also n's trainer, but m's measurement id under n's path is not found and survives
+    await fx.req('delete', `/members/${fx.id.n}/measurements/${mine!.id}`, 't').expect(404);
+    expect(await list('t')).toContainEqual(mine);
     await fx.req('delete', `/members/${fx.id.m}/measurements/${mine!.id}`, 't').expect(204);
     await fx.req('delete', `/members/${fx.id.m}/measurements/${mine!.id}`, 't').expect(404);
     const page = (await fx.req('get', '/audit?entity=measurement&limit=100', 'owner').expect(200))
@@ -122,7 +130,8 @@ describe('body measurements: consent, access, withdrawal deletes', () => {
     expect(page.entries.map((e) => e.action)).toContain('measurement.recorded');
     for (const e of page.entries) {
       expect(e.data).toEqual({ memberId: fx.id.m });
-      expect(JSON.stringify(e.data)).not.toMatch(/82|waist|weight|notes/);
+      // none of the recorded values or the note text (82.5 kg, 84.5 cm, the Greek note) leaks
+      expect(JSON.stringify(e)).not.toMatch(/82\.5|84\.5|Πρώτη/);
     }
   });
 
@@ -150,6 +159,24 @@ describe('body measurements: consent, access, withdrawal deletes', () => {
     await grant('m').expect(201);
     await record('t').expect(201);
     expect(await list('t')).toHaveLength(1);
+  });
+
+  it('withdrawing in one gym keeps the same person’s measurements in another gym', async () => {
+    await systemDb
+      .insert(gymRoles)
+      .values({ gymId: fx.otherGymId, userId: fx.id.m!, role: 'member' } as never);
+    await fx.req('post', '/me/consents/measurements', 'm', fx.otherGymId).expect(201);
+    await systemDb.insert(bodyMeasurements).values({
+      gymId: fx.otherGymId,
+      memberId: fx.id.m!,
+      measuredOn: DAY,
+      weightKg: '75',
+    });
+    // m has consent and one measurement here too (granted again at the end of the previous test)
+    expect((await rowsOf('m')).filter((r) => r.gymId === fx.gymId).length).toBeGreaterThan(0);
+    await fx.req('delete', '/me/consents/measurements', 'm').expect(204);
+    const left = await rowsOf('m');
+    expect(left.map((r) => r.gymId)).toEqual([fx.otherGymId]);
   });
 
   it('keeps the gyms apart: consent given in one gym is nothing in the other', async () => {

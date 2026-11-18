@@ -19,6 +19,7 @@ import {
   memberships,
   membershipTypes,
   payments,
+  progressPhotos,
   planDays,
   planExercises,
   plans,
@@ -2083,12 +2084,38 @@ describe('row-level security and privileges: health_consents and body_measuremen
           .values({ gymId: gymA, memberId: memberA, kind: 'measurements', textVersion: 'v1' }),
       ),
     ).toMatch(/duplicate key/);
-    // another kind, and a re-grant after a withdrawal, are fine
+    // another kind is fine
     await withGym(gymA, (tx) =>
       tx
         .insert(healthConsents)
         .values({ gymId: gymA, memberId: memberA, kind: 'photos', textVersion: 'v1' }),
     );
+  });
+
+  it('allows one active consent per gym for the same person, and a re-grant after a withdrawal', async () => {
+    // the same person in gym B: a second active 'measurements' consent is not a duplicate
+    await withGym(gymB, (tx) =>
+      tx
+        .insert(healthConsents)
+        .values({ gymId: gymB, memberId: memberA, kind: 'measurements', textVersion: 'v1' }),
+    );
+    // withdraw gym B's own consent, then grant again: the old row stays, the new one is active
+    await withGym(gymB, (tx) =>
+      tx
+        .update(healthConsents)
+        .set({ withdrawnAt: new Date() })
+        .where(eq(healthConsents.id, consentB)),
+    );
+    await withGym(gymB, (tx) =>
+      tx
+        .insert(healthConsents)
+        .values({ gymId: gymB, memberId: memberB, kind: 'measurements', textVersion: 'v1' }),
+    );
+    const rows = await withGym(gymB, (tx) =>
+      tx.select().from(healthConsents).where(eq(healthConsents.memberId, memberB)),
+    );
+    expect(rows).toHaveLength(2);
+    expect(rows.filter((r) => r.withdrawnAt === null)).toHaveLength(1);
   });
 
   it('rejects out-of-range values, an empty measurement, an unknown kind and a backdated withdrawal', async () => {
@@ -2131,5 +2158,106 @@ describe('row-level security and privileges: health_consents and body_measuremen
         ),
       ),
     ).toMatch(/check constraint/);
+  });
+});
+
+describe('row-level security and privileges: progress_photos', () => {
+  const run = randomUUID().slice(0, 8);
+  let gymA: string;
+  let gymB: string;
+  let memberA: string;
+  let memberB: string;
+  let photoA: string;
+  let photoB: string;
+
+  beforeAll(async () => {
+    const g = await systemDb
+      .insert(gyms)
+      .values([{ name: `Ph A ${run}` }, { name: `Ph B ${run}` }])
+      .returning({ id: gyms.id });
+    gymA = g[0]!.id;
+    gymB = g[1]!.id;
+    const u = await systemDb
+      .insert(users)
+      .values([
+        { email: `pa-${run}@x.gr`, firstName: 'A', lastName: 'A' },
+        { email: `pb-${run}@x.gr`, firstName: 'B', lastName: 'B' },
+      ])
+      .returning({ id: users.id });
+    memberA = u[0]!.id;
+    memberB = u[1]!.id;
+    const p = await systemDb
+      .insert(progressPhotos)
+      .values([
+        { gymId: gymA, memberId: memberA, takenOn: '2027-05-12', objectKey: `k-a-${run}` },
+        { gymId: gymB, memberId: memberB, takenOn: '2027-05-12', objectKey: `k-b-${run}` },
+      ])
+      .returning({ id: progressPhotos.id });
+    photoA = p[0]!.id;
+    photoB = p[1]!.id;
+  });
+
+  afterAll(async () => {
+    const gymIds = [gymA, gymB].filter(Boolean);
+    if (gymIds.length) {
+      await systemDb.delete(progressPhotos).where(inArray(progressPhotos.gymId, gymIds));
+      await systemDb.delete(gyms).where(inArray(gyms.id, gymIds));
+    }
+    await systemDb.delete(users).where(sql`${users.email} like ${`p_-${run}@x.gr`}`);
+  });
+
+  it('withGym(A) sees only gym A photos; without a gym nothing is visible', async () => {
+    const ids = (g: string) =>
+      withGym(g, (tx) => tx.select().from(progressPhotos)).then((r) => r.map((x) => x.id));
+    expect(await ids(gymA)).toEqual([photoA]);
+    expect(await ids(gymB)).toEqual([photoB]);
+    expect(await db.select().from(progressPhotos)).toEqual([]);
+  });
+
+  it('withGym(A) cannot add, change or delete a gym B photo, and nobody can edit a row', async () => {
+    expect(
+      await rejectionMessage(
+        withGym(gymA, (tx) =>
+          tx
+            .insert(progressPhotos)
+            .values({
+              gymId: gymB,
+              memberId: memberB,
+              takenOn: '2027-05-12',
+              objectKey: `x-${run}`,
+            }),
+        ),
+      ),
+    ).toMatch(RLS_VIOLATION);
+    const removed = await withGym(gymA, (tx) =>
+      tx
+        .delete(progressPhotos)
+        .where(eq(progressPhotos.gymId, gymB))
+        .returning({ id: progressPhotos.id }),
+    );
+    expect(removed).toEqual([]);
+    expect(
+      await rejectionMessage(
+        withGym(gymA, (tx) =>
+          tx
+            .update(progressPhotos)
+            .set({ takenOn: '2020-01-01' })
+            .where(eq(progressPhotos.id, photoA)),
+        ),
+      ),
+    ).toMatch(/permission denied/);
+  });
+
+  it('rejects an empty or duplicate object key', async () => {
+    const insert = (objectKey: string) =>
+      rejectionMessage(
+        withGym(gymA, (tx) =>
+          tx
+            .insert(progressPhotos)
+            .values({ gymId: gymA, memberId: memberA, takenOn: '2027-05-12', objectKey }),
+        ),
+      );
+    expect(await insert('')).toMatch(/check constraint/);
+    expect(await insert(`k-a-${run}`)).toMatch(/duplicate key/);
   });
 });

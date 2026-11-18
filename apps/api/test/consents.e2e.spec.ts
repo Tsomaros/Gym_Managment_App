@@ -2,7 +2,7 @@ import type { AuditPage, ConsentState } from '@gym/shared';
 import { and, eq } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { systemDb } from '../src/db/client';
-import { bodyMeasurements, healthConsents, trainerCovers } from '../src/db/schema';
+import { bodyMeasurements, gymRoles, healthConsents, trainerCovers } from '../src/db/schema';
 import { DAY, type HealthFixture, setupHealthFixture } from './helpers/fixture';
 
 describe('health consent: grant, withdraw, who may see it', () => {
@@ -56,11 +56,13 @@ describe('health consent: grant, withdraw, who may see it', () => {
   });
 
   it('two grants sent at once leave exactly one active row', async () => {
-    await Promise.all([
+    const res = await Promise.all([
       fx.req('post', '/me/consents/photos', 'n'),
       fx.req('post', '/me/consents/photos', 'n'),
       fx.req('post', '/me/consents/photos', 'n'),
     ]);
+    // one request wins (201); the others see its consent (200), none fails with a unique violation
+    expect(res.map((r) => r.status).sort()).toEqual([200, 200, 201]);
     expect(await active('n', 'photos')).toHaveLength(1);
   });
 
@@ -115,7 +117,26 @@ describe('health consent: grant, withdraw, who may see it', () => {
 
   it('is per gym: another gym’s member has their own state', async () => {
     await fx.req('post', '/me/consents/measurements', 'stranger', fx.otherGymId).expect(201);
-    expect((await state('t')).measurements.granted).toBe(false);
     await fx.req('get', `/members/${fx.id.stranger}/consents`, 't').expect(404);
+  });
+
+  it('one person in two gyms has a separate consent in each', async () => {
+    // m (withdrawn in this gym by now) also joins the other gym
+    await systemDb
+      .insert(gymRoles)
+      .values({ gymId: fx.otherGymId, userId: fx.id.m!, role: 'member' } as never);
+    await fx.req('post', '/me/consents/measurements', 'm', fx.otherGymId).expect(201);
+    expect((await state('t')).measurements.granted).toBe(false);
+    expect((await fx.req('get', '/me/consents', 'm').expect(200)).body.measurements.granted).toBe(
+      false,
+    );
+    // granting here is new here, even though the other gym already has one
+    await fx.req('post', '/me/consents/measurements', 'm').expect(201);
+    expect((await state('t')).measurements.granted).toBe(true);
+    // withdrawing here leaves the other gym's consent alone
+    await fx.req('delete', '/me/consents/measurements', 'm').expect(204);
+    expect((await state('t')).measurements.granted).toBe(false);
+    const other = await fx.req('get', '/me/consents', 'm', fx.otherGymId).expect(200);
+    expect(other.body.measurements.granted).toBe(true);
   });
 });

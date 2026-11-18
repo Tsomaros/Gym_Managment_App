@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import net from 'node:net';
 import type { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import type { Exercise, MembershipType } from '@gym/shared';
@@ -142,3 +143,18 @@ export async function setupHealthFixture(label: string) {
 }
 
 export type HealthFixture = Awaited<ReturnType<typeof setupHealthFixture>>;
+
+/** True when something listens on the S3 endpoint (MinIO from docker compose). */
+export async function s3Reachable(): Promise<boolean> {
+  const url = new URL(process.env.S3_ENDPOINT ?? 'http://localhost:9000');
+  return new Promise((resolve) => {
+    const socket = net.connect({ host: url.hostname, port: Number(url.port) || 80 });
+    const done = (ok: boolean) => {
+      socket.destroy();
+      resolve(ok);
+    };
+    socket.setTimeout(1000, () => done(false));
+    socket.once('connect', () => done(true));
+    socket.once('error', () => done(false));
+  });
+}
