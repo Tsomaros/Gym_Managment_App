@@ -1,5 +1,5 @@
 import type { Attendee, BookingStatus, ClassSessionView, MemberSummary } from '@gym/shared';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { apiFetch } from '../../api/client';
 import { ConfirmDialog } from '../../components/ConfirmDialog';
@@ -50,6 +50,10 @@ export function SessionDetailPage({
   const [text, setText] = useState('');
   const [found, setFound] = useState<MemberSummary[]>([]);
   const [bookError, setBookError] = useState<string | null>(null);
+  const [booked, setBooked] = useState<string | null>(null);
+  const titleRef = useRef<HTMLHeadingElement>(null);
+  const searchRef = useRef<HTMLInputElement>(null);
+  useEffect(() => titleRef.current?.focus(), []);
 
   const load = useCallback(() => {
     setFailed(false);
@@ -104,6 +108,7 @@ export function SessionDetailPage({
 
   async function book(member: MemberSummary) {
     setBookError(null);
+    setBooked(null);
     try {
       await apiFetch(`/gyms/${gymId}/class-sessions/${session.id}/bookings`, {
         method: 'POST',
@@ -111,6 +116,8 @@ export function SessionDetailPage({
       });
       setText('');
       setFound([]);
+      setBooked(`${member.firstName} ${member.lastName}`);
+      searchRef.current?.focus();
       load();
     } catch (err) {
       const message = (err as { body?: { message?: string } }).body?.message;
@@ -151,7 +158,12 @@ export function SessionDetailPage({
         </button>
       </div>
       <div>
-        <h2 id="session-title" className="text-xl font-semibold text-slate-900">
+        <h2
+          id="session-title"
+          ref={titleRef}
+          tabIndex={-1}
+          className="text-xl font-semibold text-slate-900 focus:outline-none"
+        >
           {name}
           {session.cancelled && (
             <span className="ml-2 text-base font-normal text-red-800">
@@ -201,6 +213,7 @@ export function SessionDetailPage({
                 {a.member.firstName} {a.member.lastName}
               </span>
               <span
+                aria-live="polite"
                 data-testid={`chip-${a.bookingId}`}
                 className={`rounded-full px-3 py-1 text-sm font-medium ${chipClass[a.status]}`}
               >
@@ -210,19 +223,23 @@ export function SessionDetailPage({
                 <>
                   <button
                     type="button"
-                    onClick={() => void mark(a, 'attended')}
-                    aria-label={t('classes.detail.markAttendedFor', { name: `${a.member.firstName} ${a.member.lastName}` })}
-                    disabled={a.status === 'attended'}
-                    className={`${plainClass} disabled:opacity-50`}
+                    onClick={() => a.status !== 'attended' && void mark(a, 'attended')}
+                    aria-label={t('classes.detail.markAttendedFor', {
+                      name: `${a.member.firstName} ${a.member.lastName}`,
+                    })}
+                    aria-disabled={a.status === 'attended' || undefined}
+                    className={`${plainClass} aria-disabled:opacity-50`}
                   >
                     {t('classes.detail.markAttended')}
                   </button>
                   <button
                     type="button"
-                    onClick={() => void mark(a, 'no_show')}
-                    aria-label={t('classes.detail.markNoShowFor', { name: `${a.member.firstName} ${a.member.lastName}` })}
-                    disabled={a.status === 'no_show'}
-                    className={`${plainClass} disabled:opacity-50`}
+                    onClick={() => a.status !== 'no_show' && void mark(a, 'no_show')}
+                    aria-label={t('classes.detail.markNoShowFor', {
+                      name: `${a.member.firstName} ${a.member.lastName}`,
+                    })}
+                    aria-disabled={a.status === 'no_show' || undefined}
+                    className={`${plainClass} aria-disabled:opacity-50`}
                   >
                     {t('classes.detail.markNoShow')}
                   </button>
@@ -243,6 +260,7 @@ export function SessionDetailPage({
           </label>
           <input
             id="book-member"
+            ref={searchRef}
             value={text}
             onChange={(e) => setText(e.target.value)}
             placeholder={t('classes.detail.searchMember')}
@@ -264,6 +282,9 @@ export function SessionDetailPage({
               ))}
             </ul>
           )}
+          <p role="status" className="min-h-5 text-sm text-green-800">
+            {booked && `✓ ${t('classes.detail.booked', { name: booked })}`}
+          </p>
           <p role="alert" className="min-h-5 text-sm text-red-700">
             {bookError}
           </p>

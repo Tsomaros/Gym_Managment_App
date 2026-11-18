@@ -54,8 +54,8 @@ describe('TimetablePage', () => {
 
   it('asks for the week from Monday to Sunday and shows booked/capacity on each block', async () => {
     renderPage(false);
-    expect(await screen.findByRole('button', { name: /Σπινινγκ 07:00, 4\/12 θέσεις/ })).toBeVisible();
-    expect(screen.getByRole('button', { name: /Σπινινγκ 18:00, 12\/12 θέσεις/ })).toBeVisible();
+    expect(await screen.findByRole('button', { name: /07:00 Σπινινγκ, 4 από 12 θέσεις/ })).toBeVisible();
+    expect(screen.getByRole('button', { name: /18:00 Σπινινγκ, 12 από 12 θέσεις/ })).toBeVisible();
     expect(
       fetchMock.mock.calls.some(([u]) =>
         String(u).endsWith('/class-sessions?from=2027-05-10&to=2027-05-16'),
@@ -65,7 +65,7 @@ describe('TimetablePage', () => {
 
   it('strikes a cancelled class through and says so in its name', async () => {
     renderPage(false);
-    const cancelled = await screen.findByRole('button', { name: /Σπινινγκ 10:00.*ακυρώθηκε/ });
+    const cancelled = await screen.findByRole('button', { name: /10:00 Σπινινγκ.*ακυρώθηκε/ });
     expect(within(cancelled).getByText('10:00 Σπινινγκ')).toHaveClass('line-through');
     expect(within(cancelled).getByText(/χωρίς γυμναστή/)).toBeInTheDocument();
   });
@@ -76,13 +76,13 @@ describe('TimetablePage', () => {
     expect(screen.getByRole('button', { name: 'Νέο έκτακτο μάθημα' })).toBeVisible();
     unmount();
     renderPage(false);
-    await screen.findByRole('button', { name: /Σπινινγκ 07:00/ });
+    await screen.findByRole('button', { name: /07:00 Σπινινγκ/ });
     expect(screen.queryByRole('button', { name: 'Νέο εβδομαδιαίο μάθημα' })).not.toBeInTheDocument();
   });
 
   it('moves a week back and reloads', async () => {
     renderPage(false);
-    await screen.findByRole('button', { name: /Σπινινγκ 07:00/ });
+    await screen.findByRole('button', { name: /07:00 Σπινινγκ/ });
     await userEvent.click(screen.getByRole('button', { name: 'Προηγούμενη εβδομάδα' }));
     await waitFor(() =>
       expect(
@@ -95,10 +95,20 @@ describe('TimetablePage', () => {
 
   it('opens a class on click and comes back to the week', async () => {
     renderPage(true);
-    await userEvent.click(await screen.findByRole('button', { name: /Σπινινγκ 18:00/ }));
+    await userEvent.click(await screen.findByRole('button', { name: /18:00 Σπινινγκ/ }));
     expect(await screen.findByRole('heading', { name: 'Σπινινγκ', level: 2 })).toBeVisible();
     await userEvent.click(screen.getByRole('button', { name: /Πρόγραμμα/ }));
     expect(await screen.findByRole('heading', { name: 'Πρόγραμμα μαθημάτων' })).toBeVisible();
+  });
+
+  it('focus moves to the class title on open and back to its block on return', async () => {
+    renderPage(true);
+    await userEvent.click(await screen.findByRole('button', { name: /18:00 Σπινινγκ/ }));
+    expect(await screen.findByRole('heading', { name: 'Σπινινγκ', level: 2 })).toHaveFocus();
+    await userEvent.click(screen.getByRole('button', { name: /Πρόγραμμα/ }));
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: /18:00 Σπινινγκ/ })).toHaveFocus(),
+    );
   });
 
   it('says so when the week has no classes, and offers a retry when loading fails', async () => {

@@ -51,6 +51,8 @@ describe('ClassSeriesDialog', () => {
     await submit();
     expect(calls()).toHaveLength(0);
     expect(screen.getByLabelText('Είδος μαθήματος')).toBeInvalid();
+    // The first invalid field takes focus, so its error is read out.
+    await waitFor(() => expect(screen.getByLabelText('Είδος μαθήματος')).toHaveFocus());
     await userEvent.selectOptions(screen.getByLabelText('Είδος μαθήματος'), SPINNING.id);
     await userEvent.clear(screen.getByLabelText('Ώρα έναρξης'));
     await userEvent.type(screen.getByLabelText('Ώρα έναρξης'), '23:30');
@@ -141,6 +143,16 @@ describe('ClassSeriesDialog', () => {
     await waitFor(() => expect(onSaved).toHaveBeenCalled());
     const ends = calls().filter(([u]) => u.endsWith('/end'));
     expect(ends).toHaveLength(1);
+  });
+
+  it('closing after the old series ended reloads the caller (the week is stale)', async () => {
+    failPath = '/class-series';
+    renderDialog(change);
+    await submit();
+    await screen.findByRole('alert');
+    await userEvent.click(screen.getByRole('button', { name: 'Άκυρο' }));
+    expect(onSaved).toHaveBeenCalledTimes(1);
+    expect(onClose).not.toHaveBeenCalled();
   });
 
   it('a failure before anything changed shows the generic error and stays open', async () => {

@@ -60,7 +60,7 @@ describe('SessionDetailPage', () => {
     renderPage();
     const list = await screen.findByRole('list', { name: 'Κρατήσεις' });
     expect(within(list).getAllByText('Μαρία Νικολάου')[0]).toBeVisible();
-    expect(screen.getByTestId('chip-b1')).toHaveTextContent('Κράτηση');
+    expect(screen.getByTestId('chip-b1')).toHaveTextContent('Κρατημένο');
     expect(screen.getByTestId('chip-b2')).toHaveTextContent('Παρών');
     expect(String(fetchMock.mock.calls[0]![0])).toBe(`/api/gyms/${GYM}/class-sessions/s1/attendees`);
   });
@@ -73,12 +73,22 @@ describe('SessionDetailPage', () => {
     expect(JSON.parse(String(posts()[0]![1]!.body))).toEqual({ status: 'attended' });
   });
 
+  it('the tick for the current status stays focusable (aria-disabled) and sends nothing', async () => {
+    renderPage();
+    const done = await screen.findByRole('button', { name: 'Παρών: Γιάννης Κώστας' });
+    expect(done).toHaveAttribute('aria-disabled', 'true');
+    done.focus();
+    await userEvent.click(done);
+    expect(done).toHaveFocus();
+    expect(posts()).toHaveLength(0);
+  });
+
   it('keeps the old chip and says so when ticking fails', async () => {
     renderPage();
     postStatus = 400;
     await userEvent.click(await screen.findByRole('button', { name: 'Δεν ήρθε: Μαρία Νικολάου' }));
     expect(await screen.findByText('Δεν ήταν δυνατή η καταχώριση. Δοκίμασε ξανά.')).toBeVisible();
-    expect(screen.getByTestId('chip-b1')).toHaveTextContent('Κράτηση');
+    expect(screen.getByTestId('chip-b1')).toHaveTextContent('Κρατημένο');
   });
 
   it('the cancel dialog says how many members are notified; confirming cancels with the reason', async () => {
@@ -117,6 +127,9 @@ describe('SessionDetailPage', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Ελένη Δήμου' }));
     await waitFor(() => expect(posts()).toHaveLength(2));
     expect(JSON.parse(String(posts()[1]![1]!.body))).toEqual({ memberId: 'u9' });
+    // The result is said out loud and focus goes back to the search field.
+    expect(await screen.findByText('✓ Έγινε κράτηση: Ελένη Δήμου')).toBeVisible();
+    expect(screen.getByLabelText('Κράτηση για μέλος')).toHaveFocus();
   });
 
   it('without management rights there is no cancel; a cancelled class cannot be ticked or booked', async () => {

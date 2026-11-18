@@ -59,6 +59,8 @@ export function ClassSeriesDialog({
   const [busy, setBusy] = useState(false);
   const [failed, setFailed] = useState<'none' | 'failed' | 'endedOnly'>('none');
   const [ended, setEnded] = useState(false);
+  // Once the old series has ended the week on screen is stale, so closing reloads it.
+  const close = () => (ended ? onSaved() : onClose());
 
   const weekday = isoWeekday(validFrom || today);
   const weekdayName = new Intl.DateTimeFormat(tag, { weekday: 'long', timeZone: 'UTC' }).format(
@@ -67,6 +69,7 @@ export function ClassSeriesDialog({
 
   async function submit(e: FormEvent) {
     e.preventDefault();
+    const form = e.currentTarget;
     if (busy) return;
     const found: ClassFormErrors & { validFrom?: string } = validateClassForm(
       values,
@@ -77,7 +80,11 @@ export function ClassSeriesDialog({
       found.validFrom = t('classes.form.fromError');
     }
     setErrors(found);
-    if (Object.keys(found).length) return;
+    if (Object.keys(found).length) {
+      // The first invalid field takes focus: its error is its description.
+      setTimeout(() => form.querySelector<HTMLElement>('[aria-invalid="true"]')?.focus(), 0);
+      return;
+    }
     setBusy(true);
     setFailed('none');
     try {
@@ -123,7 +130,7 @@ export function ClassSeriesDialog({
     <Dialog
       title={change ? t('classes.series.changeTitle') : t('classes.series.newTitle')}
       closeLabel={t('common.close')}
-      onClose={onClose}
+      onClose={close}
     >
       <form onSubmit={submit} noValidate className="flex flex-col gap-4">
         {change ? (
@@ -172,7 +179,7 @@ export function ClassSeriesDialog({
           {failed === 'endedOnly' && t('classes.series.endedOnly')}
         </div>
         <div className="flex flex-wrap justify-end gap-3">
-          <button type="button" onClick={onClose} className={plainClass}>
+          <button type="button" onClick={close} className={plainClass}>
             {t('common.cancel')}
           </button>
           <button type="submit" aria-disabled={busy || undefined} className={primaryClass}>

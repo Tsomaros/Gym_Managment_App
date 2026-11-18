@@ -46,6 +46,7 @@ export function ClassSessionDialog({
 
   async function submit(e: FormEvent) {
     e.preventDefault();
+    const form = e.currentTarget;
     if (busy) return;
     const found: ClassFormErrors & { date?: string } = validateClassForm(
       values,
@@ -54,7 +55,11 @@ export function ClassSessionDialog({
     );
     if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || date < today) found.date = t('classes.form.dateError');
     setErrors(found);
-    if (Object.keys(found).length) return;
+    if (Object.keys(found).length) {
+      // The first invalid field takes focus: its error is its description.
+      setTimeout(() => form.querySelector<HTMLElement>('[aria-invalid="true"]')?.focus(), 0);
+      return;
+    }
     setBusy(true);
     setFailed(false);
     try {

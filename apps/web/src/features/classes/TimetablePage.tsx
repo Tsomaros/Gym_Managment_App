@@ -1,5 +1,5 @@
 import type { ClassSessionView, ClassTypeView, ScheduleResponse } from '@gym/shared';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useParams } from 'react-router';
 import { apiFetch } from '../../api/client';
@@ -24,7 +24,10 @@ export function TimetablePage({
 }) {
   const { t, i18n } = useTranslation();
   const { gymId = '' } = useParams();
-  const narrow = useNarrow();
+  // Seven columns need room: below 1024 px the day list reads better than cramped columns.
+  const narrow = useNarrow('(max-width: 1023px)');
+  const lastOpened = useRef<string | null>(null);
+  const [typesFailed, setTypesFailed] = useState(false);
   // The gym and its staff share a time zone, and reception cannot always read the gym's settings.
   const today = todayIn(Intl.DateTimeFormat().resolvedOptions().timeZone, now());
   const [monday, setMonday] = useState(() => mondayOf(today));
@@ -50,8 +53,11 @@ export function TimetablePage({
   useEffect(() => {
     if (!isOwner) return;
     apiFetch<ClassTypeView[]>(`/gyms/${gymId}/class-types`)
-      .then(setTypes)
-      .catch(() => undefined);
+      .then((r) => {
+        setTypes(r);
+        setTypesFailed(false);
+      })
+      .catch(() => setTypesFailed(true));
     apiFetch<ScheduleResponse>(`/gyms/${gymId}/schedule?from=${today}&to=${today}`)
       .then((r) =>
         setTrainers(r.staff.filter((s) => s.roles.includes('trainer'))),
@@ -75,6 +81,13 @@ export function TimetablePage({
     }).format(new Date(`${iso}T00:00:00Z`));
 
   const open = sessions?.find((s) => s.id === openId) ?? null;
+
+  // Back from a class: focus returns to its block in the week.
+  useEffect(() => {
+    if (!openId && lastOpened.current && sessions) {
+      document.querySelector<HTMLElement>(`[data-session="${lastOpened.current}"]`)?.focus();
+    }
+  }, [openId, sessions]);
 
   if (open) {
     const trainerId = open.trainer?.id ?? '';
@@ -131,8 +144,12 @@ export function TimetablePage({
       <li key={s.id}>
         <button
           type="button"
-          onClick={() => setOpenId(s.id)}
-          aria-label={`${name} ${s.startsAt}, ${t('classes.spots', {
+          data-session={s.id}
+          onClick={() => {
+            lastOpened.current = s.id;
+            setOpenId(s.id);
+          }}
+          aria-label={`${s.startsAt} ${name}, ${t('classes.spots', {
             booked: s.booked,
             capacity: s.capacity,
           })}${s.cancelled ? `, ${t('classes.cancelled')}` : ''}`}
@@ -142,7 +159,7 @@ export function TimetablePage({
               : 'border-slate-300 bg-white text-slate-900 hover:bg-slate-50'
           }`}
         >
-          <span className={`font-semibold ${s.cancelled ? 'line-through' : ''}`}>
+          <span className={`font-semibold break-words ${s.cancelled ? 'line-through' : ''}`}>
             {s.startsAt} {name}
           </span>
           <span className="text-xs text-slate-700">
@@ -165,18 +182,25 @@ export function TimetablePage({
         <h2 id="timetable-title" className="mr-auto text-xl font-semibold text-slate-900">
           {t('classes.timetable')}
         </h2>
+        {isOwner && typesFailed && (
+          <p role="alert" className="text-sm text-red-700">
+            {t('classes.typesFailed')}
+          </p>
+        )}
         {isOwner && (
           <>
             <button
               type="button"
-              onClick={() => setDialog({ kind: 'series' })}
+              aria-disabled={typesFailed || undefined}
+              onClick={() => !typesFailed && setDialog({ kind: 'series' })}
               className={primaryClass}
             >
               {t('classes.addWeekly')}
             </button>
             <button
               type="button"
-              onClick={() => setDialog({ kind: 'oneOff', date: today })}
+              aria-disabled={typesFailed || undefined}
+              onClick={() => !typesFailed && setDialog({ kind: 'oneOff', date: today })}
               className={plainClass}
             >
               {t('classes.addOneOff')}
@@ -194,7 +218,7 @@ export function TimetablePage({
         >
           ←
         </button>
-        <span className="min-w-40 text-center font-medium text-slate-900">
+        <span aria-live="polite" className="min-w-40 text-center font-medium text-slate-900">
           {dayLabel(monday)} – {dayLabel(sunday)}
         </span>
         <button
@@ -241,6 +265,7 @@ export function TimetablePage({
                   className={`mb-1 text-sm font-semibold ${d === today ? 'text-slate-900 underline' : 'text-slate-700'}`}
                 >
                   {dayLabel(d, narrow)}
+                  {d === today && <span className="font-normal"> · {t('schedule.today')}</span>}
                 </h3>
                 <ul className="flex flex-col gap-1">{list.map(block)}</ul>
               </li>
