@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { useParams } from 'react-router';
 import { useAuth } from '../auth/AuthProvider';
 import { EmailNotVerifiedBanner } from '../components/EmailNotVerifiedBanner';
+import { DashboardPage } from '../features/dashboard/DashboardPage';
 import { DeskPage } from '../features/desk/DeskPage';
 import { HistoryPage } from '../features/audit/HistoryPage';
 import { MemberCheckInPage } from '../features/checkin/MemberCheckInPage';
@@ -73,6 +74,7 @@ export function OwnerShell(props: GymShellProps) {
         'devices',
         'settings',
       ]}
+      home={<DashboardPage />}
       pages={{
         members: <MembersSection />,
         membershipTypes: <MembershipTypesPage />,

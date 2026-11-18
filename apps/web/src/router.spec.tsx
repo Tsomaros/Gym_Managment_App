@@ -4,6 +4,7 @@ import { MemoryRouter } from 'react-router';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { AuthContext, type AuthState } from './auth/AuthProvider';
 import './i18n';
+import { dashboard } from './features/dashboard/fixtures';
 import { AppRoutes } from './router';
 
 const GYM_A = '0b1c2d3e-4f5a-4b6c-8d7e-9f0a1b2c3d4e';
@@ -137,12 +138,14 @@ describe('routing', () => {
     beforeEach(() => {
       vi.stubGlobal(
         'fetch',
-        vi.fn(
-          async () =>
-            new Response(
-              '{"membership":{"email":true,"push":true},"plans":{"email":true,"push":true}}',
-              { status: 200 },
-            ),
+        vi.fn(async (input: RequestInfo | URL) =>
+          // The owner's home is the dashboard; everyone else here only reads notification settings.
+          String(input).endsWith('/dashboard')
+            ? new Response(JSON.stringify(dashboard()), { status: 200 })
+            : new Response(
+                '{"membership":{"email":true,"push":true},"plans":{"email":true,"push":true}}',
+                { status: 200 },
+              ),
         ),
       );
     });

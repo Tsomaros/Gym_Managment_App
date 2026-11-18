@@ -12,6 +12,24 @@ export const CHART = {
   text: '#0b0b0b',
 } as const;
 
+/** The eight categorical slots of the validated palette, in their fixed order (never cycled). */
+export const SERIES = [
+  '#2a78d6',
+  '#eb6834',
+  '#1baf7a',
+  '#eda100',
+  '#e87ba4',
+  '#008300',
+  '#6250d6',
+  '#e34948',
+] as const;
+
+/** The grey of the folded "Other" series. */
+export const OTHER_COLOR = '#8b8a84';
+
+/** A darker green than SERIES[2] for thin or faded marks (3:1 on the chart surface). */
+export const GREEN_STRONG = '#0f7a54';
+
 export const MARGIN = { top: 8, right: 12, bottom: 4, left: 0 } as const;
 
 /** 2027-05-10 → "10 May" / "10 Μαΐ", the day in the viewer's language, never shifted by a zone. */
