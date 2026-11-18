@@ -4,6 +4,8 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { closeDb, db, systemDb } from '../../src/db/client';
 import {
   auditLog,
+  bodyMeasurements,
+  healthConsents,
   checkIns,
   devicePairingCodes,
   devices,
@@ -1950,5 +1952,184 @@ describe('row-level security and privileges: workout_sessions and workout_sets',
     expect(s2).toMatchObject({ gymId: gymA, planId: null, planDayId: null });
     const [t2] = await systemDb.select().from(workoutSets).where(eq(workoutSets.id, row!.id));
     expect(t2).toMatchObject({ gymId: gymA, planExerciseId: null });
+  });
+});
+
+describe('row-level security and privileges: health_consents and body_measurements', () => {
+  const run = randomUUID().slice(0, 8);
+  let gymA: string;
+  let gymB: string;
+  let memberA: string;
+  let memberB: string;
+  let consentA: string;
+  let consentB: string;
+  let measA: string;
+  let measB: string;
+
+  beforeAll(async () => {
+    const g = await systemDb
+      .insert(gyms)
+      .values([{ name: `He A ${run}` }, { name: `He B ${run}` }])
+      .returning({ id: gyms.id });
+    gymA = g[0]!.id;
+    gymB = g[1]!.id;
+    const u = await systemDb
+      .insert(users)
+      .values([
+        { email: `ha-${run}@x.gr`, firstName: 'A', lastName: 'A' },
+        { email: `hb-${run}@x.gr`, firstName: 'B', lastName: 'B' },
+      ])
+      .returning({ id: users.id });
+    memberA = u[0]!.id;
+    memberB = u[1]!.id;
+    const c = await systemDb
+      .insert(healthConsents)
+      .values([
+        { gymId: gymA, memberId: memberA, kind: 'measurements', textVersion: 'v1' },
+        { gymId: gymB, memberId: memberB, kind: 'measurements', textVersion: 'v1' },
+      ])
+      .returning({ id: healthConsents.id });
+    consentA = c[0]!.id;
+    consentB = c[1]!.id;
+    const m = await systemDb
+      .insert(bodyMeasurements)
+      .values([
+        { gymId: gymA, memberId: memberA, measuredOn: '2027-05-12', weightKg: '80' },
+        { gymId: gymB, memberId: memberB, measuredOn: '2027-05-12', weightKg: '70' },
+      ])
+      .returning({ id: bodyMeasurements.id });
+    measA = m[0]!.id;
+    measB = m[1]!.id;
+  });
+
+  afterAll(async () => {
+    const gymIds = [gymA, gymB].filter(Boolean);
+    if (gymIds.length) {
+      await systemDb.delete(bodyMeasurements).where(inArray(bodyMeasurements.gymId, gymIds));
+      await systemDb.delete(healthConsents).where(inArray(healthConsents.gymId, gymIds));
+      await systemDb.delete(gyms).where(inArray(gyms.id, gymIds));
+    }
+    await systemDb.delete(users).where(sql`${users.email} like ${`h_-${run}@x.gr`}`);
+  });
+
+  it('withGym(A) sees only gym A rows in both tables; without a gym nothing is visible', async () => {
+    const ids = <T extends { id: string }>(rows: T[]) => rows.map((r) => r.id);
+    expect(ids(await withGym(gymA, (tx) => tx.select().from(healthConsents)))).toEqual([consentA]);
+    expect(ids(await withGym(gymB, (tx) => tx.select().from(healthConsents)))).toEqual([consentB]);
+    expect(ids(await withGym(gymA, (tx) => tx.select().from(bodyMeasurements)))).toEqual([measA]);
+    expect(ids(await withGym(gymB, (tx) => tx.select().from(bodyMeasurements)))).toEqual([measB]);
+    expect(await db.select().from(healthConsents)).toEqual([]);
+    expect(await db.select().from(bodyMeasurements)).toEqual([]);
+  });
+
+  it('withGym(A) cannot write, change or delete gym B rows', async () => {
+    expect(
+      await rejectionMessage(
+        withGym(gymA, (tx) =>
+          tx
+            .insert(healthConsents)
+            .values({ gymId: gymB, memberId: memberB, kind: 'photos', textVersion: 'v1' }),
+        ),
+      ),
+    ).toMatch(RLS_VIOLATION);
+    expect(
+      await rejectionMessage(
+        withGym(gymA, (tx) =>
+          tx
+            .insert(bodyMeasurements)
+            .values({ gymId: gymB, memberId: memberB, measuredOn: '2027-05-12', weightKg: '70' }),
+        ),
+      ),
+    ).toMatch(RLS_VIOLATION);
+    const withdrawn = await withGym(gymA, (tx) =>
+      tx
+        .update(healthConsents)
+        .set({ withdrawnAt: new Date() })
+        .where(eq(healthConsents.gymId, gymB))
+        .returning({ id: healthConsents.id }),
+    );
+    expect(withdrawn).toEqual([]);
+    const removed = await withGym(gymA, (tx) =>
+      tx
+        .delete(bodyMeasurements)
+        .where(eq(bodyMeasurements.gymId, gymB))
+        .returning({ id: bodyMeasurements.id }),
+    );
+    expect(removed).toEqual([]);
+    expect(
+      await systemDb.select().from(bodyMeasurements).where(eq(bodyMeasurements.id, measB)),
+    ).toHaveLength(1);
+  });
+
+  it('gym_app cannot delete a consent, change a measurement, or give one member two active consents', async () => {
+    const as = (fn: Parameters<typeof withGym>[1]) => rejectionMessage(withGym(gymA, fn));
+    expect(
+      await as((tx) => tx.delete(healthConsents).where(eq(healthConsents.id, consentA))),
+    ).toMatch(/permission denied/);
+    expect(
+      await as((tx) =>
+        tx.update(healthConsents).set({ kind: 'photos' }).where(eq(healthConsents.id, consentA)),
+      ),
+    ).toMatch(/permission denied/);
+    expect(
+      await as((tx) =>
+        tx.update(bodyMeasurements).set({ weightKg: '1' }).where(eq(bodyMeasurements.id, measA)),
+      ),
+    ).toMatch(/permission denied/);
+    expect(
+      await as((tx) =>
+        tx
+          .insert(healthConsents)
+          .values({ gymId: gymA, memberId: memberA, kind: 'measurements', textVersion: 'v1' }),
+      ),
+    ).toMatch(/duplicate key/);
+    // another kind, and a re-grant after a withdrawal, are fine
+    await withGym(gymA, (tx) =>
+      tx
+        .insert(healthConsents)
+        .values({ gymId: gymA, memberId: memberA, kind: 'photos', textVersion: 'v1' }),
+    );
+  });
+
+  it('rejects out-of-range values, an empty measurement, an unknown kind and a backdated withdrawal', async () => {
+    const insert = (values: Partial<typeof bodyMeasurements.$inferInsert>) =>
+      rejectionMessage(
+        withGym(gymA, (tx) =>
+          tx
+            .insert(bodyMeasurements)
+            .values({ gymId: gymA, memberId: memberA, measuredOn: '2027-05-12', ...values }),
+        ),
+      );
+    for (const bad of [
+      { weightKg: '19.99' },
+      { weightKg: '400.01' },
+      { bodyFatPct: '1.9' },
+      { bodyFatPct: '70.1' },
+      { waistCm: '9.9' },
+      { thighCm: '300.1' },
+      { weightKg: '80', notes: 'x'.repeat(301) },
+      {}, // no value at all
+    ]) {
+      expect(await insert(bad)).toMatch(/check constraint/);
+    }
+    expect(
+      await rejectionMessage(
+        withGym(gymA, (tx) =>
+          tx
+            .insert(healthConsents)
+            .values({ gymId: gymA, memberId: memberA, kind: 'dna', textVersion: 'v1' }),
+        ),
+      ),
+    ).toMatch(/check constraint/);
+    expect(
+      await rejectionMessage(
+        withGym(gymA, (tx) =>
+          tx
+            .update(healthConsents)
+            .set({ withdrawnAt: new Date('2000-01-01') })
+            .where(eq(healthConsents.id, consentA)),
+        ),
+      ),
+    ).toMatch(/check constraint/);
   });
 });

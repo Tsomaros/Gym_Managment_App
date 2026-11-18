@@ -41,6 +41,12 @@ export const AUDIT_ACTIONS = [
   'template.created',
   'template.updated',
   'template.deleted',
+  'consent.granted',
+  'consent.withdrawn',
+  'measurement.recorded',
+  'measurement.deleted',
+  'progress_photo.added',
+  'progress_photo.deleted',
 ] as const;
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];
 

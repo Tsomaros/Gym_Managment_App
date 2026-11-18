@@ -6,6 +6,7 @@ export * from './schemas/checkin.js';
 export * from './schemas/common.js';
 export * from './schemas/devices.js';
 export * from './schemas/exercises.js';
+export * from './schemas/health.js';
 export * from './schemas/plans.js';
 export * from './schemas/progress.js';
 export * from './schemas/workouts.js';

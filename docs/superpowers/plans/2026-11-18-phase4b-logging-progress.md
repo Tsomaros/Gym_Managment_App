@@ -155,17 +155,17 @@
   - `POST …/measurements` (`writeMeasurements` + consent) → `201` + `measurement.recorded`.
   - `DELETE …/measurements/:id` (primary trainer) → `204` + `measurement.deleted`.
 
-- [ ] **Step 1: Write the failing tests:**
+- [x] **Step 1: Write the failing tests:**
   - T records for M without consent → `409`. M grants → T records 82.5 kg / 18.0 % → `201`; M and T `GET` it.
   - `measured_on` tomorrow → `400`; no values → `400`; body fat 1 → `400`.
   - M withdraws → `204`; T's `GET` → `[]`; the rows are gone from the table; T records → `409`; the history row has the count but no values. *(Review Focus 2)*
   - Granting twice → one active row.
   - Cover trainer `POST` → `403`; the next day `GET` → `404`; owner and reception → `404`. *(Review Focus 5)*
   - Two-gym isolation for both tables.
-- [ ] **Step 2: Run** `pnpm --filter api test consents measurements` → FAIL.
-- [ ] **Step 3: Implement.**
-- [ ] **Step 4: Run** `pnpm --filter api test` → PASS.
-- [ ] **Step 5: Commit** `feat: health consent and body measurements`.
+- [x] **Step 2: Run** `pnpm --filter api test consents measurements` → FAIL.
+- [x] **Step 3: Implement.**
+- [x] **Step 4: Run** `pnpm --filter api test` → PASS.
+- [x] **Step 5: Commit** `feat: health consent and body measurements`.
 
 ---
 

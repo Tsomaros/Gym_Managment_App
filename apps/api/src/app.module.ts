@@ -11,6 +11,7 @@ import { ExercisesModule } from './exercises/exercises.module';
 import { PlansModule } from './plans/plans.module';
 import { WorkoutsModule } from './workouts/workouts.module';
 import { ProgressModule } from './progress/progress.module';
+import { HealthDataModule } from './health/health.module';
 import { GymsModule } from './gyms/gyms.module';
 import { InvitationsModule } from './invitations/invitations.module';
 import { ShiftsModule } from './shifts/shifts.module';
@@ -45,6 +46,7 @@ import { HealthController } from './health/health.controller';
     PlansModule,
     WorkoutsModule,
     ProgressModule,
+    HealthDataModule,
   ],
   controllers: [HealthController],
 })

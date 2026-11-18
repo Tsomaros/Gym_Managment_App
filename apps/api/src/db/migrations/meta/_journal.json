@@ -148,6 +148,13 @@
       "when": 1794990914719,
       "tag": "0020_workouts",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1794991690531,
+      "tag": "0021_consents_measurements",
+      "breakpoints": true
     }
   ]
 }

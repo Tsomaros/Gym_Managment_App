@@ -56,10 +56,7 @@ export const workoutSessions = pgTable(
       'workout_sessions_finished_chk',
       sql`${t.finishedAt} is null or ${t.finishedAt} >= ${t.startedAt}`,
     ),
-    check(
-      'workout_sessions_notes_chk',
-      sql`${t.notes} is null or char_length(${t.notes}) <= 1000`,
-    ),
+    check('workout_sessions_notes_chk', sql`${t.notes} is null or char_length(${t.notes}) <= 1000`),
     index('workout_sessions_gym_member_started_idx').on(t.gymId, t.memberId, t.startedAt.desc()),
     // The "is there an open session?" lookup.
     index('workout_sessions_open_idx')
