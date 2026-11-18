@@ -162,6 +162,27 @@
       "when": 1794991951095,
       "tag": "0022_progress_photos",
       "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1794998546336,
+      "tag": "0023_notifications",
+      "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1794999196067,
+      "tag": "0024_reminder_settings",
+      "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1795014544905,
+      "tag": "0025_occupancy",
+      "breakpoints": true
     }
   ]
 }

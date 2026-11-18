@@ -1,4 +1,4 @@
-import type { MeResponse } from '@gym/shared';
+import type { MeResponse, Occupancy } from '@gym/shared';
 import { act, fireEvent, render, screen } from '@testing-library/react';
 import QRCode from 'qrcode';
 import { MemoryRouter, Route, Routes } from 'react-router';
@@ -23,9 +23,11 @@ const me: MeResponse = {
 describe('MemberCheckInPage', () => {
   let issued: number;
   let failing: boolean;
+  let occupancy: Occupancy | null;
 
   beforeEach(() => {
     vi.useFakeTimers();
+    occupancy = null; // the occupancy request is answered 404 unless a test sets it
     issued = 0;
     failing = false;
     vi.stubGlobal(
@@ -41,6 +43,7 @@ describe('MemberCheckInPage', () => {
           });
         }
         if (url.endsWith('/me/memberships')) return json(200, { memberships: [membership()] });
+        if (url === `/api/gyms/${GYM}/occupancy` && occupancy) return json(200, occupancy);
         return json(404, {});
       }),
     );
@@ -225,6 +228,31 @@ describe('MemberCheckInPage', () => {
     await settle();
     expect(request).toHaveBeenCalledTimes(2);
     visibility.mockRestore();
+  });
+
+  it('shows how busy the gym is, by words only, next to the code', async () => {
+    occupancy = { level: 'busy' };
+    renderPage();
+    await settle();
+    const badge = screen.getByTestId('occupancy-badge');
+    expect(badge).toBeInTheDocument();
+    expect(badge.textContent).not.toMatch(/\d/); // the owner left the number off
+    expect(qr()).toBeInTheDocument();
+  });
+
+  it('shows no occupancy badge when the gym has no capacity, or the request fails', async () => {
+    occupancy = { level: null };
+    const { unmount } = renderPage();
+    await settle();
+    expect(qr()).toBeInTheDocument();
+    for (const w of ['Ήσυχα', 'Μέτρια', 'Πολύς κόσμος']) expect(screen.queryByText(w)).toBeNull();
+    unmount();
+    occupancy = null; // 404
+    renderPage();
+    await settle();
+    expect(qr()).toBeInTheDocument();
+    for (const w of ['Ήσυχα', 'Μέτρια', 'Πολύς κόσμος']) expect(screen.queryByText(w)).toBeNull();
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
   });
 
   it('works without the Wake Lock API', async () => {

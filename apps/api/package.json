@@ -10,7 +10,8 @@
     "test": "vitest run",
     "test:e2e": "vitest run e2e",
     "db:generate": "drizzle-kit generate",
-    "db:migrate": "drizzle-kit migrate"
+    "db:migrate": "drizzle-kit migrate",
+    "vapid:keys": "node scripts/vapid-keys.mjs"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1170.0",
@@ -19,6 +20,7 @@
     "@nestjs/common": "^12.5.0",
     "@nestjs/core": "^12.5.0",
     "@nestjs/platform-express": "^12.5.0",
+    "@nestjs/schedule": "^12.0.4",
     "@nestjs/throttler": "^6.8.0",
     "argon2": "^0.45.2",
     "cookie-parser": "^1.4.7",
@@ -28,6 +30,7 @@
     "pg": "^8.23.1",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.2",
+    "web-push": "^4.0.0",
     "zod": "^4.6.7"
   },
   "devDependencies": {
@@ -41,6 +44,7 @@
     "@types/nodemailer": "^8.0.2",
     "@types/pg": "^8.23.1",
     "@types/supertest": "^7.2.1",
+    "@types/web-push": "^3.6.4",
     "drizzle-kit": "^0.31.11",
     "supertest": "^7.3.2",
     "typescript": "~6.0.3",

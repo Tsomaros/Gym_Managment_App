@@ -18,6 +18,9 @@ describe('GymSettingsPage', () => {
       timezone: 'Europe/Athens',
       autoCheckoutMinutes: 120,
       receptionCanEditShifts: false,
+      reminderDays: 5,
+      capacity: null,
+      showOccupancyCount: false,
     };
     fetchMock = vi.fn<typeof fetch>(async (_input, init) => {
       if (init?.method === 'PATCH') {
@@ -147,10 +150,121 @@ describe('GymSettingsPage', () => {
       name: 'Η ρεσεψιόν μπορεί να αλλάζει βάρδιες',
     });
     await userEvent.click(box);
-    await waitFor(() => expect(box).toBeDisabled());
+    await waitFor(() => expect(box).toHaveAttribute('aria-disabled', 'true'));
+    // Still focusable (a disabled box would drop keyboard focus), but a second tap does nothing.
+    await userEvent.click(box);
+    expect(patches()).toHaveLength(1);
     release();
-    await waitFor(() => expect(box).toBeEnabled());
+    await waitFor(() => expect(box).not.toHaveAttribute('aria-disabled'));
     expect(patches()).toHaveLength(1);
     expect(await screen.findByRole('status')).toHaveTextContent('Αποθηκεύτηκε');
+  });
+
+  describe('reminders and occupancy', () => {
+    const reminder = () => screen.findByLabelText(/Υπενθύμιση λήξης/);
+    const capacity = () => screen.findByLabelText(/Χωρητικότητα/);
+    const countBox = () =>
+      screen.findByRole('checkbox', { name: 'Τα μέλη βλέπουν και τον αριθμό των ατόμων' });
+    const body = (n: number) => JSON.parse(String(patches()[n]![1]?.body)) as object;
+
+    it('shows the lead time, an empty capacity and the unchecked count switch', async () => {
+      renderPage();
+      expect(await reminder()).toHaveValue(5);
+      expect(await capacity()).toHaveValue(null);
+      expect(await countBox()).not.toBeChecked();
+    });
+
+    it('saves only what changed: a capacity alone, then a lead time alone', async () => {
+      renderPage();
+      await userEvent.type(await capacity(), '30');
+      await save();
+      await waitFor(() => expect(patches()).toHaveLength(1));
+      expect(body(0)).toEqual({ capacity: 30 });
+      const days = await reminder();
+      await userEvent.clear(days);
+      await userEvent.type(days, '7');
+      await save();
+      await waitFor(() => expect(patches()).toHaveLength(2));
+      expect(body(1)).toEqual({ reminderDays: 7 });
+    });
+
+    it('clearing the capacity sends null, which switches the indicator off', async () => {
+      settings = { ...settings, capacity: 30 };
+      renderPage();
+      const input = await capacity();
+      expect(input).toHaveValue(30);
+      await userEvent.clear(input);
+      await save();
+      await waitFor(() => expect(patches()).toHaveLength(1));
+      expect(body(0)).toEqual({ capacity: null });
+    });
+
+    it.each(['0', '2001', '1.5', '-4'])('does not send a capacity of %s', async (typed) => {
+      renderPage();
+      const input = await capacity();
+      await userEvent.type(input, typed);
+      await save();
+      expect(patches()).toHaveLength(0);
+      expect(input).toBeInvalid();
+      expect(input).toHaveAccessibleDescription(/1–2000/);
+    });
+
+    it.each(['0', '15', '2.5', ''])('does not send a lead time of %j', async (typed) => {
+      renderPage();
+      const input = await reminder();
+      await userEvent.clear(input);
+      if (typed) await userEvent.type(input, typed);
+      await save();
+      expect(patches()).toHaveLength(0);
+      expect(input).toBeInvalid();
+      expect(input).toHaveAccessibleDescription(/1–14/);
+    });
+
+    it('the count switch saves at once, on its own, and goes back when saving fails', async () => {
+      renderPage();
+      const box = await countBox();
+      await userEvent.click(box);
+      await waitFor(() => expect(patches()).toHaveLength(1));
+      expect(body(0)).toEqual({ showOccupancyCount: true });
+      await waitFor(() => expect(box).toBeChecked());
+      patchStatus = 500;
+      await userEvent.click(box);
+      expect(await screen.findByRole('alert')).toHaveTextContent('Κάτι πήγε στραβά');
+      expect(box).toBeChecked();
+    });
+
+    it('sends nothing when nothing changed, and still says it is saved', async () => {
+      renderPage();
+      await reminder();
+      await save();
+      expect(patches()).toHaveLength(0);
+      expect(await screen.findByRole('status')).toHaveTextContent('Αποθηκεύτηκε');
+    });
+
+    it('moves focus to the first field with a problem, and clears its error once it is edited', async () => {
+      renderPage();
+      const days = await reminder();
+      const cap = await capacity();
+      await userEvent.clear(days);
+      await userEvent.type(days, '99');
+      await userEvent.type(cap, '0');
+      await save();
+      expect(days).toHaveFocus(); // the lead time comes before the capacity
+      expect(days).toBeInvalid();
+      expect(cap).toBeInvalid();
+      await userEvent.clear(days);
+      await userEvent.type(days, '7');
+      expect(days).toBeValid();
+      expect(cap).toBeInvalid(); // untouched: still wrong
+    });
+
+    it('keeps keyboard focus on the count switch while it saves', async () => {
+      renderPage();
+      const box = await countBox();
+      box.focus();
+      await userEvent.keyboard(' ');
+      await waitFor(() => expect(patches()).toHaveLength(1));
+      expect(box).toHaveFocus();
+    });
   });
 });

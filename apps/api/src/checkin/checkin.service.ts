@@ -13,6 +13,7 @@ import {
 } from '../db/schema';
 import { type Tx, withGym } from '../db/tenant';
 import { ShiftsService } from '../shifts/shifts.service';
+import { NotificationService } from '../notifications/notification.service';
 import { PhotosService } from '../members/photos.service';
 import { gymToday, lockMember, membershipsOf } from '../memberships/memberships.service';
 import { CheckInEvents } from './checkin-events';
@@ -21,6 +22,9 @@ import { decideCheckIn, relevantMembership } from './decide';
 
 /** A second check-in of the same member within this window repeats the first (spec §6.2). */
 export const DUPLICATE_WINDOW_MS = 2 * 60 * 1000;
+
+/** A visit pack with this many visits left (or fewer) tells the member. */
+export const LOW_VISITS = 2;
 
 export interface CheckInInput {
   gymId: string;
@@ -45,6 +49,7 @@ export class CheckInService {
     private readonly audit: AuditService,
     private readonly clock: Clock,
     private readonly events: CheckInEvents,
+    private readonly notifications: NotificationService,
     private readonly photos: PhotosService,
     private readonly shifts: ShiftsService,
   ) {}
@@ -56,6 +61,11 @@ export class CheckInService {
    */
   async checkIn(input: CheckInInput): Promise<CheckInResult> {
     const { gymId, memberId } = input;
+    // Set when this check-in spent a visit and left 2 or fewer; announced after the commit.
+    const lowRef: { value: { membershipId: string; membershipName: string; left: number } | null } =
+      {
+        value: null,
+      };
     const result = await withGym(gymId, async (tx) => {
       await lockMember(tx, gymId, memberId);
       // Read after the lock, so concurrent attempts see each other's rows in order.
@@ -146,10 +156,29 @@ export class CheckInService {
       const fresh = consumed
         ? ((await membershipsOf(tx, [memberId], today)).get(memberId) ?? ms)
         : ms;
+      if (consumed && decision.valid) {
+        const pack = fresh.find((m) => m.id === decision.useMembershipId);
+        const left = pack?.remaining.visits;
+        // Only a visit pack: a day pass has one use and a class pack has its own wording.
+        if (pack?.kind === 'visits' && left !== null && left !== undefined && left <= LOW_VISITS) {
+          lowRef.value = { membershipId: pack.id, membershipName: pack.name, left };
+        }
+      }
       return this.result(row!, member, photoUrl, fresh, false, trainers);
     });
     // After commit, and not for a repeat: the screens already show the first one.
     if (!result.duplicate) this.events.publish(gymId, { type: 'check_in', result });
+    const low = lowRef.value;
+    if (low) {
+      // A failed email must never fail the check-in: dispatch runs in the background.
+      this.notifications.dispatch({
+        gymId,
+        userId: memberId,
+        event: 'visits.low',
+        dedupeKey: `visits_low:${low.membershipId}:${low.left}`,
+        params: { membershipName: low.membershipName, left: low.left },
+      });
+    }
     return result;
   }
 

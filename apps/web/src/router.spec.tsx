@@ -1,9 +1,10 @@
 import type { MeResponse } from '@gym/shared';
 import { render, screen, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { AuthContext, type AuthState } from './auth/AuthProvider';
 import './i18n';
+import { dashboard } from './features/dashboard/fixtures';
 import { AppRoutes } from './router';
 
 const GYM_A = '0b1c2d3e-4f5a-4b6c-8d7e-9f0a1b2c3d4e';
@@ -131,5 +132,91 @@ describe('routing', () => {
   it('sends someone to their gyms when they open a gym they do not belong to', async () => {
     renderAt(`/g/${GYM_B}`, meWith([{ gymId: GYM_A, gymName: 'Gym A', roles: ['member'] }]));
     expect(await screen.findByTestId('shell-member')).toBeInTheDocument();
+  });
+
+  describe('/settings/notifications (the link in reminder emails)', () => {
+    beforeEach(() => {
+      vi.stubGlobal(
+        'fetch',
+        vi.fn(async (input: RequestInfo | URL) =>
+          // The owner's home is the dashboard; everyone else here only reads notification settings.
+          String(input).endsWith('/dashboard')
+            ? new Response(JSON.stringify(dashboard()), { status: 200 })
+            : new Response(
+                '{"membership":{"email":true,"push":true},"plans":{"email":true,"push":true}}',
+                { status: 200 },
+              ),
+        ),
+      );
+    });
+
+    it('opens the notification settings of the one gym a member belongs to', async () => {
+      renderAt(
+        '/settings/notifications',
+        meWith([{ gymId: GYM_A, gymName: 'Gym A', roles: ['member'] }]),
+      );
+      expect(
+        await screen.findByRole('heading', { name: 'Ειδοποιήσεις', level: 2 }),
+      ).toBeInTheDocument();
+      expect(screen.getByTestId('shell-member')).toBeInTheDocument();
+    });
+
+    it('asks for the gym first when the person is a member of several', async () => {
+      renderAt(
+        '/settings/notifications',
+        meWith([
+          { gymId: GYM_A, gymName: 'Gym A', roles: ['member'] },
+          { gymId: GYM_B, gymName: 'Gym B', roles: ['member'] },
+        ]),
+      );
+      expect(await screen.findByTestId('gym-picker')).toBeInTheDocument();
+    });
+
+    it('picks the one gym where they are a member, not the gym where they hold another role', async () => {
+      renderAt(
+        '/settings/notifications',
+        meWith([
+          { gymId: GYM_B, gymName: 'Gym B', roles: ['owner'] },
+          { gymId: GYM_A, gymName: 'Gym A', roles: ['member'] },
+        ]),
+      );
+      expect(
+        await screen.findByRole('heading', { name: 'Ειδοποιήσεις', level: 2 }),
+      ).toBeInTheDocument();
+      const urls = vi.mocked(fetch).mock.calls.map(([u]) => String(u));
+      expect(urls).toContain(`/api/gyms/${GYM_A}/me/notification-prefs`);
+      expect(urls.join()).not.toContain(GYM_B);
+    });
+
+    it('does not open the settings for someone who is no member anywhere (owner only)', async () => {
+      renderAt(
+        '/settings/notifications',
+        meWith([{ gymId: GYM_A, gymName: 'Gym A', roles: ['owner'] }]),
+      );
+      expect(await screen.findByTestId('shell-owner')).toBeInTheDocument();
+      expect(screen.queryByRole('heading', { name: 'Ειδοποιήσεις', level: 2 })).toBeNull();
+    });
+
+    it('does not send an owner who is also a member into a staff area without that page', async () => {
+      renderAt(
+        '/settings/notifications',
+        meWith([{ gymId: GYM_A, gymName: 'Gym A', roles: ['owner', 'member'] }]),
+      );
+      // The owner area has no notification page: they must not be sent to a section it lacks.
+      expect(await screen.findByTestId('shell-owner')).toBeInTheDocument();
+      expect(
+        screen.queryByRole('heading', { name: 'Ειδοποιήσεις', level: 2 }),
+      ).not.toBeInTheDocument();
+      // They land on the area's home instead.
+      expect(screen.getByRole('link', { name: 'Επισκόπηση' })).toHaveAttribute(
+        'aria-current',
+        'page',
+      );
+    });
+
+    it('goes to sign-in first when signed out', async () => {
+      renderAt('/settings/notifications', null);
+      expect(await screen.findByTestId('login-page')).toBeInTheDocument();
+    });
   });
 });

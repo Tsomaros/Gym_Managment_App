@@ -11,6 +11,7 @@ import { Clock } from '../../src/common/clock';
 import { systemDb } from '../../src/db/client';
 import {
   auditLog,
+  checkIns,
   exercises,
   gymRoles,
   gyms,
@@ -23,7 +24,27 @@ import {
   users,
 } from '../../src/db/schema';
 import { seedExercises } from '../../src/exercises/seed-exercises';
+import { MailService, type MailMessage } from '../../src/mail/mail.service';
+import { PushTransport } from '../../src/notifications/push.service';
 import { configureApp } from '../../src/main';
+
+/** Collects emails instead of sending them; `failWith` makes every send throw. */
+export class FakeMail {
+  sent: MailMessage[] = [];
+  failWith: Error | null = null;
+  async send(msg: MailMessage): Promise<void> {
+    if (this.failWith) throw this.failWith;
+    this.sent.push(msg);
+  }
+}
+
+/** Collects pushes instead of calling the browser vendors. */
+export class FakePushTransport extends PushTransport {
+  sent: { endpoint: string; payload: string }[] = [];
+  async send(sub: { endpoint: string }, payload: string): Promise<void> {
+    this.sent.push({ endpoint: sub.endpoint, payload });
+  }
+}
 
 export class TestClock {
   current = new Date('2027-05-12T09:00:00Z');
@@ -32,6 +53,9 @@ export class TestClock {
   }
   setDay(iso: string): void {
     this.current = new Date(`${iso}T09:00:00Z`);
+  }
+  advance(ms: number): void {
+    this.current = new Date(this.current.getTime() + ms);
   }
 }
 
@@ -43,6 +67,8 @@ export const DAY = '2027-05-12';
  * stranger/outsiderTrainer in the other gym, all with real memberships. Used by the phase 4b specs.
  */
 export async function setupHealthFixture(label: string) {
+  const mail = new FakeMail();
+  const pushTransport = new FakePushTransport();
   const run = randomUUID().slice(0, 8);
   const clock = new TestClock();
   const tok: Record<string, string> = {};
@@ -50,6 +76,10 @@ export async function setupHealthFixture(label: string) {
   const moduleRef = await Test.createTestingModule({ imports: [AppModule] })
     .overrideProvider(Clock)
     .useValue(clock)
+    .overrideProvider(MailService)
+    .useValue(mail)
+    .overrideProvider(PushTransport)
+    .useValue(pushTransport)
     .compile();
   const app: INestApplication = configureApp(
     moduleRef.createNestApplication({ logger: ['error', 'warn'] }),
@@ -124,6 +154,7 @@ export async function setupHealthFixture(label: string) {
   async function cleanup(extra?: (gym: string) => Promise<void>): Promise<void> {
     for (const g of [gymId, otherGymId]) {
       await extra?.(g);
+      await systemDb.delete(checkIns).where(eq(checkIns.gymId, g));
       await systemDb.delete(plans).where(eq(plans.gymId, g));
       await systemDb.delete(auditLog).where(eq(auditLog.gymId, g));
       await systemDb.delete(trainerCovers).where(eq(trainerCovers.gymId, g));
@@ -139,7 +170,7 @@ export async function setupHealthFixture(label: string) {
     await app.close();
   }
 
-  return { app, clock, gymId, otherGymId, id, tok, req, exIds, run, cleanup };
+  return { app, clock, mail, pushTransport, gymId, otherGymId, id, tok, req, exIds, run, cleanup };
 }
 
 export type HealthFixture = Awaited<ReturnType<typeof setupHealthFixture>>;

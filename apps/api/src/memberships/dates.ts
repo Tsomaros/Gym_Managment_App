@@ -26,6 +26,16 @@ export function todayIn(timezone: string, now: Date): string {
   }).format(now);
 }
 
+/** The hour (0-23) it is in `timezone` at the instant `now`. */
+export function hourIn(timezone: string, now: Date): number {
+  const hour = new Intl.DateTimeFormat('en-GB', {
+    timeZone: timezone,
+    hour: '2-digit',
+    hourCycle: 'h23',
+  }).format(now);
+  return Number(hour);
+}
+
 export function addDays(date: string, days: number): string {
   return fromUtc(toUtc(date) + days * DAY_MS);
 }

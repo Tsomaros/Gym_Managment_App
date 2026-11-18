@@ -11,6 +11,7 @@ export function ChartFrame({
   summary,
   empty,
   loading,
+  emptyText,
   legend,
   table,
   children,
@@ -21,6 +22,8 @@ export function ChartFrame({
   empty: boolean;
   /** An answer for what is on screen is still on its way: show a placeholder, not "nothing". */
   loading?: boolean;
+  /** What to say when there is nothing to draw; defaults to the progress screens' wording. */
+  emptyText?: string;
   legend?: ReactNode;
   table: { head: string[]; rows: string[][] };
   children: ReactNode;
@@ -43,7 +46,7 @@ export function ChartFrame({
           {t('app.loading')}
         </div>
       ) : empty ? (
-        <p className="py-6 text-center text-slate-700">{t('progress.empty')}</p>
+        <p className="py-6 text-center text-slate-700">{emptyText ?? t('progress.empty')}</p>
       ) : (
         <>
           {summary && <p className="text-slate-800">{summary}</p>}

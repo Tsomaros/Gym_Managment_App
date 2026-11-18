@@ -3,12 +3,15 @@ import { useTranslation } from 'react-i18next';
 import { useParams } from 'react-router';
 import { useAuth } from '../auth/AuthProvider';
 import { EmailNotVerifiedBanner } from '../components/EmailNotVerifiedBanner';
+import { DashboardPage } from '../features/dashboard/DashboardPage';
 import { DeskPage } from '../features/desk/DeskPage';
 import { HistoryPage } from '../features/audit/HistoryPage';
 import { MemberCheckInPage } from '../features/checkin/MemberCheckInPage';
 import { DevicesPage } from '../features/devices/DevicesPage';
 import { ExercisesPage } from '../features/exercises/ExercisesPage';
 import { MembersSection } from '../features/members/MembersSection';
+import { EnablePushCard } from '../features/notifications/EnablePushCard';
+import { NotificationSettingsPage } from '../features/notifications/NotificationSettingsPage';
 import { MyMembershipPage } from '../features/my-membership/MyMembershipPage';
 import { MyPlanPage } from '../features/my-plan/MyPlanPage';
 import { PrivacyPage } from '../features/health/PrivacyPage';
@@ -71,6 +74,7 @@ export function OwnerShell(props: GymShellProps) {
         'devices',
         'settings',
       ]}
+      home={<DashboardPage />}
       pages={{
         members: <MembersSection />,
         membershipTypes: <MembershipTypesPage />,
@@ -148,8 +152,14 @@ export function MemberShell(props: GymShellProps) {
         'workoutHistory',
         'progress',
         'privacy',
+        'notifications',
       ]}
-      home={<MemberCheckInPage />}
+      home={
+        <>
+          <MemberCheckInPage />
+          <EnablePushCard />
+        </>
+      }
       pages={{
         myMembership: <MyMembershipPage />,
         myWorkouts: <MyPlanPage />,
@@ -157,6 +167,7 @@ export function MemberShell(props: GymShellProps) {
         workoutHistory: <WorkoutHistoryPage />,
         progress: <ProgressPage />,
         privacy: <PrivacyPage />,
+        notifications: <NotificationSettingsPage />,
       }}
       banner={me && !me.emailVerified ? <EmailNotVerifiedBanner email={me.email} /> : undefined}
       {...props}

@@ -126,6 +126,9 @@ describe('gym settings and member check-in token', () => {
       timezone: 'Europe/Athens',
       autoCheckoutMinutes: 120,
       receptionCanEditShifts: false,
+      reminderDays: 5,
+      capacity: null,
+      showOccupancyCount: false,
     });
     await request(server())
       .patch(`/gyms/${gymId}/settings`)
@@ -171,5 +174,37 @@ describe('gym settings and member check-in token', () => {
       .get(`/gyms/${gymId}/settings`)
       .auth(tokens.reception, { type: 'bearer' });
     expect((after.body as { autoCheckoutMinutes: number }).autoCheckoutMinutes).toBe(90);
+  });
+
+  it('the owner sets the reminder lead time between 1 and 14 days; 0, 15 and "7" are refused', async () => {
+    const patch = (n: unknown) =>
+      request(server())
+        .patch(`/gyms/${gymId}/settings`)
+        .auth(tokens.owner, { type: 'bearer' })
+        .send({ reminderDays: n });
+    for (const bad of [0, 15, 7.5, '7']) await patch(bad).expect(400);
+    await patch(14).expect(200);
+    await patch(1).expect(200);
+    expect((await patch(7).expect(200)).body).toMatchObject({ reminderDays: 7 });
+    const rows = await systemDb.select().from(auditLog).where(eq(auditLog.gymId, gymId));
+    const history = rows.filter(
+      (r) =>
+        r.action === 'gym.settings_updated' &&
+        (r.data as { setting?: string } | null)?.setting === 'reminderDays',
+    );
+    expect(history.map((r) => (r.data as { to: number }).to).sort((a, b) => a - b)).toEqual([
+      1, 7, 14,
+    ]);
+    await request(server())
+      .patch(`/gyms/${gymId}/settings`)
+      .auth(tokens.reception, { type: 'bearer' })
+      .send({ reminderDays: 3 })
+      .expect(403);
+    // Neither the refused values nor reception's attempt changed the stored setting.
+    const after = await request(server())
+      .get(`/gyms/${gymId}/settings`)
+      .auth(tokens.owner, { type: 'bearer' })
+      .expect(200);
+    expect(after.body).toMatchObject({ reminderDays: 7 });
   });
 });

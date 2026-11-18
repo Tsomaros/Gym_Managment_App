@@ -31,6 +31,18 @@ function HomeRedirect() {
   return <Navigate to={homePath(me!)} replace />;
 }
 
+/**
+ * /settings/notifications: the link in every reminder email. Notification settings belong to one
+ * gym, so a member (whose highest role there is member: staff shells have no such page) of exactly one gym lands on theirs; anyone else picks a gym first.
+ */
+function NotificationSettingsLink() {
+  const { me } = useAuth();
+  const memberGyms = me!.gyms.filter((g) => highestRole(g.roles) === 'member');
+  const target =
+    memberGyms.length === 1 ? `/g/${memberGyms[0]!.gymId}/notifications` : homePath(me!);
+  return <Navigate to={target} replace />;
+}
+
 /** /g/:gymId/* — the shell for the caller's highest role in that gym. */
 function GymArea() {
   const { me } = useAuth();
@@ -59,6 +71,7 @@ export function AppRoutes() {
       <Route path="/kiosk" element={<KioskApp />} />
       <Route element={<RequireAuth />}>
         <Route index element={<HomeRedirect />} />
+        <Route path="settings/notifications" element={<NotificationSettingsLink />} />
         <Route path="gyms" element={<GymPickerPage />} />
         <Route path="g/:gymId/*" element={<GymArea />} />
         <Route path="platform/*" element={<PlatformArea />} />

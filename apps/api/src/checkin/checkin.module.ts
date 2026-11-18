@@ -7,6 +7,7 @@ import { KioskCheckInController } from './kiosk.controller';
 import { DEFAULT_LIVE_STREAM_MAX_MS, LIVE_STREAM_MAX_MS, LiveController } from './live.controller';
 import { LiveTickets } from './live-tickets';
 import { MemberCheckInController } from './member-checkin.controller';
+import { OccupancyController } from './occupancy.controller';
 import { PresenceController } from './presence.controller';
 import { PresenceService } from './presence.service';
 import { StaffCheckInController } from './staff-checkin.controller';
@@ -18,6 +19,7 @@ import { StaffCheckInController } from './staff-checkin.controller';
     KioskCheckInController,
     StaffCheckInController,
     PresenceController,
+    OccupancyController,
     LiveController,
   ],
   providers: [
@@ -27,6 +29,6 @@ import { StaffCheckInController } from './staff-checkin.controller';
     PresenceService,
     { provide: LIVE_STREAM_MAX_MS, useValue: DEFAULT_LIVE_STREAM_MAX_MS },
   ],
-  exports: [CheckInService, CheckInEvents],
+  exports: [CheckInService, CheckInEvents, PresenceService],
 })
 export class CheckInModule {}

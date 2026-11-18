@@ -10,6 +10,9 @@ const settingsColumns = {
   timezone: gyms.timezone,
   autoCheckoutMinutes: gyms.autoCheckoutMinutes,
   receptionCanEditShifts: gyms.receptionCanEditShifts,
+  reminderDays: gyms.reminderDays,
+  capacity: gyms.capacity,
+  showOccupancyCount: gyms.showOccupancyCount,
 };
 
 @Injectable()
@@ -38,6 +41,11 @@ export class GymSettingsService {
           ...(body.autoCheckoutMinutes !== undefined && {
             autoCheckoutMinutes: body.autoCheckoutMinutes,
           }),
+          ...(body.reminderDays !== undefined && { reminderDays: body.reminderDays }),
+          ...(body.capacity !== undefined && { capacity: body.capacity }),
+          ...(body.showOccupancyCount !== undefined && {
+            showOccupancyCount: body.showOccupancyCount,
+          }),
           ...(body.receptionCanEditShifts !== undefined && {
             receptionCanEditShifts: body.receptionCanEditShifts,
           }),
@@ -61,6 +69,23 @@ export class GymSettingsService {
           setting: 'receptionCanEditShifts',
           from: before.receptionCanEditShifts,
           to: body.receptionCanEditShifts,
+        });
+      }
+      if (body.reminderDays !== undefined) {
+        await record({
+          setting: 'reminderDays',
+          from: before.reminderDays,
+          to: body.reminderDays,
+        });
+      }
+      if (body.capacity !== undefined) {
+        await record({ setting: 'capacity', from: before.capacity, to: body.capacity });
+      }
+      if (body.showOccupancyCount !== undefined) {
+        await record({
+          setting: 'showOccupancyCount',
+          from: before.showOccupancyCount,
+          to: body.showOccupancyCount,
         });
       }
       return g!;

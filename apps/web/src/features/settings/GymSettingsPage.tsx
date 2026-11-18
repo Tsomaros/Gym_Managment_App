@@ -1,10 +1,14 @@
 import {
   AUTO_CHECKOUT_MAX,
   AUTO_CHECKOUT_MIN,
+  CAPACITY_MAX,
+  CAPACITY_MIN,
   type GymSettings,
+  REMINDER_DAYS_MAX,
+  REMINDER_DAYS_MIN,
   UpdateGymSettingsSchema,
 } from '@gym/shared';
-import { type FormEvent, useCallback, useEffect, useState } from 'react';
+import { type FormEvent, useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useParams } from 'react-router';
 import { apiFetch } from '../../api/client';
@@ -18,7 +22,16 @@ export function GymSettingsPage() {
   const [minutes, setMinutes] = useState('');
   const [shiftsFailed, setShiftsFailed] = useState(false);
   const [shiftsState, setShiftsState] = useState<'idle' | 'saving' | 'saved'>('idle');
-  const [fieldError, setFieldError] = useState<string | null>(null);
+  const [reminder, setReminder] = useState('');
+  const [capacity, setCapacity] = useState('');
+  const [countState, setCountState] = useState<'idle' | 'saving' | 'saved'>('idle');
+  const [countFailed, setCountFailed] = useState(false);
+  const minutesRef = useRef<HTMLInputElement>(null);
+  const reminderRef = useRef<HTMLInputElement>(null);
+  const capacityRef = useRef<HTMLInputElement>(null);
+  const [errors, setErrors] = useState<{ minutes?: string; reminder?: string; capacity?: string }>(
+    {},
+  );
   const [state, setState] = useState<'idle' | 'saving' | 'saved' | 'failed' | 'loadFailed'>('idle');
 
   const load = useCallback(() => {
@@ -27,6 +40,8 @@ export function GymSettingsPage() {
       .then((s) => {
         setLoaded(s);
         setMinutes(String(s.autoCheckoutMinutes));
+        setReminder(String(s.reminderDays));
+        setCapacity(s.capacity === null ? '' : String(s.capacity));
       })
       .catch(() => setState('loadFailed'));
   }, [gymId]);
@@ -50,26 +65,68 @@ export function GymSettingsPage() {
     }
   }
 
+  /** The yes/no for members seeing the number saves at once, like the reception switch. */
+  async function toggleCount(show: boolean) {
+    if (countState === 'saving') return;
+    setCountFailed(false);
+    setCountState('saving');
+    try {
+      const updated = await apiFetch<GymSettings>(`/gyms/${gymId}/settings`, {
+        method: 'PATCH',
+        body: JSON.stringify({ showOccupancyCount: show }),
+      });
+      setLoaded(updated);
+      setCountState('saved');
+    } catch {
+      setCountFailed(true);
+      setCountState('idle');
+    }
+  }
+
   async function save(e: FormEvent) {
     e.preventDefault();
-    if (state === 'saving') return; // a second Enter must not send a second request
-    const parsed = UpdateGymSettingsSchema.safeParse({
+    if (state === 'saving' || !loaded) return; // a second Enter must not send a second request
+    const typed = {
       autoCheckoutMinutes: minutes.trim() === '' ? NaN : Number(minutes),
-    });
-    if (!parsed.success) {
-      setFieldError(t('settings.invalid'));
+      reminderDays: reminder.trim() === '' ? NaN : Number(reminder),
+      // Empty means "no capacity": the indicator is off for members.
+      capacity: capacity.trim() === '' ? null : Number(capacity),
+    };
+    const invalid = (key: keyof typeof typed) =>
+      !UpdateGymSettingsSchema.safeParse({ [key]: typed[key] }).success;
+    const found = {
+      minutes: invalid('autoCheckoutMinutes') ? t('settings.invalid') : undefined,
+      reminder: invalid('reminderDays') ? t('settings.reminderInvalid') : undefined,
+      capacity: invalid('capacity') ? t('settings.capacityInvalid') : undefined,
+    };
+    setErrors(found);
+    if (found.minutes || found.reminder || found.capacity) {
+      // The error is read when the field takes focus (it is the field's description).
+      (found.minutes ? minutesRef : found.reminder ? reminderRef : capacityRef).current?.focus();
       setState('idle');
       return;
     }
-    setFieldError(null);
+    // Only what changed is sent, so saving one field never overwrites another with a stale value.
+    const changes: Partial<typeof typed> = {};
+    if (typed.autoCheckoutMinutes !== loaded.autoCheckoutMinutes) {
+      changes.autoCheckoutMinutes = typed.autoCheckoutMinutes;
+    }
+    if (typed.reminderDays !== loaded.reminderDays) changes.reminderDays = typed.reminderDays;
+    if (typed.capacity !== loaded.capacity) changes.capacity = typed.capacity;
+    if (Object.keys(changes).length === 0) {
+      setState('saved'); // already true on the server
+      return;
+    }
     setState('saving');
     try {
       const updated = await apiFetch<GymSettings>(`/gyms/${gymId}/settings`, {
         method: 'PATCH',
-        body: JSON.stringify(parsed.data),
+        body: JSON.stringify(changes),
       });
       setLoaded(updated);
       setMinutes(String(updated.autoCheckoutMinutes));
+      setReminder(String(updated.reminderDays));
+      setCapacity(updated.capacity === null ? '' : String(updated.capacity));
       setState('saved');
     } catch {
       setState('failed');
@@ -100,13 +157,49 @@ export function GymSettingsPage() {
             min={AUTO_CHECKOUT_MIN}
             max={AUTO_CHECKOUT_MAX}
             step={1}
+            ref={minutesRef}
             value={minutes}
             onChange={(e) => {
               setMinutes(e.target.value);
+              setErrors((p) => ({ ...p, minutes: undefined }));
               setState('idle');
             }}
             hint={t('settings.hint')}
-            error={fieldError}
+            error={errors.minutes ?? null}
+          />
+          <Field
+            label={t('settings.reminderDays')}
+            type="number"
+            inputMode="numeric"
+            min={REMINDER_DAYS_MIN}
+            max={REMINDER_DAYS_MAX}
+            step={1}
+            ref={reminderRef}
+            value={reminder}
+            onChange={(e) => {
+              setReminder(e.target.value);
+              setErrors((p) => ({ ...p, reminder: undefined }));
+              setState('idle');
+            }}
+            hint={t('settings.reminderHint')}
+            error={errors.reminder ?? null}
+          />
+          <Field
+            label={t('settings.capacity')}
+            type="number"
+            inputMode="numeric"
+            min={CAPACITY_MIN}
+            max={CAPACITY_MAX}
+            step={1}
+            ref={capacityRef}
+            value={capacity}
+            onChange={(e) => {
+              setCapacity(e.target.value);
+              setErrors((p) => ({ ...p, capacity: undefined }));
+              setState('idle');
+            }}
+            hint={t('settings.capacityHint')}
+            error={errors.capacity ?? null}
           />
           {state === 'failed' && (
             <p role="alert" className="text-red-700">
@@ -134,8 +227,36 @@ export function GymSettingsPage() {
           <label className="flex min-h-11 items-center gap-3 font-medium text-slate-900">
             <input
               type="checkbox"
+              checked={loaded.showOccupancyCount}
+              aria-disabled={countState === 'saving' || undefined}
+              onChange={(e) => void toggleCount(e.target.checked)}
+              aria-describedby="count-hint"
+              className="size-5"
+            />
+            {t('settings.showCount')}
+          </label>
+          <p id="count-hint" className="text-sm text-slate-600">
+            {t('settings.showCountHint')}
+          </p>
+          {countState === 'saved' && (
+            <p role="status" className="text-green-800">
+              ✓ {t('settings.saved')}
+            </p>
+          )}
+          {countFailed && (
+            <p role="alert" className="text-red-700">
+              {t('common.genericError')}
+            </p>
+          )}
+        </div>
+      )}
+      {loaded && (
+        <div className="flex flex-col gap-1">
+          <label className="flex min-h-11 items-center gap-3 font-medium text-slate-900">
+            <input
+              type="checkbox"
               checked={loaded.receptionCanEditShifts}
-              disabled={shiftsState === 'saving'}
+              aria-disabled={shiftsState === 'saving' || undefined}
               onChange={(e) => void toggleShifts(e.target.checked)}
               aria-describedby="shifts-hint"
               className="size-5"
