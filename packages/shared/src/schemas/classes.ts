@@ -136,7 +136,8 @@ export interface ClassSessionView {
   booked: number;
   cancelled: boolean;
   seriesId: string | null;
-  myBooking?: { id: string; status: string };
+  /** The caller's own booking: whether a class-pack entry pays for it, and whether cancelling now is late. */
+  myBooking?: { id: string; status: string; usesEntry: boolean; late: boolean };
 }
 
 export const BOOKING_STATUSES = [
@@ -157,6 +158,8 @@ export interface BookingView {
   status: BookingStatus;
   /** Whether a class-pack entry pays for this booking (reserved while booked). */
   usesEntry: boolean;
+  /** Cancelling now is inside the cut-off: a class-pack entry would be used. */
+  late: boolean;
   session: Omit<ClassSessionView, 'booked' | 'myBooking' | 'seriesId'>;
 }
 

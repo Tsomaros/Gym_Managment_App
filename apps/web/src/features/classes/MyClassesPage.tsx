@@ -6,7 +6,7 @@ import { apiFetch } from '../../api/client';
 import { useAuth } from '../../auth/AuthProvider';
 import { addDays, todayIn } from '../schedule/dates';
 import { SessionDetailPage } from './SessionDetailPage';
-import { typeName } from './shared';
+import { plainClass, typeName } from './shared';
 
 const DAYS_AHEAD = 7;
 
@@ -38,11 +38,13 @@ export function MyClassesPage({ now = () => new Date() }: { now?: () => Date } =
   const mine = (sessions ?? []).filter((s) => me && s.trainer?.id === me.id);
   const open = mine.find((s) => s.id === openId) ?? null;
 
+  // Only when a class is closed again: focus returns to its row, once.
   useEffect(() => {
-    if (!openId && lastOpened.current && sessions) {
+    if (openId === null && lastOpened.current) {
       document.querySelector<HTMLElement>(`[data-session="${lastOpened.current}"]`)?.focus();
+      lastOpened.current = null;
     }
-  }, [openId, sessions]);
+  }, [openId]);
 
   if (open) {
     return (
@@ -74,10 +76,11 @@ export function MyClassesPage({ now = () => new Date() }: { now?: () => Date } =
       <h2 id="my-classes-title" className="mb-3 text-xl font-semibold text-slate-900">
         {t('classes.mine.title')}
       </h2>
+      <p className="mb-3 text-sm text-slate-700">{t('classes.mine.hint')}</p>
       {failed && (
         <div role="alert" className="mb-4 flex items-center gap-3 text-red-700">
-          {t('common.genericError')}
-          <button type="button" onClick={load} className="min-h-11 underline">
+          {t('classes.mine.loadFailed')}
+          <button type="button" onClick={load} className={plainClass}>
             {t('app.retry')}
           </button>
         </div>
@@ -110,6 +113,11 @@ export function MyClassesPage({ now = () => new Date() }: { now?: () => Date } =
                     ? t('classes.cancelled')
                     : t('classes.spots', { booked: s.booked, capacity: s.capacity })}
                 </span>
+                {isToday && !s.cancelled && (
+                  <span aria-hidden="true" className="text-sm font-medium underline">
+                    {t('classes.mine.open')} ›
+                  </span>
+                )}
               </>
             );
             return (
@@ -129,7 +137,7 @@ export function MyClassesPage({ now = () => new Date() }: { now?: () => Date } =
                 ) : (
                   <div
                     className={`flex flex-wrap items-center gap-3 p-4 ${
-                      s.cancelled ? 'text-slate-500 line-through' : 'text-slate-900'
+                      s.cancelled ? 'text-slate-600 line-through' : 'text-slate-900'
                     }`}
                   >
                     {text}

@@ -222,6 +222,16 @@ describe('GymSettingsPage', () => {
       expect(body(0)).toEqual({ classCancelCutoffMinutes: 0 });
     });
 
+    it('accepts the upper limit of 1440 minutes (a whole day) for the class cut-off', async () => {
+      renderPage();
+      const input = await cutoff();
+      await userEvent.clear(input);
+      await userEvent.type(input, '1440');
+      await save();
+      await waitFor(() => expect(patches()).toHaveLength(1));
+      expect(body(0)).toEqual({ classCancelCutoffMinutes: 1440 });
+    });
+
     it.each(['1441', '-1', '2.5', ''])('does not send a class cut-off of %j', async (typed) => {
       renderPage();
       const input = await cutoff();

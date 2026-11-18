@@ -307,6 +307,10 @@ export class BookingsService {
   async mine(gymId: string, memberId: string, upcoming: boolean): Promise<BookingView[]> {
     return withGym(gymId, async (tx) => {
       const now = this.clock.now();
+      const [gym] = await tx
+        .select({ cutoff: gyms.classCancelCutoffMinutes })
+        .from(gyms)
+        .where(eq(gyms.id, gymId));
       const rows = await tx
         .select({
           b: classBookings,
@@ -339,6 +343,7 @@ export class BookingsService {
           id: r.b.id,
           status: r.b.status,
           usesEntry: r.kind === 'classes',
+          late: r.s.startsAtUtc.getTime() - now.getTime() <= gym!.cutoff * 60_000,
           session: {
             id: r.s.id,
             date: r.s.date,

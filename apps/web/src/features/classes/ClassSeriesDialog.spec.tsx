@@ -94,6 +94,36 @@ describe('ClassSeriesDialog', () => {
     });
   });
 
+  it('takes the weekday from the chosen start date, not from today', async () => {
+    renderDialog();
+    await userEvent.selectOptions(screen.getByLabelText('Είδος μαθήματος'), SPINNING.id);
+    const date = screen.getByLabelText('Ξεκινά στις');
+    await userEvent.clear(date);
+    await userEvent.type(date, '2027-05-16'); // a Sunday: ISO weekday 7
+    await submit();
+    await waitFor(() => expect(onSaved).toHaveBeenCalled());
+    expect(bodyOf(0)).toMatchObject({ weekday: 7, validFrom: '2027-05-16' });
+  });
+
+  // 23:15 + 45 min ends exactly at midnight (refused); 23:10 + 45 min ends 23:55 (fine).
+  it.each([
+    ['23:15', false],
+    ['23:10', true],
+  ])('a 45 minute class starting %s is accepted: %s', async (start, accepted) => {
+    renderDialog();
+    await userEvent.selectOptions(screen.getByLabelText('Είδος μαθήματος'), SPINNING.id);
+    await userEvent.clear(screen.getByLabelText('Ώρα έναρξης'));
+    await userEvent.type(screen.getByLabelText('Ώρα έναρξης'), start);
+    await submit();
+    if (accepted) {
+      await waitFor(() => expect(onSaved).toHaveBeenCalled());
+      expect(bodyOf(0)).toMatchObject({ startsAt: start, durationMinutes: 45 });
+    } else {
+      expect(calls()).toHaveLength(0);
+      expect(screen.getByLabelText(/Διάρκεια/)).toHaveAccessibleDescription(/πριν τα μεσάνυχτα/);
+    }
+  });
+
   it('refuses a start date in the past', async () => {
     renderDialog();
     await userEvent.selectOptions(screen.getByLabelText('Είδος μαθήματος'), SPINNING.id);
@@ -129,14 +159,27 @@ describe('ClassSeriesDialog', () => {
       `/api/gyms/${GYM}/class-series`,
     ]);
     expect(bodyOf(0)).toEqual({ lastDate: '2027-05-18' });
-    expect(bodyOf(1)).toMatchObject({ weekday: 3, validFrom: '2027-05-19', capacity: 8 });
+    // No trainer and no room were set on the old class: both go out as null, not as ''.
+    expect(bodyOf(1)).toEqual({
+      classTypeId: SPINNING.id,
+      weekday: 3,
+      startsAt: '18:00',
+      durationMinutes: 45,
+      capacity: 8,
+      trainerId: null,
+      room: null,
+      validFrom: '2027-05-19',
+    });
   });
 
   it('when starting the new series fails, a retry only starts it (the old one already ended)', async () => {
     failPath = '/class-series';
     renderDialog(change);
     await submit();
-    expect(await screen.findByRole('alert')).toHaveTextContent('Το παλιό πρόγραμμα έχει ήδη τελειώσει');
+    // The alert region is always in the page, so wait for its text, not for the region.
+    await waitFor(() =>
+      expect(screen.getByRole('alert')).toHaveTextContent('Το παλιό πρόγραμμα έχει ήδη τελειώσει'),
+    );
     expect(onSaved).not.toHaveBeenCalled();
     failPath = null;
     await submit();
@@ -149,7 +192,9 @@ describe('ClassSeriesDialog', () => {
     failPath = '/class-series';
     renderDialog(change);
     await submit();
-    await screen.findByRole('alert');
+    await waitFor(() =>
+      expect(screen.getByRole('alert')).toHaveTextContent('Το παλιό πρόγραμμα έχει ήδη τελειώσει'),
+    );
     await userEvent.click(screen.getByRole('button', { name: 'Άκυρο' }));
     expect(onSaved).toHaveBeenCalledTimes(1);
     expect(onClose).not.toHaveBeenCalled();
@@ -160,7 +205,10 @@ describe('ClassSeriesDialog', () => {
     renderDialog();
     await userEvent.selectOptions(screen.getByLabelText('Είδος μαθήματος'), SPINNING.id);
     await submit();
-    expect(await screen.findByRole('alert')).toHaveTextContent('Κάτι πήγε στραβά');
+    await waitFor(() =>
+      expect(screen.getByRole('alert')).toHaveTextContent('Κάτι πήγε στραβά'),
+    );
+    expect(onClose).not.toHaveBeenCalled();
     expect(onSaved).not.toHaveBeenCalled();
   });
 });

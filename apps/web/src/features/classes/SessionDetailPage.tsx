@@ -154,7 +154,8 @@ export function SessionDetailPage({
     <section aria-labelledby="session-title" className="flex flex-col gap-5">
       <div>
         <button type="button" onClick={onBack} className={plainClass}>
-          ← {t('classes.detail.back')}
+          <span aria-hidden="true">← </span>
+          {t('classes.detail.back')}
         </button>
       </div>
       <div>
@@ -227,8 +228,8 @@ export function SessionDetailPage({
                     aria-label={t('classes.detail.markAttendedFor', {
                       name: `${a.member.firstName} ${a.member.lastName}`,
                     })}
-                    aria-disabled={a.status === 'attended' || undefined}
-                    className={`${plainClass} aria-disabled:opacity-50`}
+                    aria-pressed={a.status === 'attended'}
+                    className={`${plainClass} aria-pressed:border-slate-900 aria-pressed:bg-slate-900 aria-pressed:text-white`}
                   >
                     {t('classes.detail.markAttended')}
                   </button>
@@ -238,8 +239,8 @@ export function SessionDetailPage({
                     aria-label={t('classes.detail.markNoShowFor', {
                       name: `${a.member.firstName} ${a.member.lastName}`,
                     })}
-                    aria-disabled={a.status === 'no_show' || undefined}
-                    className={`${plainClass} aria-disabled:opacity-50`}
+                    aria-pressed={a.status === 'no_show'}
+                    className={`${plainClass} aria-pressed:border-slate-900 aria-pressed:bg-slate-900 aria-pressed:text-white`}
                   >
                     {t('classes.detail.markNoShow')}
                   </button>

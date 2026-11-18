@@ -73,10 +73,10 @@ describe('SessionDetailPage', () => {
     expect(JSON.parse(String(posts()[0]![1]!.body))).toEqual({ status: 'attended' });
   });
 
-  it('the tick for the current status stays focusable (aria-disabled) and sends nothing', async () => {
+  it('the tick for the current status stays focusable (aria-pressed) and sends nothing', async () => {
     renderPage();
     const done = await screen.findByRole('button', { name: 'Παρών: Γιάννης Κώστας' });
-    expect(done).toHaveAttribute('aria-disabled', 'true');
+    expect(done).toHaveAttribute('aria-pressed', 'true');
     done.focus();
     await userEvent.click(done);
     expect(done).toHaveFocus();
@@ -142,6 +142,25 @@ describe('SessionDetailPage', () => {
     expect(screen.queryByRole('button', { name: /^Παρών: Μαρία/ })).not.toBeInTheDocument();
     expect(screen.queryByLabelText('Κράτηση για μέλος')).not.toBeInTheDocument();
     expect(screen.getByText(/ακυρώθηκε/)).toBeVisible();
+    // canManage is true here, yet an already cancelled class cannot be cancelled again.
+    expect(screen.queryByRole('button', { name: 'Ακύρωση μαθήματος' })).not.toBeInTheDocument();
+  });
+
+  it('without booking rights there is no member search', async () => {
+    renderPage({ canBook: false });
+    await screen.findByRole('list', { name: 'Κρατήσεις' });
+    expect(screen.queryByLabelText('Κράτηση για μέλος')).not.toBeInTheDocument();
+  });
+
+  it('cancelling without a reason sends an empty body, not a blank reason', async () => {
+    renderPage();
+    await screen.findByRole('list', { name: 'Κρατήσεις' });
+    await userEvent.type(screen.getByLabelText(/Λόγος ακύρωσης/), '   ');
+    await userEvent.click(screen.getByRole('button', { name: 'Ακύρωση μαθήματος' }));
+    const dialog = await screen.findByRole('alertdialog');
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Ακύρωση μαθήματος' }));
+    await waitFor(() => expect(onChanged).toHaveBeenCalled());
+    expect(JSON.parse(String(posts()[0]![1]!.body))).toEqual({});
   });
 
   it('changing a weekly class from this day goes through the caller, only for a series', async () => {

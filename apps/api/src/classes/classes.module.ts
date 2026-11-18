@@ -7,12 +7,19 @@ import { BookingsService } from './bookings.service';
 import { ClassNotifier } from './class-notifier';
 import { ClassTypesController } from './class-types.controller';
 import { ClassesJob } from './classes.job';
+import { TestClassesController } from './test-classes.controller';
 import { TimetableController } from './timetable.controller';
 import { TimetableService } from './timetable.service';
 
 @Module({
   imports: [MembersModule],
-  controllers: [ClassTypesController, TimetableController, BookingsController, AttendanceController],
+  controllers: [
+    ClassTypesController,
+    TimetableController,
+    BookingsController,
+    AttendanceController,
+    ...(process.env.NODE_ENV === 'test' ? [TestClassesController] : []),
+  ],
   providers: [TimetableService, BookingsService, AttendanceService, ClassNotifier, ClassesJob],
   exports: [TimetableService, BookingsService, AttendanceService, ClassNotifier],
 })

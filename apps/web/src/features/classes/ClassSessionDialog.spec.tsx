@@ -66,12 +66,28 @@ describe('ClassSessionDialog', () => {
     expect(date).toBeInvalid();
   });
 
+  it('accepts today itself as the date (only earlier days are refused)', async () => {
+    renderDialog();
+    await userEvent.selectOptions(screen.getByLabelText('Είδος μαθήματος'), SPINNING.id);
+    const date = screen.getByLabelText('Ημερομηνία');
+    await userEvent.clear(date);
+    await userEvent.type(date, '2027-05-12');
+    await submit();
+    await waitFor(() => expect(onSaved).toHaveBeenCalled());
+    expect(JSON.parse(String(fetchMock.mock.calls[0]![1]!.body))).toMatchObject({
+      date: '2027-05-12',
+    });
+  });
+
   it('shows an error and stays open when the server refuses', async () => {
     status = 500;
     renderDialog();
     await userEvent.selectOptions(screen.getByLabelText('Είδος μαθήματος'), SPINNING.id);
     await submit();
-    expect(await screen.findByRole('alert')).toHaveTextContent('Κάτι πήγε στραβά');
+    // The alert region is always in the page, so wait for its text, not for the region.
+    await waitFor(() =>
+      expect(screen.getByRole('alert')).toHaveTextContent('Κάτι πήγε στραβά'),
+    );
     expect(onSaved).not.toHaveBeenCalled();
   });
 });

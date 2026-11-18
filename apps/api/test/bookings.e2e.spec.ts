@@ -253,13 +253,19 @@ describe('class bookings: capacity, reservations, cancellation rules', () => {
     const list = (await f.req('get', '/me/bookings?upcoming=true', 'n').expect(200)).body as BookingView[];
     expect(list.map((x) => x.session.id)).toContain(s);
     expect(list.every((x) => x.status === 'booked')).toBe(true);
+    expect(list.every((x) => x.late === false && x.usesEntry === false)).toBe(true);
     const theirs = (await bookings(s))[0]!;
     await f.req('delete', `/me/bookings/${theirs.id}`, 'p').expect(404);
     // The refused cancel changed nothing.
     expect((await bookings(s))[0]).toMatchObject({ status: 'booked', entryConsumed: false });
     const seen = (await f.req('get', `/class-sessions?from=2027-05-14&to=2027-05-14`, 'n').expect(200))
       .body as ClassSessionView[];
-    expect(seen.find((x) => x.id === s)!.myBooking).toMatchObject({ id: theirs.id, status: 'booked' });
+    expect(seen.find((x) => x.id === s)!.myBooking).toMatchObject({
+      id: theirs.id,
+      status: 'booked',
+      usesEntry: false,
+      late: false,
+    });
     // Other sessions that day (09:00 cancelled by staff, 18:00 cancelled session) are not shown as booked.
     const others = seen.filter((x) => x.id !== s);
     expect(others.length).toBeGreaterThanOrEqual(2);
@@ -300,6 +306,24 @@ describe('class bookings: capacity, reservations, cancellation rules', () => {
     expect(await used('z')).toEqual([0]);
     // The reservation was released: the pack can pay for another class.
     await book('z', await mk('2027-05-13', '15:00')).expect(201);
+  });
+
+  it('the session list tells a pack member their booking is paid by an entry and when it turns late', async () => {
+    await newMember('lp');
+    await sell('lp', packType.id);
+    f.clock.setDay(DAY); // 12:00 local
+    const s = await mk('2027-05-12', '13:30'); // 90 min away: inside the 120-min cut-off
+    const far = await mk('2027-05-12', '20:00');
+    await book('lp', far).expect(201);
+    const list = (await f.req('get', '/class-sessions?from=2027-05-12&to=2027-05-12', 'lp').expect(200))
+      .body as ClassSessionView[];
+    expect(list.find((x) => x.id === far)!.myBooking).toMatchObject({ usesEntry: true, late: false });
+    expect(list.find((x) => x.id === s)!.myBooking).toBeUndefined();
+    f.clock.current = local('2027-05-12', '19:00'); // 60 min before the 20:00 class
+    const later = (await f.req('get', '/class-sessions?from=2027-05-12&to=2027-05-12', 'lp').expect(200))
+      .body as ClassSessionView[];
+    expect(later.find((x) => x.id === far)!.myBooking).toMatchObject({ usesEntry: true, late: true });
+    f.clock.setDay(DAY);
   });
 
   it('a pack’s remaining visits subtract its booked classes', async () => {

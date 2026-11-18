@@ -231,17 +231,17 @@
 - `MyBookingsPage`: upcoming bookings with cancel, and past ones with status (παρών / δεν ήρθε / ακυρώθηκε).
 - The member home shows "Επόμενο μάθημα: Pilates, Τρίτη 18:00".
 
-- [ ] **Step 1: Write the failing tests:** each button state renders from API data; the late-cancel warning appears only inside the cut-off and only for pack-paid bookings; a `409 Class full` response turns the card to "Πλήρες"; the home card shows the next booking.
+- [x] **Step 1: Write the failing tests:** each button state renders from API data; the late-cancel warning appears only inside the cut-off and only for pack-paid bookings; a `409 Class full` response turns the card to "Πλήρες"; the home card shows the next booking.
   - E2E: the owner creates a spinning series (capacity 2) and sells two members a class pack (1 entry each) and a third a membership with classes → members 1 and 2 book → member 3 sees "Πλήρες" → member 1 cancels on time → member 3 books → member 2 checks in at the kiosk 30 min before → green, and the desk shows the class line → after the class, the no-show pass marks member 3 as no-show → member 2 sees "παρών" in their bookings.
-- [ ] **Step 2: Run** `pnpm --filter web test classes && pnpm e2e` → FAIL.
-- [ ] **Step 3: Implement.** Run ui-ux-reviewer (375 px, Greek, dark mode).
-- [ ] **Step 4: Run** `pnpm lint && pnpm typecheck && pnpm -r test && pnpm e2e` → PASS.
+- [x] **Step 2: Run** `pnpm --filter web test classes && pnpm e2e` → FAIL.
+- [x] **Step 3: Implement.** Run ui-ux-reviewer (375 px, Greek, dark mode).
+- [x] **Step 4: Run** `pnpm lint && pnpm typecheck && pnpm -r test && pnpm e2e` → PASS.
 - [ ] **Step 5: Manual check** on the phones through the tunnel:
   - Book a class on the iPhone and get the reminder push 2 hours before (use a class starting about 2 hours from now).
   - Check in at the kiosk with a class-pack-only member.
   - If still open: do the phase 4b and 5 phone checks too.
   - Record everything in `PROGRESS.md`.
-- [ ] **Step 6: Commit** `feat(web): member class timetable and bookings`.
+- [x] **Step 6: Commit** `feat(web): member class timetable and bookings`.
 
 ---
 

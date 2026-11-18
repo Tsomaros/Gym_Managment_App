@@ -3,6 +3,8 @@ import { useTranslation } from 'react-i18next';
 import { useParams } from 'react-router';
 import { useAuth } from '../auth/AuthProvider';
 import { EmailNotVerifiedBanner } from '../components/EmailNotVerifiedBanner';
+import { ClassTimetablePage } from '../features/classes/ClassTimetablePage';
+import { NextClassCard } from '../features/classes/NextClassCard';
 import { MyClassesPage } from '../features/classes/MyClassesPage';
 import { ClassTypesPage } from '../features/classes/ClassTypesPage';
 import { TimetablePage } from '../features/classes/TimetablePage';
@@ -158,6 +160,7 @@ export function MemberShell(props: GymShellProps) {
       title={t('shell.member')}
       nav={[
         'memberCheckIn',
+        'classes',
         'myMembership',
         'myWorkouts',
         'freeWorkout',
@@ -169,10 +172,12 @@ export function MemberShell(props: GymShellProps) {
       home={
         <>
           <MemberCheckInPage />
+          <NextClassCard />
           <EnablePushCard />
         </>
       }
       pages={{
+        classes: <ClassTimetablePage />,
         myMembership: <MyMembershipPage />,
         myWorkouts: <MyPlanPage />,
         freeWorkout: <FreeWorkoutPage />,

@@ -104,6 +104,17 @@ describe('MyClassesPage', () => {
     expect(within(later).queryByRole('button')).not.toBeInTheDocument();
   });
 
+  it('after Back the class row has focus again, and a later reload does not steal it', async () => {
+    renderPage();
+    await userEvent.click(await screen.findByRole('button', { name: /18:00/ }));
+    await screen.findByText('Μαρία Νικολάου');
+    await userEvent.click(screen.getByRole('button', { name: /Πρόγραμμα|Πίσω/ }));
+    await waitFor(() => expect(screen.getByRole('button', { name: /18:00/ })).toHaveFocus());
+    screen.getByRole('button', { name: /18:00/ }).blur();
+    await userEvent.click(document.body);
+    expect(screen.getByRole('button', { name: /18:00/ })).not.toHaveFocus();
+  });
+
   it('says so when the trainer has no classes, and offers a retry when loading fails', async () => {
     fetchMock.mockImplementation(async () => json(200, []));
     const { unmount } = renderPage();
@@ -111,6 +122,6 @@ describe('MyClassesPage', () => {
     unmount();
     fetchMock.mockImplementation(async () => json(500, {}));
     renderPage();
-    expect(await screen.findByRole('alert')).toHaveTextContent('Κάτι πήγε στραβά');
+    expect(await screen.findByRole('alert')).toHaveTextContent('Δεν φορτώθηκαν τα μαθήματά σου');
   });
 });

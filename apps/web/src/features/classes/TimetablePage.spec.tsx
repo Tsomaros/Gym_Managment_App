@@ -63,6 +63,20 @@ describe('TimetablePage', () => {
     ).toBe(true);
   });
 
+  it('puts each class under its own day (Monday, Wednesday, Friday)', async () => {
+    renderPage(false);
+    await screen.findByRole('button', { name: /07:00 Σπινινγκ/ });
+    const column = (weekday: RegExp) =>
+      within(
+        screen.getAllByRole('heading', { level: 3 }).find((h) => weekday.test(h.textContent ?? ''))!
+          .closest('li')!,
+      );
+    expect(column(/^Δευ/).getByRole('button', { name: /07:00 Σπινινγκ/ })).toBeVisible();
+    expect(column(/^Δευ/).queryByRole('button', { name: /18:00/ })).not.toBeInTheDocument();
+    expect(column(/^Τετ/).getByRole('button', { name: /18:00 Σπινινγκ/ })).toBeVisible();
+    expect(column(/^Παρ/).getByRole('button', { name: /10:00 Σπινινγκ/ })).toBeVisible();
+  });
+
   it('strikes a cancelled class through and says so in its name', async () => {
     renderPage(false);
     const cancelled = await screen.findByRole('button', { name: /10:00 Σπινινγκ.*ακυρώθηκε/ });

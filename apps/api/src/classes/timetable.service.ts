@@ -28,6 +28,7 @@ import {
   classTypes,
   gymRoles,
   gyms,
+  memberships,
   users,
 } from '../db/schema';
 import { type Tx, withGym } from '../db/tenant';
@@ -537,8 +538,10 @@ export class TimetableService {
               id: classBookings.id,
               sessionId: classBookings.sessionId,
               status: classBookings.status,
+              kind: memberships.kind,
             })
             .from(classBookings)
+            .leftJoin(memberships, eq(memberships.id, classBookings.membershipId))
             .where(
               and(
                 inArray(classBookings.sessionId, ids),
@@ -548,6 +551,11 @@ export class TimetableService {
             )
         : [];
       const mineBySession = new Map(mine.map((m) => [m.sessionId, m]));
+      const [gym] = await tx
+        .select({ cutoff: gyms.classCancelCutoffMinutes })
+        .from(gyms)
+        .where(eq(gyms.id, gymId));
+      const nowMs = this.clock.now().getTime();
       return rows.map(
         (r): ClassSessionView => ({
           id: r.s.id,
@@ -568,6 +576,8 @@ export class TimetableService {
             myBooking: {
               id: mineBySession.get(r.s.id)!.id,
               status: mineBySession.get(r.s.id)!.status,
+              usesEntry: mineBySession.get(r.s.id)!.kind === 'classes',
+              late: r.s.startsAtUtc.getTime() - nowMs <= gym!.cutoff * 60_000,
             },
           }),
         }),
