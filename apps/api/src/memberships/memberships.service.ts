@@ -9,6 +9,7 @@ import { and, desc, eq, gt, gte, inArray, isNull, max, sql } from 'drizzle-orm';
 import { AuditService } from '../audit/audit.service';
 import { Clock } from '../common/clock';
 import {
+  classBookings,
   gymRoles,
   gyms,
   membershipFreezes,
@@ -85,10 +86,28 @@ export async function membershipsOf(
   const freezesOf = new Map<string, typeof freezes>();
   for (const f of freezes)
     freezesOf.set(f.membershipId, [...(freezesOf.get(f.membershipId) ?? []), f]);
+  // A class pack's visits left don't count the entries its booked classes hold.
+  const packIds = rows.filter((r) => r.kind === 'classes').map((r) => r.id);
+  const reserved: Map<string, number> = packIds.length
+    ? new Map(
+        (
+          await tx
+            .select({ id: classBookings.membershipId, n: sql<number>`count(*)::int` })
+            .from(classBookings)
+            .where(and(inArray(classBookings.membershipId, packIds), eq(classBookings.status, 'booked')))
+            .groupBy(classBookings.membershipId)
+        ).map((x) => [x.id!, x.n]),
+      )
+    : new Map();
   for (const r of rows) {
     const own = freezesOf.get(r.id) ?? [];
     const list = result.get(r.memberId) ?? [];
-    list.push(toMembership(r, own, today));
+    const m = toMembership(r, own, today);
+    const held = reserved.get(r.id) ?? 0;
+    if (held && m.remaining.visits !== null) {
+      m.remaining = { ...m.remaining, visits: Math.max(0, m.remaining.visits - held) };
+    }
+    list.push(m);
     result.set(r.memberId, list);
   }
   return result;

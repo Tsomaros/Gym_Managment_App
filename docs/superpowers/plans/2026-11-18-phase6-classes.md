@@ -105,7 +105,7 @@
   - Staff read: `GET /gyms/:gymId/class-sessions/:id/attendees` (the class's trainer or reception) → `{ bookingId, member: { id, firstName, lastName, photoUrl }, status }[]`.
 - Errors: `409 Class full`, `409 No membership for classes`, `409 Already booked`, `400` outside the 14-day window or after start, `410` for a cancelled session.
 
-- [ ] **Step 1: Write the failing tests:**
+- [x] **Step 1: Write the failing tests:**
   - `classEligibility`:
     - A time membership with classes → ok, `usesEntry: false`.
     - A class pack with 1 left and 1 reserved → not ok; with 2 left and 1 reserved → ok, `usesEntry: true`.
@@ -119,10 +119,10 @@
     - Ending a series with a booked future session → that session is cancelled and its bookings cancelled.
     - Reception books for a member → `201`, `booked_by` = reception. A trainer who doesn't run the class `GET attendees` → `403`.
     - Two-gym isolation.
-- [ ] **Step 2: Run** `pnpm --filter api test bookings class-eligibility` → FAIL.
-- [ ] **Step 3: Implement.** Lock order: the session row, then the member (`lockMember`), then the membership. Consult database-expert.
-- [ ] **Step 4: Run** `pnpm --filter api test` → PASS.
-- [ ] **Step 5: Commit** `feat: class bookings with capacity, reservations and cancellation rules`.
+- [x] **Step 2: Run** `pnpm --filter api test bookings class-eligibility` → FAIL.
+- [x] **Step 3: Implement.** Lock order: the session row, then the member (`lockMember`), then the membership. Consult database-expert.
+- [x] **Step 4: Run** `pnpm --filter api test` → PASS.
+- [x] **Step 5: Commit** `feat: class bookings with capacity, reservations and cancellation rules`.
 
 ---
 

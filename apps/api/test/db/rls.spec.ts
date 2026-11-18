@@ -4,6 +4,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { closeDb, db, systemDb } from '../../src/db/client';
 import {
   auditLog,
+  classBookings,
   classSeries,
   classSessions,
   classTypes,
@@ -2585,5 +2586,120 @@ describe('row-level security and privileges: class_types, class_series and class
         ),
       ),
     ).toMatch(/class_series_ends_before_midnight/);
+  });
+});
+
+describe('row-level security and privileges: class_bookings', () => {
+  const run = randomUUID().slice(0, 8);
+  let gymA: string;
+  let gymB: string;
+  let personA: string;
+  let personB: string;
+  let sessionA: string;
+  let sessionB: string;
+  let bookingA: string;
+  let bookingB: string;
+
+  beforeAll(async () => {
+    const g = await systemDb
+      .insert(gyms)
+      .values([{ name: `Book A ${run}` }, { name: `Book B ${run}` }])
+      .returning({ id: gyms.id });
+    gymA = g[0]!.id;
+    gymB = g[1]!.id;
+    const u = await systemDb
+      .insert(users)
+      .values([
+        { email: `ba-${run}@x.gr`, firstName: 'A', lastName: 'A' },
+        { email: `bb-${run}@x.gr`, firstName: 'B', lastName: 'B' },
+      ])
+      .returning({ id: users.id });
+    personA = u[0]!.id;
+    personB = u[1]!.id;
+    const types = await systemDb
+      .insert(classTypes)
+      .values([
+        { gymId: gymA, name: 'S', defaultCapacity: 5, defaultDurationMinutes: 45 },
+        { gymId: gymB, name: 'S', defaultCapacity: 5, defaultDurationMinutes: 45 },
+      ])
+      .returning({ id: classTypes.id });
+    const mkSession = (gymId: string, classTypeId: string) => ({
+      gymId,
+      classTypeId,
+      date: '2027-05-05',
+      startsAt: '18:00',
+      endsAt: '18:45',
+      startsAtUtc: new Date('2027-05-05T15:00:00Z'),
+      endsAtUtc: new Date('2027-05-05T15:45:00Z'),
+      capacity: 5,
+    });
+    const ss = await systemDb
+      .insert(classSessions)
+      .values([mkSession(gymA, types[0]!.id), mkSession(gymB, types[1]!.id)])
+      .returning({ id: classSessions.id });
+    sessionA = ss[0]!.id;
+    sessionB = ss[1]!.id;
+    const b = await systemDb
+      .insert(classBookings)
+      .values([
+        { gymId: gymA, sessionId: sessionA, memberId: personA, bookedBy: personA },
+        { gymId: gymB, sessionId: sessionB, memberId: personB, bookedBy: personB },
+      ])
+      .returning({ id: classBookings.id });
+    bookingA = b[0]!.id;
+    bookingB = b[1]!.id;
+  });
+
+  afterAll(async () => {
+    const gymIds = [gymA, gymB].filter(Boolean);
+    if (gymIds.length) {
+      await systemDb.delete(classBookings).where(inArray(classBookings.gymId, gymIds));
+      await systemDb.delete(classSessions).where(inArray(classSessions.gymId, gymIds));
+      await systemDb.delete(classTypes).where(inArray(classTypes.gymId, gymIds));
+      await systemDb.delete(gyms).where(inArray(gyms.id, gymIds));
+    }
+    await systemDb.delete(users).where(inArray(users.id, [personA, personB].filter(Boolean)));
+  });
+
+  it('each gym sees only its own bookings; without a gym nothing is visible', async () => {
+    expect((await withGym(gymA, (tx) => tx.select().from(classBookings))).map((r) => r.id)).toEqual([bookingA]);
+    expect((await withGym(gymB, (tx) => tx.select().from(classBookings))).map((r) => r.id)).toEqual([bookingB]);
+    expect(await db.select().from(classBookings)).toEqual([]);
+  });
+
+  it('gym A cannot add, change or delete gym B bookings, nor book into B’s session', async () => {
+    expect(
+      await rejectionMessage(
+        withGym(gymA, (tx) =>
+          tx.insert(classBookings).values({ gymId: gymB, sessionId: sessionB, memberId: personB, bookedBy: personB, status: 'cancelled' }),
+        ),
+      ),
+    ).toMatch(RLS_VIOLATION);
+    expect(
+      await rejectionMessage(
+        withGym(gymA, (tx) => tx.insert(classBookings).values({ gymId: gymA, sessionId: sessionB, memberId: personA, bookedBy: personA, status: 'cancelled' })),
+      ),
+    ).toMatch(/class_bookings_session_same_gym_fk/);
+    expect(
+      await withGym(gymA, (tx) => tx.update(classBookings).set({ status: 'cancelled' }).where(eq(classBookings.id, bookingB)).returning({ id: classBookings.id })),
+    ).toEqual([]);
+    const [still] = await systemDb.select().from(classBookings).where(eq(classBookings.id, bookingB));
+    expect(still!.status).toBe('booked');
+  });
+
+  it('one live booking per member and session, but a cancelled one allows rebooking', async () => {
+    expect(
+      await rejectionMessage(
+        withGym(gymA, (tx) => tx.insert(classBookings).values({ gymId: gymA, sessionId: sessionA, memberId: personA, bookedBy: personA })),
+      ),
+    ).toMatch(/class_bookings_session_member_live_uq/);
+    await withGym(gymA, (tx) => tx.update(classBookings).set({ status: 'cancelled', cancelledAt: new Date() }).where(eq(classBookings.id, bookingA)));
+    await withGym(gymA, (tx) => tx.insert(classBookings).values({ gymId: gymA, sessionId: sessionA, memberId: personA, bookedBy: personA }));
+  });
+
+  it('gym_app cannot delete bookings, change whose they are, or set an unknown status', async () => {
+    expect(await rejectionMessage(withGym(gymA, (tx) => tx.delete(classBookings).where(eq(classBookings.id, bookingA))))).toMatch(/permission denied/);
+    expect(await rejectionMessage(withGym(gymA, (tx) => tx.update(classBookings).set({ memberId: personB }).where(eq(classBookings.id, bookingA))))).toMatch(/permission denied/);
+    expect(await rejectionMessage(withGym(gymA, (tx) => tx.update(classBookings).set({ status: 'lost' as never }).where(eq(classBookings.id, bookingA))))).toMatch(/class_bookings_status_valid/);
   });
 });

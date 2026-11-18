@@ -17,17 +17,32 @@ import {
   type UpdateClassType,
   type Weekday,
 } from '@gym/shared';
-import { and, asc, eq, gt, gte, inArray, isNull, lte, or } from 'drizzle-orm';
+import { and, asc, eq, gt, gte, inArray, isNull, lte, or, sql } from 'drizzle-orm';
 import { AuditService } from '../audit/audit.service';
 import { Clock } from '../common/clock';
 import { systemDb } from '../db/client';
-import { classSeries, classSessions, classTypes, gymRoles, gyms, users } from '../db/schema';
+import {
+  classBookings,
+  classSeries,
+  classSessions,
+  classTypes,
+  gymRoles,
+  gyms,
+  users,
+} from '../db/schema';
 import { type Tx, withGym } from '../db/tenant';
 import { addDays, todayIn } from '../memberships/dates';
 import { lockTrainer } from '../trainers/trainer-access';
 import { localToUtc, materialiseSeries } from './materialise';
 
 const hhmm = (t: string): string => t.slice(0, 5);
+
+/** A booking that was cancelled because its session was (Task 4 notifies these members). */
+export interface CancelledBooking {
+  sessionId: string;
+  bookingId: string;
+  memberId: string;
+}
 
 const typeView = (r: typeof classTypes.$inferSelect): ClassTypeView => ({
   id: r.id,
@@ -307,8 +322,13 @@ export class TimetableService {
    * or cancelled when they have bookings); sessions that started or are past never change.
    * `lastDate` may be as early as the day before the series started (an emptied series).
    */
-  async endSeries(gymId: string, actorId: string, id: string, lastDate: string): Promise<void> {
-    await withGym(gymId, async (tx) => {
+  async endSeries(
+    gymId: string,
+    actorId: string,
+    id: string,
+    lastDate: string,
+  ): Promise<CancelledBooking[]> {
+    return withGym(gymId, async (tx) => {
       const { today } = await this.gymClock(tx, gymId);
       const [s] = await tx.select().from(classSeries).where(eq(classSeries.id, id)).for('update');
       if (!s) throw new NotFoundException();
@@ -330,7 +350,7 @@ export class TimetableService {
             gt(classSessions.startsAtUtc, this.clock.now()),
           ),
         );
-      await this.retireSessions(
+      const cancelled = await this.retireSessions(
         tx,
         gymId,
         actorId,
@@ -345,22 +365,65 @@ export class TimetableService {
         entityId: id,
         data: { lastDate },
       });
+      return cancelled;
     });
   }
 
   /**
-   * Removes sessions nobody booked and cancels (with their bookings) the ones that have bookings.
-   * Task 2 extends this with the bookings; until then no session has any.
+   * Removes sessions nobody booked and cancels the ones that have bookings (their `booked`
+   * bookings become `cancelled`, no entry is consumed). Returns the bookings that were cancelled.
    */
   protected async retireSessions(
     tx: Tx,
-    _gymId: string,
-    _actorId: string,
+    gymId: string,
+    actorId: string,
     sessionIds: string[],
-    _reason: string,
-  ): Promise<void> {
-    if (!sessionIds.length) return;
-    await tx.delete(classSessions).where(inArray(classSessions.id, sessionIds));
+    reason: string,
+  ): Promise<CancelledBooking[]> {
+    if (!sessionIds.length) return [];
+    const withBookings = await tx
+      .selectDistinct({ id: classBookings.sessionId })
+      .from(classBookings)
+      .where(inArray(classBookings.sessionId, sessionIds));
+    const keep = new Set(withBookings.map((r) => r.id));
+    const empty = sessionIds.filter((id) => !keep.has(id));
+    if (empty.length) await tx.delete(classSessions).where(inArray(classSessions.id, empty));
+    const cancelled: CancelledBooking[] = [];
+    for (const id of keep) {
+      cancelled.push(...(await this.cancelInTx(tx, gymId, actorId, id, reason)));
+    }
+    return cancelled;
+  }
+
+  /** Marks the session cancelled and cancels its `booked` bookings. Idempotent. */
+  private async cancelInTx(
+    tx: Tx,
+    gymId: string,
+    actorId: string,
+    sessionId: string,
+    reason: string | null,
+  ): Promise<CancelledBooking[]> {
+    const now = this.clock.now();
+    const [s] = await tx
+      .update(classSessions)
+      .set({ cancelledAt: now, cancelReason: reason })
+      .where(and(eq(classSessions.id, sessionId), isNull(classSessions.cancelledAt)))
+      .returning();
+    if (!s) return [];
+    const rows = await tx
+      .update(classBookings)
+      .set({ status: 'cancelled', cancelledAt: now })
+      .where(and(eq(classBookings.sessionId, sessionId), eq(classBookings.status, 'booked')))
+      .returning({ bookingId: classBookings.id, memberId: classBookings.memberId });
+    await this.audit.record(tx, {
+      gymId,
+      actorId,
+      action: 'class_session.cancelled',
+      entity: 'class_session',
+      entityId: sessionId,
+      data: { date: s.date, startsAt: hhmm(s.startsAt), reason, bookingsCancelled: rows.length },
+    });
+    return rows.map((r) => ({ sessionId, ...r }));
   }
 
   // --- sessions ------------------------------------------------------------------------------
@@ -404,39 +467,28 @@ export class TimetableService {
     });
   }
 
-  /** Cancels a session that has not ended. Cancelling twice is a no-op. */
+  /** Cancels a session that has not ended; cancelling twice is a no-op. Returns the bookings cancelled. */
   async cancelSession(
     gymId: string,
     actorId: string,
     id: string,
     reason: string | undefined,
-  ): Promise<void> {
-    await withGym(gymId, async (tx) => {
+  ): Promise<CancelledBooking[]> {
+    return withGym(gymId, async (tx) => {
       const [s] = await tx
         .select()
         .from(classSessions)
         .where(eq(classSessions.id, id))
         .for('update');
       if (!s) throw new NotFoundException();
-      if (s.cancelledAt !== null) return;
+      if (s.cancelledAt !== null) return [];
       if (s.endsAtUtc <= this.clock.now()) throw new ConflictException('The class is over');
-      await tx
-        .update(classSessions)
-        .set({ cancelledAt: this.clock.now(), cancelReason: reason ?? null })
-        .where(eq(classSessions.id, id));
-      await this.audit.record(tx, {
-        gymId,
-        actorId,
-        action: 'class_session.cancelled',
-        entity: 'class_session',
-        entityId: id,
-        data: { date: s.date, startsAt: hhmm(s.startsAt), reason: reason ?? null },
-      });
+      return this.cancelInTx(tx, gymId, actorId, id, reason ?? null);
     });
   }
 
   /** Sessions with `date` in `q.from..q.to`, soonest first. */
-  list(gymId: string, _userId: string, q: ClassSessionQuery): Promise<ClassSessionView[]> {
+  list(gymId: string, userId: string, q: ClassSessionQuery): Promise<ClassSessionView[]> {
     return withGym(gymId, async (tx) => {
       const rows = await tx
         .select({
@@ -450,6 +502,37 @@ export class TimetableService {
         .leftJoin(users, eq(users.id, classSessions.trainerId))
         .where(and(gte(classSessions.date, q.from), lte(classSessions.date, q.to)))
         .orderBy(asc(classSessions.date), asc(classSessions.startsAt), asc(classSessions.id));
+      const ids = rows.map((r) => r.s.id);
+      const counts = ids.length
+        ? await tx
+            .select({ id: classBookings.sessionId, n: sql<number>`count(*)::int` })
+            .from(classBookings)
+            .where(
+              and(
+                inArray(classBookings.sessionId, ids),
+                inArray(classBookings.status, ['booked', 'attended']),
+              ),
+            )
+            .groupBy(classBookings.sessionId)
+        : [];
+      const booked = new Map(counts.map((c) => [c.id, c.n]));
+      const mine = ids.length
+        ? await tx
+            .select({
+              id: classBookings.id,
+              sessionId: classBookings.sessionId,
+              status: classBookings.status,
+            })
+            .from(classBookings)
+            .where(
+              and(
+                inArray(classBookings.sessionId, ids),
+                eq(classBookings.memberId, userId),
+                inArray(classBookings.status, ['booked', 'attended']),
+              ),
+            )
+        : [];
+      const mineBySession = new Map(mine.map((m) => [m.sessionId, m]));
       return rows.map(
         (r): ClassSessionView => ({
           id: r.s.id,
@@ -463,9 +546,15 @@ export class TimetableService {
               : null,
           room: r.s.room,
           capacity: r.s.capacity,
-          booked: 0,
+          booked: booked.get(r.s.id) ?? 0,
           cancelled: r.s.cancelledAt !== null,
           seriesId: r.s.seriesId,
+          ...(mineBySession.has(r.s.id) && {
+            myBooking: {
+              id: mineBySession.get(r.s.id)!.id,
+              status: mineBySession.get(r.s.id)!.status,
+            },
+          }),
         }),
       );
     });

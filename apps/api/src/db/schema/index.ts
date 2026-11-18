@@ -33,3 +33,4 @@ export * from './notifications-sent';
 export * from './class-types';
 export * from './class-series';
 export * from './class-sessions';
+export * from './class-bookings';

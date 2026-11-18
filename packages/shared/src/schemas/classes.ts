@@ -138,3 +138,30 @@ export interface ClassSessionView {
   seriesId: string | null;
   myBooking?: { id: string; status: string };
 }
+
+export const BOOKING_STATUSES = [
+  'booked',
+  'attended',
+  'no_show',
+  'cancelled',
+  'late_cancelled',
+] as const;
+export type BookingStatus = (typeof BOOKING_STATUSES)[number];
+
+/** Reception books for a member; a member's own booking sends no body. */
+export const CreateBookingSchema = z.object({ memberId: z.uuid().optional() });
+export type CreateBooking = z.infer<typeof CreateBookingSchema>;
+
+export interface BookingView {
+  id: string;
+  status: BookingStatus;
+  /** Whether a class-pack entry pays for this booking (reserved while booked). */
+  usesEntry: boolean;
+  session: Omit<ClassSessionView, 'booked' | 'myBooking' | 'seriesId'>;
+}
+
+export interface Attendee {
+  bookingId: string;
+  member: { id: string; firstName: string; lastName: string; photoUrl: string | null };
+  status: BookingStatus;
+}
