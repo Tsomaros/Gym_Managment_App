@@ -64,7 +64,7 @@ const copy: Record<Locale, Record<NotificationEvent, (c: RenderContext) => Copy>
     'class.reminder': ({ params: p }) => ({
       subject: 'Υπενθύμιση μαθήματος',
       title: 'Υπενθύμιση μαθήματος',
-      line: `Το μάθημα «${p.className}» ξεκινά σήμερα στις ${p.startsAt}.`,
+      line: `Το μάθημα «${p.className}» ξεκινά στις ${day(p.date)} ${p.startsAt}.`,
       path: '/classes/my',
     }),
     'class.cancelled': ({ params: p }) => ({
@@ -105,7 +105,7 @@ const copy: Record<Locale, Record<NotificationEvent, (c: RenderContext) => Copy>
     'class.reminder': ({ params: p }) => ({
       subject: 'Class reminder',
       title: 'Class reminder',
-      line: `Your class "${p.classNameEn || p.className}" starts today at ${p.startsAt}.`,
+      line: `Your class "${p.classNameEn || p.className}" starts on ${day(p.date)} at ${p.startsAt}.`,
       path: '/classes/my',
     }),
     'class.cancelled': ({ params: p }) => ({

@@ -206,11 +206,11 @@
 **Interfaces:**
 - `MyClassesPage`: today's and the next 7 days' classes the trainer runs. Today's sessions open straight into an attendance view (reusing `SessionDetailPage` without the owner actions).
 
-- [ ] **Step 1: Write the failing tests:** only the trainer's sessions are listed; today's session opens the attendance view; past sessions are read-only.
-- [ ] **Step 2: Run** `pnpm --filter web test MyClasses` → FAIL.
-- [ ] **Step 3: Implement.** Run ui-ux-reviewer (tablet and phone).
-- [ ] **Step 4: Run** → PASS.
-- [ ] **Step 5: Commit** `feat(web): trainer's classes and attendance`.
+- [x] **Step 1: Write the failing tests:** only the trainer's sessions are listed; today's session opens the attendance view; past sessions are read-only.
+- [x] **Step 2: Run** `pnpm --filter web test MyClasses` → FAIL.
+- [x] **Step 3: Implement.** Run ui-ux-reviewer (tablet and phone).
+- [x] **Step 4: Run** → PASS.
+- [x] **Step 5: Commit** `feat(web): trainer's classes and attendance`.
 
 ---
 

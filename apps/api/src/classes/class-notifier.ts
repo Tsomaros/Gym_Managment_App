@@ -95,37 +95,43 @@ export class ClassNotifier {
    */
   async notifyCancelled(gymId: string, cancelled: readonly CancelledBooking[]): Promise<void> {
     if (!cancelled.length) return;
-    const sessions = await withGym(gymId, (tx) =>
-      tx
-        .select({
-          id: classSessions.id,
-          date: classSessions.date,
-          startsAt: classSessions.startsAt,
-          reason: classSessions.cancelReason,
-          name: classTypes.name,
-          nameEn: classTypes.nameEn,
-        })
-        .from(classSessions)
-        .innerJoin(classTypes, eq(classTypes.id, classSessions.classTypeId))
-        .where(inArray(classSessions.id, [...new Set(cancelled.map((c) => c.sessionId))])),
-    );
-    const byId = new Map(sessions.map((s) => [s.id, s]));
-    for (const c of cancelled) {
-      const s = byId.get(c.sessionId);
-      if (!s) continue;
-      this.notifications.dispatch({
-        gymId,
-        userId: c.memberId,
-        event: 'class.cancelled',
-        dedupeKey: `class_cancelled:${c.sessionId}:${c.memberId}`,
-        params: {
-          className: s.name,
-          classNameEn: s.nameEn ?? '',
-          date: s.date,
-          startsAt: s.startsAt.slice(0, 5),
-          reason: s.reason ?? '',
-        },
-      });
+    // Best effort: the cancel is committed already and must not turn into an error, because a
+    // retry finds nothing left to cancel and could never send these notices.
+    try {
+      const sessions = await withGym(gymId, (tx) =>
+        tx
+          .select({
+            id: classSessions.id,
+            date: classSessions.date,
+            startsAt: classSessions.startsAt,
+            reason: classSessions.cancelReason,
+            name: classTypes.name,
+            nameEn: classTypes.nameEn,
+          })
+          .from(classSessions)
+          .innerJoin(classTypes, eq(classTypes.id, classSessions.classTypeId))
+          .where(inArray(classSessions.id, [...new Set(cancelled.map((c) => c.sessionId))])),
+      );
+      const byId = new Map(sessions.map((s) => [s.id, s]));
+      for (const c of cancelled) {
+        const s = byId.get(c.sessionId);
+        if (!s) continue;
+        this.notifications.dispatch({
+          gymId,
+          userId: c.memberId,
+          event: 'class.cancelled',
+          dedupeKey: `class_cancelled:${c.sessionId}:${c.memberId}`,
+          params: {
+            className: s.name,
+            classNameEn: s.nameEn ?? '',
+            date: s.date,
+            startsAt: s.startsAt.slice(0, 5),
+            reason: s.reason ?? '',
+          },
+        });
+      }
+    } catch (err) {
+      console.error(`[classes] cancel notices: ${(err as Error).message}`);
     }
   }
 }

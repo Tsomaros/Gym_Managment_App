@@ -364,6 +364,7 @@
     "addOneOff": "New one-off class",
     "empty": "No classes this week.",
     "typesFailed": "The class types could not be loaded. Refresh the page.",
+    "mine": {"title": "My classes", "empty": "You have no classes in the next {{days}} days."},
     "noTrainer": "no trainer",
     "cancelled": "cancelled",
     "spots": "{{booked}} of {{capacity}} spots",

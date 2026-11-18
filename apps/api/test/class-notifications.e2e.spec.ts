@@ -1,6 +1,6 @@
 import type { MembershipType } from '@gym/shared';
-import { eq } from 'drizzle-orm';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { and, eq } from 'drizzle-orm';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { ClassNotifier } from '../src/classes/class-notifier';
 import { systemDb } from '../src/db/client';
 import {
@@ -57,6 +57,15 @@ describe('class reminders and cancellation notices', () => {
   const book = (who: string, sessionId: string) =>
     f.req('post', `/class-sessions/${sessionId}/bookings`, who).send({}).expect(201);
 
+  async function bookingId(who: string, sessionId: string): Promise<string> {
+    const rows = await systemDb
+      .select({ id: classBookings.id })
+      .from(classBookings)
+      .where(and(eq(classBookings.sessionId, sessionId), eq(classBookings.memberId, f.id[who]!)));
+    expect(rows).toHaveLength(1);
+    return rows[0]!.id;
+  }
+
   beforeAll(async () => {
     f = await setupHealthFixture('ClassNotes');
     f.clock.current = local(DAY, '12:00');
@@ -97,15 +106,19 @@ describe('class reminders and cancellation notices', () => {
   it('a reminder goes out when the class is within 2 hours, once', async () => {
     const s = await mk(DAY, '18:00');
     await book('a', s);
-    await notifier.remindersPass(local(DAY, '15:50')); // 2 h 10 min before
+    await notifier.remindersPass(local(DAY, '15:50'), f.gymId); // 2 h 10 min before
     await settle();
     expect(mailTo('a')).toHaveLength(0);
-    await notifier.remindersPass(local(DAY, '16:05')); // 1 h 55 min before
+    await notifier.remindersPass(local(DAY, '16:05'), f.gymId); // 1 h 55 min before
     await settle();
     expect(mailTo('a')).toHaveLength(1);
     expect(mailTo('a')[0]!.text).toContain('Σπινινγκ');
     expect(mailTo('a')[0]!.text).toContain('18:00');
-    await notifier.remindersPass(local(DAY, '16:20'));
+    await notifier.remindersPass(local(DAY, '16:20'), f.gymId);
+    await settle();
+    expect(mailTo('a')).toHaveLength(1);
+    // Once the class has started there is no reminder (18:00 sharp is not "upcoming").
+    await notifier.remindersPass(local(DAY, '18:30'), f.gymId);
     await settle();
     expect(mailTo('a')).toHaveLength(1);
   });
@@ -113,6 +126,8 @@ describe('class reminders and cancellation notices', () => {
   it('a member with the classes group switched off gets no reminder and no dedupe row', async () => {
     const s = await mk('2027-05-13', '10:00');
     await book('c', s);
+    await book('b', s); // control: same session, default prefs, must get the reminder
+    const beforeB = mailTo('b').length;
     await f
       .req('put', '/me/notification-prefs', 'c')
       .send({
@@ -121,11 +136,14 @@ describe('class reminders and cancellation notices', () => {
         classes: { email: false, push: false },
       })
       .expect(200);
-    const before = (await sentRows()).length;
-    await notifier.remindersPass(local('2027-05-13', '08:30'));
+    await notifier.remindersPass(local('2027-05-13', '08:30'), f.gymId); // 1 h 30 min before
     await settle();
+    // The control got it, so the pass really found this session; c did not.
+    expect(mailTo('b')).toHaveLength(beforeB + 1);
     expect(mailTo('c')).toHaveLength(0);
-    expect(await sentRows()).toHaveLength(before);
+    const keys = (await sentRows()).map((r) => r.dedupeKey);
+    expect(keys).toContain(`class_reminder:${await bookingId('b', s)}`);
+    expect(keys).not.toContain(`class_reminder:${await bookingId('c', s)}`);
   });
 
   it('cancelling a session with 2 bookings notifies each member once; retrying notifies nobody', async () => {
@@ -140,12 +158,32 @@ describe('class reminders and cancellation notices', () => {
     expect(mailTo('a')).toHaveLength(beforeA + 1);
     expect(mailTo('b')).toHaveLength(beforeB + 1);
     expect(mailTo('a').at(-1)!.text).toContain('Ασθένεια');
+    expect(mailTo('b').at(-1)!.text).toContain('Ασθένεια');
+    expect(mailTo('b').at(-1)!.text).toContain('ακυρώθηκε');
     await f.req('post', `/class-sessions/${s}/cancel`, 'owner').send({ reason: 'Ασθένεια' }).expect(204);
     await settle();
     expect(mailTo('a')).toHaveLength(beforeA + 1);
     expect(mailTo('b')).toHaveLength(beforeB + 1);
     const keys = (await sentRows()).map((r) => r.dedupeKey);
     expect(keys.filter((k) => k.startsWith(`class_cancelled:${s}:`))).toHaveLength(2);
+  });
+
+  it('a failure while sending cancellation notices never fails the committed cancel', async () => {
+    f.clock.current = local(DAY, '12:00');
+    const s = await mk('2027-05-17', '18:00');
+    await book('c', s).catch(() => undefined);
+    const spy = vi
+      .spyOn(f.app.get(NotificationService), 'dispatch')
+      .mockImplementation(() => {
+        throw new Error('boom');
+      });
+    try {
+      await f.req('post', `/class-sessions/${s}/cancel`, 'owner').send({}).expect(204);
+    } finally {
+      spy.mockRestore();
+    }
+    const row = await systemDb.select().from(classSessions).where(eq(classSessions.id, s));
+    expect(row[0]!.cancelledAt).not.toBeNull();
   });
 
   it('ending a series notifies the members of the sessions it had to cancel', async () => {
@@ -173,5 +211,7 @@ describe('class reminders and cancellation notices', () => {
       .expect(204);
     await settle();
     expect(mailTo('a')).toHaveLength(before + 1);
+    expect(mailTo('a').at(-1)!.text).toContain('ακυρώθηκε');
+    expect(mailTo('a').at(-1)!.text).toContain('18:00');
   });
 });

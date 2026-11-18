@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { useParams } from 'react-router';
 import { useAuth } from '../auth/AuthProvider';
 import { EmailNotVerifiedBanner } from '../components/EmailNotVerifiedBanner';
+import { MyClassesPage } from '../features/classes/MyClassesPage';
 import { ClassTypesPage } from '../features/classes/ClassTypesPage';
 import { TimetablePage } from '../features/classes/TimetablePage';
 import { DashboardPage } from '../features/dashboard/DashboardPage';
@@ -135,9 +136,10 @@ export function TrainerShell(props: GymShellProps) {
     <ShellLayout
       testId="shell-trainer"
       title={t('shell.trainer')}
-      nav={['schedule', 'members', 'plans', 'exercises']}
+      nav={['schedule', 'classes', 'members', 'plans', 'exercises']}
       home={<MySchedulePage />}
       pages={{
+        classes: <MyClassesPage />,
         members: <TrainerClientsSection />,
         plans: <TemplatesPage />,
         exercises: <ExercisesPage />,

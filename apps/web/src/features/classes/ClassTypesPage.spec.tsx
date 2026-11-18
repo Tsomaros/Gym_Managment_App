@@ -77,6 +77,43 @@ describe('ClassTypesPage', () => {
     expect(screen.getByLabelText(/Διάρκεια/)).toBeInvalid();
   });
 
+  // Limits from the shared schema: 1-200 spots, 15-240 minutes.
+  it.each([
+    ['201', '45'],
+    ['12', '14'],
+    ['12', '241'],
+    ['1.5', '45'],
+  ])('refuses %s spots with %s minutes', async (spots, minutes) => {
+    renderPage();
+    await userEvent.click(await screen.findByRole('button', { name: 'Νέο είδος' }));
+    await userEvent.type(screen.getByLabelText('Όνομα'), 'Χ');
+    await userEvent.clear(screen.getByLabelText(/Θέσεις/));
+    await userEvent.type(screen.getByLabelText(/Θέσεις/), spots);
+    await userEvent.clear(screen.getByLabelText(/Διάρκεια/));
+    await userEvent.type(screen.getByLabelText(/Διάρκεια/), minutes);
+    await userEvent.click(screen.getByRole('button', { name: 'Αποθήκευση' }));
+    expect(writes()).toHaveLength(0);
+  });
+
+  it.each([
+    [1, 15],
+    [200, 240],
+  ])('accepts the limits %i spots and %i minutes', async (spots, minutes) => {
+    renderPage();
+    await userEvent.click(await screen.findByRole('button', { name: 'Νέο είδος' }));
+    await userEvent.type(screen.getByLabelText('Όνομα'), 'Χ');
+    await userEvent.clear(screen.getByLabelText(/Θέσεις/));
+    await userEvent.type(screen.getByLabelText(/Θέσεις/), String(spots));
+    await userEvent.clear(screen.getByLabelText(/Διάρκεια/));
+    await userEvent.type(screen.getByLabelText(/Διάρκεια/), String(minutes));
+    await userEvent.click(screen.getByRole('button', { name: 'Αποθήκευση' }));
+    await waitFor(() => expect(writes()).toHaveLength(1));
+    expect(JSON.parse(String(writes()[0]![1]!.body))).toMatchObject({
+      defaultCapacity: spots,
+      defaultDurationMinutes: minutes,
+    });
+  });
+
   it('edits with a PATCH and archives only after a confirmation', async () => {
     renderPage();
     await userEvent.click(await screen.findByRole('button', { name: 'Επεξεργασία: Πιλάτες' }));
@@ -87,6 +124,14 @@ describe('ClassTypesPage', () => {
     await waitFor(() => expect(writes()).toHaveLength(1));
     expect(String(writes()[0]![0])).toBe(`/api/gyms/${GYM}/class-types/${PILATES.id}`);
     expect(writes()[0]![1]!.method).toBe('PATCH');
+    // Only the name changed; the rest is Pilates' own values (test-data.ts), sent back as they were.
+    expect(JSON.parse(String(writes()[0]![1]!.body))).toEqual({
+      name: 'Πιλάτες 2',
+      nameEn: null,
+      description: 'Mat',
+      defaultCapacity: 10,
+      defaultDurationMinutes: 50,
+    });
 
     await userEvent.click(await screen.findByRole('button', { name: 'Αρχειοθέτηση: Σπινινγκ' }));
     const dialog = await screen.findByRole('alertdialog');
