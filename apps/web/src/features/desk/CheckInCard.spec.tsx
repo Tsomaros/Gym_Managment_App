@@ -36,6 +36,19 @@ describe('CheckInCard', () => {
     expect(screen.queryByRole('button', { name: 'Πώληση συνδρομής' })).not.toBeInTheDocument();
   });
 
+  it('names the class a check-in was for, and shows no class line otherwise', () => {
+    const { rerender } = render(
+      <CheckInCard
+        result={checkInResult({
+          classBooking: { sessionId: 's1', typeName: 'Spinning', startsAt: '18:00' },
+        })}
+      />,
+    );
+    expect(screen.getByTestId('class-line')).toHaveTextContent('Μάθημα: Spinning 18:00');
+    rerender(<CheckInCard result={checkInResult({})} />);
+    expect(screen.queryByTestId('class-line')).not.toBeInTheDocument();
+  });
+
   it('shows visits left for a pack', () => {
     render(
       <CheckInCard

@@ -24,12 +24,19 @@ export function GymSettingsPage() {
   const [shiftsState, setShiftsState] = useState<'idle' | 'saving' | 'saved'>('idle');
   const [reminder, setReminder] = useState('');
   const [capacity, setCapacity] = useState('');
+  const [cutoff, setCutoff] = useState('');
   const [countState, setCountState] = useState<'idle' | 'saving' | 'saved'>('idle');
   const [countFailed, setCountFailed] = useState(false);
   const minutesRef = useRef<HTMLInputElement>(null);
   const reminderRef = useRef<HTMLInputElement>(null);
   const capacityRef = useRef<HTMLInputElement>(null);
-  const [errors, setErrors] = useState<{ minutes?: string; reminder?: string; capacity?: string }>(
+  const cutoffRef = useRef<HTMLInputElement>(null);
+  const [errors, setErrors] = useState<{
+    minutes?: string;
+    reminder?: string;
+    capacity?: string;
+    cutoff?: string;
+  }>(
     {},
   );
   const [state, setState] = useState<'idle' | 'saving' | 'saved' | 'failed' | 'loadFailed'>('idle');
@@ -41,6 +48,7 @@ export function GymSettingsPage() {
         setLoaded(s);
         setMinutes(String(s.autoCheckoutMinutes));
         setReminder(String(s.reminderDays));
+        setCutoff(String(s.classCancelCutoffMinutes));
         setCapacity(s.capacity === null ? '' : String(s.capacity));
       })
       .catch(() => setState('loadFailed'));
@@ -91,6 +99,7 @@ export function GymSettingsPage() {
       reminderDays: reminder.trim() === '' ? NaN : Number(reminder),
       // Empty means "no capacity": the indicator is off for members.
       capacity: capacity.trim() === '' ? null : Number(capacity),
+      classCancelCutoffMinutes: cutoff.trim() === '' ? NaN : Number(cutoff),
     };
     const invalid = (key: keyof typeof typed) =>
       !UpdateGymSettingsSchema.safeParse({ [key]: typed[key] }).success;
@@ -98,11 +107,20 @@ export function GymSettingsPage() {
       minutes: invalid('autoCheckoutMinutes') ? t('settings.invalid') : undefined,
       reminder: invalid('reminderDays') ? t('settings.reminderInvalid') : undefined,
       capacity: invalid('capacity') ? t('settings.capacityInvalid') : undefined,
+      cutoff: invalid('classCancelCutoffMinutes') ? t('settings.cutoffInvalid') : undefined,
     };
     setErrors(found);
-    if (found.minutes || found.reminder || found.capacity) {
+    if (found.minutes || found.reminder || found.capacity || found.cutoff) {
       // The error is read when the field takes focus (it is the field's description).
-      (found.minutes ? minutesRef : found.reminder ? reminderRef : capacityRef).current?.focus();
+      (
+        found.minutes
+          ? minutesRef
+          : found.reminder
+            ? reminderRef
+            : found.capacity
+              ? capacityRef
+              : cutoffRef
+      ).current?.focus();
       setState('idle');
       return;
     }
@@ -113,6 +131,9 @@ export function GymSettingsPage() {
     }
     if (typed.reminderDays !== loaded.reminderDays) changes.reminderDays = typed.reminderDays;
     if (typed.capacity !== loaded.capacity) changes.capacity = typed.capacity;
+    if (typed.classCancelCutoffMinutes !== loaded.classCancelCutoffMinutes) {
+      changes.classCancelCutoffMinutes = typed.classCancelCutoffMinutes;
+    }
     if (Object.keys(changes).length === 0) {
       setState('saved'); // already true on the server
       return;
@@ -126,6 +147,7 @@ export function GymSettingsPage() {
       setLoaded(updated);
       setMinutes(String(updated.autoCheckoutMinutes));
       setReminder(String(updated.reminderDays));
+      setCutoff(String(updated.classCancelCutoffMinutes));
       setCapacity(updated.capacity === null ? '' : String(updated.capacity));
       setState('saved');
     } catch {
@@ -183,6 +205,23 @@ export function GymSettingsPage() {
             }}
             hint={t('settings.reminderHint')}
             error={errors.reminder ?? null}
+          />
+          <Field
+            label={t('settings.classCutoff')}
+            type="number"
+            inputMode="numeric"
+            min={0}
+            max={1440}
+            step={1}
+            ref={cutoffRef}
+            value={cutoff}
+            onChange={(e) => {
+              setCutoff(e.target.value);
+              setErrors((p) => ({ ...p, cutoff: undefined }));
+              setState('idle');
+            }}
+            hint={t('settings.cutoffHint')}
+            error={errors.cutoff ?? null}
           />
           <Field
             label={t('settings.capacity')}

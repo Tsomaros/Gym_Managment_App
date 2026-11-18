@@ -188,11 +188,11 @@
 - `TimetablePage`: Monday–Sunday columns with session blocks (time, type, trainer, `booked/capacity`, cancelled struck through). Owner: add series or one-off, and "αλλαγή από αυτή τη μέρα" / "ακύρωση αυτής της μέρας" like the shift grid. Reception: view and open sessions. On phones: a day list.
 - `SessionDetailPage`: an attendee list with photo and status chips, mark attended/no-show buttons (44 px), "Κράτηση για μέλος" (member search reuse), and "Ακύρωση μαθήματος" with a reason and a warning ("Θα ειδοποιηθούν N μέλη").
 
-- [ ] **Step 1: Write the failing tests:** blocks show `booked/capacity`; a cancelled session is struck through; the cancel dialog shows the number of members to be notified; marking attended calls the API and updates the chip; the desk card shows the class line when `classBooking` is present.
-- [ ] **Step 2: Run** `pnpm --filter web test classes desk` → FAIL.
-- [ ] **Step 3: Implement.** Run ui-ux-reviewer.
-- [ ] **Step 4: Run** → PASS.
-- [ ] **Step 5: Commit** `feat(web): class timetable management and session detail`.
+- [x] **Step 1: Write the failing tests:** blocks show `booked/capacity`; a cancelled session is struck through; the cancel dialog shows the number of members to be notified; marking attended calls the API and updates the chip; the desk card shows the class line when `classBooking` is present.
+- [x] **Step 2: Run** `pnpm --filter web test classes desk` → FAIL.
+- [x] **Step 3: Implement.** Run ui-ux-reviewer.
+- [x] **Step 4: Run** → PASS.
+- [x] **Step 5: Commit** `feat(web): class timetable management and session detail`.
 
 ---
 
