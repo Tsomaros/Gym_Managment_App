@@ -215,16 +215,16 @@
   - Free workout: `FreeWorkoutPicker` reuses `ExercisePicker` to add exercises on the fly.
 - `WorkoutHistoryPage`: past sessions (date, plan day or "Ελεύθερη", exercises, sets).
 
-- [ ] **Step 1: Write the failing tests:**
+- [x] **Step 1: Write the failing tests:**
   - `workoutQueue`: three enqueued `PUT`s flush in order; a network failure on the second keeps ops 2–3; a `400` drops that op and continues.
   - Logger: prefill shows plan targets and last time; ticking "done" starts the rest timer at the target seconds (fake timers); while offline (mocked `navigator.onLine` plus failing fetch), the status shows the queued count, and after `online` the queue is empty.
   - Free workout: picking an exercise adds a card.
   - At 375 px, inputs and steppers are at least 44 px.
   - E2E: a member with an active plan starts Day A → logs 2 sets → the test sets the context offline (`context.setOffline(true)`) → logs a third set → back online → finish → history shows 3 sets, and the API has exactly 3. *(Review Focus 1)*
-- [ ] **Step 2: Run** `pnpm --filter web test workout && pnpm e2e` → FAIL.
-- [ ] **Step 3: Implement.** Run ui-ux-reviewer (one-handed phone use mid-workout, Greek, dark mode, big targets).
-- [ ] **Step 4: Run** → PASS.
-- [ ] **Step 5: Commit** `feat(web): workout logger with offline queue, free workouts, history`.
+- [x] **Step 2: Run** `pnpm --filter web test workout && pnpm e2e` → FAIL.
+- [x] **Step 3: Implement.** Run ui-ux-reviewer (one-handed phone use mid-workout, Greek, dark mode, big targets).
+- [x] **Step 4: Run** → PASS.
+- [x] **Step 5: Commit** `feat(web): workout logger with offline queue, free workouts, history`.
 
 ---
 
