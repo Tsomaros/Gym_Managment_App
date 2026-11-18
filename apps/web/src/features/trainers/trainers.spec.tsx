@@ -315,6 +315,19 @@ describe('TrainerClientsPage', () => {
     expect(within(clients).queryByText('Κώστας Α')).not.toBeInTheDocument();
   });
 
+  it('links every client, own or covered, to their plans', async () => {
+    renderPage([
+      client({ memberId: 'm1', firstName: 'Γιώργος' }),
+      client({ memberId: 'm3', firstName: 'Κώστας', cover: true }),
+    ]);
+    const own = await screen.findByRole('link', { name: 'Προγράμματα του Γιώργος Α' });
+    expect(own).toHaveAttribute('href', `/g/${GYM}/members/m1/plans`);
+    expect(screen.getByRole('link', { name: 'Προγράμματα του Κώστας Α' })).toHaveAttribute(
+      'href',
+      `/g/${GYM}/members/m3/plans`,
+    );
+  });
+
   it('says so when there are no clients, and shows no covers heading', async () => {
     renderPage([]);
     expect(await screen.findByText('Δεν έχεις πελάτες ακόμα.')).toBeInTheDocument();

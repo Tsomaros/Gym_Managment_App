@@ -18,3 +18,7 @@ export * from './shift-series';
 export * from './shifts';
 export * from './member-trainers';
 export * from './trainer-covers';
+export * from './exercises';
+export * from './plans';
+export * from './plan-days';
+export * from './plan-exercises';

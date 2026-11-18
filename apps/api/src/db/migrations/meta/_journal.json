@@ -127,6 +127,20 @@
       "when": 1794929333618,
       "tag": "0017_trainer_covers",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1794944527787,
+      "tag": "0018_exercises",
+      "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1794945249260,
+      "tag": "0019_plans",
+      "breakpoints": true
     }
   ]
 }

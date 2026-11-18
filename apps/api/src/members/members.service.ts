@@ -8,6 +8,7 @@ import type {
 } from '@gym/shared';
 import { and, asc, desc, eq, inArray, type SQL, sql } from 'drizzle-orm';
 import { Clock } from '../common/clock';
+import { likeEscape, normalised } from '../common/search';
 import { gymRoles, membershipFreezes, users } from '../db/schema';
 import { withGym } from '../db/tenant';
 import { toFreeze } from '../memberships/freezes.service';
@@ -18,11 +19,6 @@ import { memberStatus } from './member-status';
 import { PhotosService } from './photos.service';
 
 const MAX_RESULTS = 100;
-
-/** Lower case, no accents, final sigma as σ: how names, emails and phones are compared. */
-const normalised = (value: SQL) => sql`translate(unaccent(lower(${value})), 'ς', 'σ')`;
-/** `%` and `_` typed by the user match themselves, not "anything". */
-const likeEscape = (s: string) => s.replace(/[\\%_]/g, (c) => `\\${c}`);
 
 const memberColumns = {
   userId: users.id,

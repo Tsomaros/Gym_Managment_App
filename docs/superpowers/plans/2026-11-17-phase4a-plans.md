@@ -70,16 +70,16 @@
   - `PATCH /gyms/:gymId/exercises/:id` (trainer or owner).
   - `POST /gyms/:gymId/exercises/:id/archive` (owner, or the creator) → `204`.
 
-- [ ] **Step 1: Write the failing tests:**
+- [x] **Step 1: Write the failing tests:**
   - A newly created gym has the default list (count = `DEFAULT_EXERCISES.length`) and includes "Πιέσεις στήθους". After migration, an existing gym in `gym_test` has them too.
   - `q=πιεσεις` finds "Πιέσεις στήθους"; `q=bench` finds it by its English name. *(Review Focus 5)*
   - A trainer adds "Ώμοι με αλτήρες" → `201` + `exercise.created`; the same name again with different case → `409`.
   - A trainer archiving another trainer's exercise → `403`; the owner → `204`; it's hidden by default and shown with `includeArchived=true`.
   - A member or reception calling `GET` → `403`. Two-gym isolation.
-- [ ] **Step 2: Run** `pnpm --filter api test exercises` → FAIL.
-- [ ] **Step 3: Implement.** Consult database-expert on the unique and search indexes.
-- [ ] **Step 4: Run** `pnpm --filter api test` → PASS.
-- [ ] **Step 5: Commit** `feat: per-gym exercise library with default seed`.
+- [x] **Step 2: Run** `pnpm --filter api test exercises` → FAIL.
+- [x] **Step 3: Implement.** Consult database-expert on the unique and search indexes.
+- [x] **Step 4: Run** `pnpm --filter api test` → PASS.
+- [x] **Step 5: Commit** `feat: per-gym exercise library with default seed`.
 
 ---
 
@@ -102,14 +102,14 @@
   - `Plan { id, memberId, authorId, author: { firstName, lastName } | null, isTemplate, kind, title, notes, status, pdfUrl: string | null, activatedAt, days: PlanDay[] }`, where each exercise also carries `exercise: { nameEl, nameEn, muscleGroup, measure, archived }`.
   - `PlanSummary { id, title, kind, status, activatedAt, archivedAt, authorName }`.
 
-- [ ] **Step 1: Write the failing tests:**
+- [x] **Step 1: Write the failing tests:**
   - Shared: `repsMin 12, repsMax 8` rejects; `toFailure: true` with `repsMin` rejects; `weightKg 20.3` rejects and `20.25` accepts; 15 days rejects; a 31-exercise day rejects; a 1-character title accepts and an 81-character title rejects.
   - DB: a template with a `member_id` rejects (CHECK); two `active` plans for one member reject (unique index); swapping the positions of two days inside one transaction succeeds (deferred unique).
   - Two-gym isolation for all three tables.
-- [ ] **Step 2: Run** `pnpm --filter shared test plans && pnpm --filter api test plans-schema` → FAIL.
-- [ ] **Step 3: Implement.** Consult database-expert.
-- [ ] **Step 4: Run** → PASS.
-- [ ] **Step 5: Commit** `feat: workout plan schema and validation`.
+- [x] **Step 2: Run** `pnpm --filter shared test plans && pnpm --filter api test plans-schema` → FAIL.
+- [x] **Step 3: Implement.** Consult database-expert.
+- [x] **Step 4: Run** → PASS.
+- [x] **Step 5: Commit** `feat: workout plan schema and validation`.
 
 ---
 
@@ -132,7 +132,7 @@
   - `GET /gyms/:gymId/me/plans` and `GET /gyms/:gymId/me/plans/active` (`@GymRoles('member')`) → the caller's own.
   - History rows on each write.
 
-- [ ] **Step 1: Write the failing tests** (seed: trainer T primary for member M, with a trainer membership; trainer U; reception R):
+- [x] **Step 1: Write the failing tests** (seed: trainer T primary for member M, with a trainer membership; trainer U; reception R):
   - T creates and activates a 2-day plan → `201`; M's `/me/plans/active` returns it in Greek with exercise names; the English names appear in `nameEn`.
   - Edit: rename day 1, change exercise A's reps, remove exercise B, add C → A and the day keep their ids, B is gone, C has a new id. *(Review Focus 3)*
   - T activates plan 2 → plan 1 is `archived`, plan 2 is `active`; two concurrent activations → one active. *(Review Focus 2)*
@@ -141,10 +141,10 @@
   - R `GET` → `403`. M `PUT` → `403`. A gym B member's id → `404`.
   - Saving with an archived exercise newly added → `400`; an archived exercise already in the plan stays and saves fine; another gym's exercise id → `400`; another plan's day id → `400`. *(Review Focus 5)*
   - History has `plan.created`, `plan.activated`, `plan.updated`, `plan.archived`, without exercise details.
-- [ ] **Step 2: Run** `pnpm --filter api test plans` → FAIL.
-- [ ] **Step 3: Implement.**
-- [ ] **Step 4: Run** `pnpm --filter api test` → PASS.
-- [ ] **Step 5: Commit** `feat: interactive workout plans with trainer access rules`.
+- [x] **Step 2: Run** `pnpm --filter api test plans` → FAIL.
+- [x] **Step 3: Implement.**
+- [x] **Step 4: Run** `pnpm --filter api test` → PASS.
+- [x] **Step 5: Commit** `feat: interactive workout plans with trainer access rules`.
 
 ---
 
@@ -169,16 +169,16 @@
   - Validation per Global Constraints: `415` if it isn't a PDF, `413` over 10 MB.
   - `pdfUrl` is a fresh presigned link on every `GET` (read access).
 
-- [ ] **Step 1: Write the failing tests:**
+- [x] **Step 1: Write the failing tests:**
   - T saves M's plan as a template → another trainer V sees it in the list; V's `PUT` on it → `403`.
   - From the template, T creates a plan for member N → new ids throughout. Editing the template afterwards leaves N's plan unchanged; deleting the template leaves N's plan in place. *(Review Focus 4)*
   - Upload a small PDF and activate → M's active plan has `kind 'pdf'` and a `pdfUrl` that returns the same bytes. A PNG renamed `.pdf` → `415`; 10.1 MB → `413`.
   - Replacing the PDF removes the old object. A cover trainer can `GET` the `pdfUrl` but gets `403` on upload.
   - Template history rows are written.
-- [ ] **Step 2: Run** `pnpm --filter api test templates pdf-plans` → FAIL.
-- [ ] **Step 3: Implement.**
-- [ ] **Step 4: Run** `pnpm --filter api test` → PASS.
-- [ ] **Step 5: Commit** `feat: plan templates and PDF plans`.
+- [x] **Step 2: Run** `pnpm --filter api test templates pdf-plans` → FAIL.
+- [x] **Step 3: Implement.**
+- [x] **Step 4: Run** `pnpm --filter api test` → PASS.
+- [x] **Step 5: Commit** `feat: plan templates and PDF plans`.
 
 ---
 
@@ -194,11 +194,11 @@
 - `ExercisesPage`: a searchable list grouped by muscle group, with add and edit (`ExerciseForm`) and archive (owner or creator; confirm dialog).
 - `ExercisePicker` (used by the plan editor): a dialog with a search box (debounced 200 ms) and muscle-group filter chips. Keyboard: arrows move, Enter picks. Archived exercises are never offered.
 
-- [ ] **Step 1: Write the failing tests:** `exerciseName` falls back to Greek in English when `nameEn` is null; the picker sends `q` after typing and calls `onPick` on Enter; archive shows only for the owner or the creator; the add form requires the Greek name.
-- [ ] **Step 2: Run** `pnpm --filter web test exercises` → FAIL.
-- [ ] **Step 3: Implement.** Run ui-ux-reviewer.
-- [ ] **Step 4: Run** → PASS.
-- [ ] **Step 5: Commit** `feat(web): exercise library`.
+- [x] **Step 1: Write the failing tests:** `exerciseName` falls back to Greek in English when `nameEn` is null; the picker sends `q` after typing and calls `onPick` on Enter; archive shows only for the owner or the creator; the add form requires the Greek name.
+- [x] **Step 2: Run** `pnpm --filter web test exercises` → FAIL.
+- [x] **Step 3: Implement.** Run ui-ux-reviewer.
+- [x] **Step 4: Run** → PASS.
+- [x] **Step 5: Commit** `feat(web): exercise library`.
 
 ---
 
@@ -219,7 +219,7 @@
   - Up/down buttons move items; no drag-and-drop library.
 - `TemplatesPage`: the gym's templates with author, and create, edit and delete for your own.
 
-- [ ] **Step 1: Write the failing tests:**
+- [x] **Step 1: Write the failing tests:**
   - Adding an exercise through the picker adds a row.
   - Moving day 2 up sends days in the new order and keeps their ids.
   - Toggling "μέχρι αποτυχίας" clears and disables the reps fields.
@@ -227,10 +227,10 @@
   - Leaving with unsaved changes asks for confirmation.
   - Cover access hides edit controls and shows the banner.
   - E2E: the owner sets up a trainer, and a member with a trainer membership is assigned to them → the trainer creates a 2-day plan from scratch and activates it → saves it as a template → uploads a PDF plan for another client.
-- [ ] **Step 2: Run** `pnpm --filter web test plans && pnpm e2e` → FAIL.
-- [ ] **Step 3: Implement.** Run ui-ux-reviewer (the editor must be usable on a tablet; number inputs with `inputmode="decimal"` for kg).
-- [ ] **Step 4: Run** → PASS.
-- [ ] **Step 5: Commit** `feat(web): plan editor, templates and PDF upload for trainers`.
+- [x] **Step 2: Run** `pnpm --filter web test plans && pnpm e2e` → FAIL.
+- [x] **Step 3: Implement.** Run ui-ux-reviewer (the editor must be usable on a tablet; number inputs with `inputmode="decimal"` for kg).
+- [x] **Step 4: Run** → PASS.
+- [x] **Step 5: Commit** `feat(web): plan editor, templates and PDF upload for trainers`.
 
 ---
 
@@ -249,11 +249,11 @@
   - Older plans are listed under a collapsed "Προηγούμενα προγράμματα".
   - The "Καταγραφή" (log) button is reserved for phase 4b; it isn't rendered yet.
 
-- [ ] **Step 1: Write the failing tests:** the target formatting for a range, a single number and max; English names in English; the PDF button opens the signed URL; the empty state text depends on having a trainer; the layout is a single column at 375 px.
-- [ ] **Step 2: Run** `pnpm --filter web test my-plan && pnpm e2e` → FAIL.
-- [ ] **Step 3: Implement.** Run ui-ux-reviewer (phone, one-handed, Greek, dark mode).
-- [ ] **Step 4: Run** `pnpm lint && pnpm typecheck && pnpm -r test && pnpm e2e` → PASS.
-- [ ] **Step 5: Commit** `feat(web): member's workout plan`.
+- [x] **Step 1: Write the failing tests:** the target formatting for a range, a single number and max; English names in English; the PDF button opens the signed URL; the empty state text depends on having a trainer; the layout is a single column at 375 px.
+- [x] **Step 2: Run** `pnpm --filter web test my-plan && pnpm e2e` → FAIL.
+- [x] **Step 3: Implement.** Run ui-ux-reviewer (phone, one-handed, Greek, dark mode).
+- [x] **Step 4: Run** `pnpm lint && pnpm typecheck && pnpm -r test && pnpm e2e` → PASS.
+- [x] **Step 5: Commit** `feat(web): member's workout plan`.
 
 ---
 

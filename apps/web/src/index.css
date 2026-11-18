@@ -1,1 +1,6 @@
 @import 'tailwindcss';
+
+/* The app is light only for now: native controls (the details marker, scrollbars, date pickers) match it. */
+:root {
+  color-scheme: light;
+}

@@ -219,7 +219,8 @@ describe('gym_system privileges (systemDb)', () => {
 
 /**
  * Every gym-owned table (gyms, or any table with gym_id) must have RLS enabled and forced, at least
- * one policy, and every policy must tie the gym column to app.gym_id in both USING and WITH CHECK.
+ * one policy, and every permissive policy must tie the gym column to app.gym_id in both USING and WITH CHECK
+ * (restrictive ones only narrow access and are skipped).
  * Returns one line per problem.
  */
 async function rlsProblems(): Promise<string[]> {
@@ -227,10 +228,11 @@ async function rlsProblems(): Promise<string[]> {
     table: string;
     enabled: boolean;
     forced: boolean;
-    policies: { name: string; qual: string | null; check: string | null }[] | null;
+    policies:
+      { name: string; permissive: string; qual: string | null; check: string | null }[] | null;
   }>(sql`
     select c.relname as table, c.relrowsecurity as enabled, c.relforcerowsecurity as forced,
-           (select json_agg(json_build_object('name', p.policyname, 'qual', p.qual,
+           (select json_agg(json_build_object('name', p.policyname, 'permissive', p.permissive, 'qual', p.qual,
                                               'check', p.with_check))
               from pg_policies p
              where p.schemaname = 'public' and p.tablename = c.relname) as policies
@@ -251,6 +253,8 @@ async function rlsProblems(): Promise<string[]> {
     // (gym_id = (NULLIF(current_setting('app.gym_id'::text, true), ''::text))::uuid)
     const expected = `(${column} = (NULLIF(current_setting('app.gym_id'::text, true), ''::text))::uuid)`;
     for (const p of t.policies ?? []) {
+      // A RESTRICTIVE policy is ANDed with the permissive ones, so it can only narrow access.
+      if (p.permissive === 'RESTRICTIVE') continue;
       if (p.qual !== expected || p.check !== expected) {
         problems.push(`${t.table}.${p.name}: USING/WITH CHECK not tied to app.gym_id`);
       }

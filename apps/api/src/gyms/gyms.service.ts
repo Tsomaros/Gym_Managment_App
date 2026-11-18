@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import type { CreateGym } from '@gym/shared';
 import { systemDb } from '../db/client';
 import { gyms } from '../db/schema';
+import { seedExercises } from '../exercises/seed-exercises';
 import { InvitationsService } from '../invitations/invitations.service';
 
 @Injectable()
@@ -19,6 +20,7 @@ export class GymsService {
         .insert(gyms)
         .values({ name: body.name, timezone: body.timezone })
         .returning({ id: gyms.id });
+      await seedExercises(tx, gym!.id);
       const { rawToken } = await this.invitations.issue(tx, {
         gymId: gym!.id,
         email: body.ownerEmail,
